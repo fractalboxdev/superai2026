@@ -28,8 +28,8 @@ overlay. Capture the loaded app as the story's key screenshot.
 In the web app, find the "Acting as" switcher and the "Run a flow" controls in
 the left sidebar. Click "Flow A · request → approve". Confirm a permission
 request card appears in the right panel showing the CTO's agent asking for
-`credits` and `discount_tier` on `stripe/finance_private` with `employee_salary`
-denied. Click "Approve (scoped)". Confirm the query result then shows a
+`gross`, `credits` and `discount_tier` on `stripe/finance_private` with
+`employee_salary` denied. Click "Approve (scoped)". Confirm the query result then shows a
 net-of-credits answer and that the audit trail logs a minted scoped token.
 Capture the approved result as the story's key screenshot.
 

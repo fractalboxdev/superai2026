@@ -11,8 +11,10 @@
 #     the expensive work worth offloading off GHA.
 #   * JS monorepo gates — `pnpm build` + `pnpm typecheck`.
 #   * E2E / acceptance — `pnpm test` runs the protocol unit tests AND the
-#     end-to-end Flow A/B/D + relay + ctl suites against the freshly-built
-#     `sync` binary. REQUIRE_SYNC_BIN=1 makes a missing binary fail loudly
+#     end-to-end Flow A/B/C/D + relay + ctl suites against the freshly-built
+#     `sync` binary. The explicit `cargo build -p sync` after `cargo test`
+#     materializes `target/debug/sync` for the suite to spawn (don't drop it as
+#     "duplicate"); REQUIRE_SYNC_BIN=1 makes a missing binary fail loudly
 #     instead of skipping to green.
 #
 # Dormant until the dispatcher is deployed (FLAREDISPATCH_ENDPOINT guard).

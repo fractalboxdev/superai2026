@@ -17,7 +17,9 @@ import {
   type Env,
 } from "./helpers";
 
-const PORT = 7901;
+// Per-worker port so parallel vitest workers (or a leftover server from a
+// crashed run) never collide on a fixed port.
+const PORT = 7901 + Number(process.env.VITEST_WORKER_ID ?? 0);
 const d = haveBin ? describe : describe.skip;
 
 d("Loro relay over WebSocket", () => {
@@ -72,10 +74,13 @@ d("Loro relay over WebSocket", () => {
   });
 
   it("rejects a revoked principal at HELLO", async () => {
-    run(env, ["ctl", "revoke", "--principal", "agent:eng/1"]);
+    // dedicated throwaway principal so this test doesn't depend on ordering vs
+    // the other peers (cto/eng are used before and after this test)
+    const victim = "agent:revoked-peer/1";
+    run(env, ["ctl", "revoke", "--principal", victim]);
     const p = new Peer(PORT);
     await p.open();
-    p.send(hello("agent:eng/1"));
+    p.send(hello(victim));
     p.send(subscribe("finops"));
     const err = await p.next((m) => m.type === "ERROR");
     expect(err.code).toBe("revoked");

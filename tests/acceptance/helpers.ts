@@ -53,10 +53,17 @@ export function mcp(env: Env, principal: string, requests: JsonRpc[]): Promise<R
     let buf = "";
     // notifications (no id) get no response — only count requests that expect one
     const expected = requests.filter((r) => (r as any).id != null).length;
+    // safety net: never leak a hung child (e.g. a future tool that never replies)
+    const timer = setTimeout(() => {
+      child.kill();
+      reject(new Error(`mcp(${principal}) timed out waiting for ${expected} response(s)`));
+    }, 10_000);
     const done = () => {
+      clearTimeout(timer);
       child.kill();
       resolvePromise(byId);
     };
+    if (expected === 0) queueMicrotask(done); // nothing to wait for
     child.stdout.on("data", (chunk) => {
       buf += chunk.toString();
       let nl: number;
@@ -71,10 +78,16 @@ export function mcp(env: Env, principal: string, requests: JsonRpc[]): Promise<R
           /* ignore non-JSON log lines */
         }
       }
-      if (Object.keys(byId).length >= expected) done();
+      if (expected > 0 && Object.keys(byId).length >= expected) done();
     });
-    child.on("error", reject);
-    child.on("close", () => resolvePromise(byId));
+    child.on("error", (e) => {
+      clearTimeout(timer);
+      reject(e);
+    });
+    child.on("close", () => {
+      clearTimeout(timer);
+      resolvePromise(byId);
+    });
     for (const r of requests) child.stdin.write(JSON.stringify(r) + "\n");
   });
 }
@@ -100,7 +113,12 @@ export const queryTool = (id: number, view: string, select: string[]): JsonRpc =
 /** Spawn `sync serve` and resolve once the port is accepting connections. */
 export async function startServer(env: Env, port: number): Promise<ChildProcess> {
   const child = spawn(BIN, ["serve", "--addr", `127.0.0.1:${port}`], { env });
-  await waitForPort(port, 8000);
+  try {
+    await waitForPort(port, 8000);
+  } catch (e) {
+    child.kill(); // don't leak the server if it never came up
+    throw e;
+  }
   return child;
 }
 
@@ -130,6 +148,9 @@ export class Peer {
 
   constructor(port: number) {
     this.ws = new WebSocket(`ws://127.0.0.1:${port}/`);
+    // keep a default error listener so a socket error after open() doesn't throw
+    // as an unhandled event; open()/next() surface failures to the test.
+    this.ws.on("error", () => {});
     this.ws.on("message", (data) => {
       let msg: any;
       try {
@@ -166,8 +187,15 @@ export class Peer {
     const buffered = this.received.find(match);
     if (buffered) return Promise.resolve(buffered);
     return new Promise((res, rej) => {
-      const timer = setTimeout(() => rej(new Error("timed out waiting for message")), timeoutMs);
-      this.waiters.push({ match, resolve: res, timer });
+      const waiter = {
+        match,
+        resolve: res,
+        timer: setTimeout(() => {
+          this.waiters = this.waiters.filter((w) => w !== waiter); // remove stale waiter
+          rej(new Error("timed out waiting for message"));
+        }, timeoutMs),
+      };
+      this.waiters.push(waiter);
     });
   }
 

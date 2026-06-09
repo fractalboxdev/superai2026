@@ -100,26 +100,69 @@ pub fn seed(config: &Config) -> Result<()> {
     Ok(())
 }
 
+/// The resource owner whose authority `grant` delegates from (spec 03 §1).
+const RESOURCE_OWNER: &str = "cfo";
+
 /// Model a resource owner approving a scoped grant (Flow A, spec 09 §1). Loads
-/// the owner's (CFO) capability, attenuates it down to the requested fields via
-/// the same `approve_request` path the web UI uses — so the salary invariant is
-/// enforced here too — and persists the delegated token to `caps/`.
+/// the owner's (CFO) capability and attenuates it down to the requested fields
+/// (with an all-teams row scope) via the same `approve_request` path the web UI
+/// uses — so the salary invariant is enforced here too — then persists the
+/// delegated token to `caps/`.
+///
+/// Guarded: refuses to grant to the resource owner itself (which would clobber
+/// the root token), to an unregistered principal, with empty fields, or on a
+/// view the owner does not actually hold.
 pub fn grant(config: &Config, to: &str, view_id: &str, fields: &[String], ttl: &str) -> Result<()> {
+    use crate::access::biscuit::effective_capability;
     use crate::access::request::{approve_request, AccessRequest};
     use crate::access::{RowScope, View};
     use crate::scenario;
 
-    let (source, view) = view_id
+    if to == RESOURCE_OWNER {
+        anyhow::bail!(
+            "cannot grant to the resource owner '{RESOURCE_OWNER}' — it holds the root token"
+        );
+    }
+
+    // The requester must be a registered principal (mirrors `mint`).
+    let reg = registry::Registry::load(config)?;
+    if !reg.principals.iter().any(|p| p.id() == to) {
+        anyhow::bail!("unknown principal '{to}' — register it (e.g. `ctl seed`) first");
+    }
+
+    // Normalize fields: trim, drop empties, dedupe (preserving order).
+    let mut seen = std::collections::BTreeSet::new();
+    let fields: Vec<String> = fields
+        .iter()
+        .map(|f| f.trim().to_string())
+        .filter(|f| !f.is_empty() && seen.insert(f.clone()))
+        .collect();
+    if fields.is_empty() {
+        anyhow::bail!("--fields must list at least one field");
+    }
+
+    let (source, name) = view_id
         .split_once('/')
         .ok_or_else(|| anyhow::anyhow!("view must be 'source/view', got '{view_id}'"))?;
+    let view = View::new(source, name);
 
-    // The owner of finance views is the CFO (sole resource root, spec 03 §1).
-    let owner = load_capability(config, "cfo").unwrap_or_else(scenario::cfo_capability);
+    let owner = load_capability(config, RESOURCE_OWNER).unwrap_or_else(scenario::cfo_capability);
+    // The approver must actually hold the requested view, else the grant would
+    // misreport (approve_request delegates the owner's authority block as-is).
+    let owner_view = effective_capability(&owner).map(|e| e.view.id());
+    if owner_view.as_deref() != Some(view.id().as_str()) {
+        anyhow::bail!(
+            "'{RESOURCE_OWNER}' does not hold {} (holds {})",
+            view.id(),
+            owner_view.unwrap_or_else(|| "<none>".into())
+        );
+    }
+
     let req = AccessRequest {
         id: format!("grant-{to}"),
         requester: to.to_string(),
-        view: View::new(source, view),
-        fields: fields.to_vec(),
+        view,
+        fields: fields.clone(),
         row_scope: Some(vec![RowScope {
             field: "team".into(),
             values: scenario::ALL_TEAMS.iter().map(|s| s.to_string()).collect(),
@@ -129,10 +172,10 @@ pub fn grant(config: &Config, to: &str, view_id: &str, fields: &[String], ttl: &
         ttl: ttl.to_string(),
     };
 
-    let granted = approve_request(&owner, &req).map_err(|e| anyhow::anyhow!(e.to_string()))?;
+    let granted = approve_request(&owner, &req).map_err(anyhow::Error::from)?;
     save_capability(config, &granted)?;
     println!(
-        "granted {to}: {} on {view_id} (ttl {ttl}); salary always denied",
+        "granted {to}: {} on {view_id} (ttl {ttl}); all-teams row scope; salary always denied",
         fields.join(", ")
     );
     Ok(())
@@ -162,4 +205,109 @@ pub fn show(config: &Config) -> Result<()> {
         println!("\nrevoked: {text}");
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::access::biscuit::effective_capability;
+    use crate::config::{Config, InferenceBackend};
+
+    fn temp() -> Config {
+        let root = std::env::temp_dir().join(format!("cp-test-{}", uuid::Uuid::new_v4()));
+        Config {
+            root,
+            inference: InferenceBackend::Stub,
+        }
+    }
+
+    #[test]
+    fn grant_happy_path_persists_salary_free_token() {
+        let c = temp();
+        seed(&c).unwrap();
+        grant(
+            &c,
+            "agent:cto/1",
+            "stripe/finance_private",
+            &["gross".into(), "credits".into()],
+            "7d",
+        )
+        .unwrap();
+        let cap = load_capability(&c, "agent:cto/1").unwrap();
+        let eff = effective_capability(&cap).unwrap();
+        assert!(eff.fields.contains("credits"));
+        assert!(!eff.fields.contains("employee_salary"));
+    }
+
+    #[test]
+    fn grant_refuses_salary() {
+        let c = temp();
+        seed(&c).unwrap();
+        assert!(grant(
+            &c,
+            "agent:cto/1",
+            "stripe/finance_private",
+            &["employee_salary".into()],
+            "7d"
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn grant_refuses_resource_owner_self_grant() {
+        let c = temp();
+        seed(&c).unwrap();
+        // would otherwise clobber caps/cfo.json with an attenuated token
+        assert!(grant(&c, "cfo", "stripe/finance_private", &["gross".into()], "7d").is_err());
+        // and the CFO's root token still carries salary
+        let cfo = load_capability(&c, "cfo").unwrap();
+        assert!(effective_capability(&cfo)
+            .unwrap()
+            .fields
+            .contains("employee_salary"));
+    }
+
+    #[test]
+    fn grant_refuses_unknown_principal() {
+        let c = temp();
+        seed(&c).unwrap();
+        assert!(grant(
+            &c,
+            "agent:ghost/9",
+            "stripe/finance_private",
+            &["gross".into()],
+            "7d"
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn grant_refuses_empty_or_blank_fields() {
+        let c = temp();
+        seed(&c).unwrap();
+        assert!(grant(&c, "agent:cto/1", "stripe/finance_private", &[], "7d").is_err());
+        assert!(grant(
+            &c,
+            "agent:cto/1",
+            "stripe/finance_private",
+            &["   ".into()],
+            "7d"
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn grant_refuses_view_owner_does_not_hold() {
+        let c = temp();
+        seed(&c).unwrap();
+        // CFO holds finance_private, not spend_by_team
+        assert!(grant(
+            &c,
+            "agent:cto/1",
+            "stripe/spend_by_team",
+            &["gross".into()],
+            "7d"
+        )
+        .is_err());
+    }
 }
