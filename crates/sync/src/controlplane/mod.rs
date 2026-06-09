@@ -100,6 +100,44 @@ pub fn seed(config: &Config) -> Result<()> {
     Ok(())
 }
 
+/// Model a resource owner approving a scoped grant (Flow A, spec 09 §1). Loads
+/// the owner's (CFO) capability, attenuates it down to the requested fields via
+/// the same `approve_request` path the web UI uses — so the salary invariant is
+/// enforced here too — and persists the delegated token to `caps/`.
+pub fn grant(config: &Config, to: &str, view_id: &str, fields: &[String], ttl: &str) -> Result<()> {
+    use crate::access::request::{approve_request, AccessRequest};
+    use crate::access::{RowScope, View};
+    use crate::scenario;
+
+    let (source, view) = view_id
+        .split_once('/')
+        .ok_or_else(|| anyhow::anyhow!("view must be 'source/view', got '{view_id}'"))?;
+
+    // The owner of finance views is the CFO (sole resource root, spec 03 §1).
+    let owner = load_capability(config, "cfo").unwrap_or_else(scenario::cfo_capability);
+    let req = AccessRequest {
+        id: format!("grant-{to}"),
+        requester: to.to_string(),
+        view: View::new(source, view),
+        fields: fields.to_vec(),
+        row_scope: Some(vec![RowScope {
+            field: "team".into(),
+            values: scenario::ALL_TEAMS.iter().map(|s| s.to_string()).collect(),
+        }]),
+        reason: "ctl grant".into(),
+        doc: "finops".into(),
+        ttl: ttl.to_string(),
+    };
+
+    let granted = approve_request(&owner, &req).map_err(|e| anyhow::anyhow!(e.to_string()))?;
+    save_capability(config, &granted)?;
+    println!(
+        "granted {to}: {} on {view_id} (ttl {ttl}); salary always denied",
+        fields.join(", ")
+    );
+    Ok(())
+}
+
 /// Print the seeded control-plane state.
 pub fn show(config: &Config) -> Result<()> {
     let registry = registry::Registry::load(config)?;

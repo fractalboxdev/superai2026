@@ -84,6 +84,21 @@ enum CtlCommand {
         #[arg(long)]
         principal: String,
     },
+    /// Approve a scoped grant to a principal (CFO models the approval; salary
+    /// is always denied). Models Flow A's approve step.
+    Grant {
+        /// principal receiving the grant, e.g. agent:cto/1
+        #[arg(long)]
+        to: String,
+        /// view id, e.g. stripe/finance_private
+        #[arg(long)]
+        view: String,
+        /// comma-separated fields, e.g. gross,credits,discount_tier
+        #[arg(long, value_delimiter = ',')]
+        fields: Vec<String>,
+        #[arg(long, default_value = "7d")]
+        ttl: String,
+    },
     /// Show the seeded control-plane state.
     Show,
 }
@@ -124,6 +139,12 @@ fn run_ctl(cmd: CtlCommand) -> Result<()> {
             println!("revoked tokens for {principal}");
             Ok(())
         }
+        CtlCommand::Grant {
+            to,
+            view,
+            fields,
+            ttl,
+        } => controlplane::grant(&config, &to, &view, &fields, &ttl),
         CtlCommand::Show => controlplane::show(&config),
     }
 }

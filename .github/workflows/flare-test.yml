@@ -5,12 +5,15 @@
 # `flare-dispatch/offload-test` check-run (require THAT in branch protection).
 #
 # The command runs superai2026's actual tests:
-#   * JS monorepo gates — `pnpm build` + `pnpm typecheck` (no JS test runner is
-#     wired up yet; these are the correctness gate for apps/* + packages/*).
-#   * Rust — `cargo test -p sync`. The lean sandbox image is Node-based, so the
-#     command bootstraps rustup on demand (the repo's rust-toolchain.toml pins
-#     the toolchain rustup then fetches). Compiling Rust is exactly the
-#     expensive work worth offloading off GHA.
+#   * Rust — `cargo test -p sync` (capability + brain unit/property tests). The
+#     lean sandbox image is Node-based, so the command bootstraps rustup on
+#     demand (rust-toolchain.toml pins the toolchain). Compiling Rust is exactly
+#     the expensive work worth offloading off GHA.
+#   * JS monorepo gates — `pnpm build` + `pnpm typecheck`.
+#   * E2E / acceptance — `pnpm test` runs the protocol unit tests AND the
+#     end-to-end Flow A/B/D + relay + ctl suites against the freshly-built
+#     `sync` binary. REQUIRE_SYNC_BIN=1 makes a missing binary fail loudly
+#     instead of skipping to green.
 #
 # Dormant until the dispatcher is deployed (FLAREDISPATCH_ENDPOINT guard).
 name: flare / tests
@@ -39,6 +42,6 @@ jobs:
             {
               "repo": "${{ github.repository }}",
               "sha": "${{ github.event.pull_request.head.sha || github.sha }}",
-              "command": "set -eu; corepack enable; pnpm install --frozen-lockfile; pnpm run build; pnpm run typecheck; if ! command -v cargo >/dev/null 2>&1; then curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain none; . $HOME/.cargo/env; fi; cargo test -p sync",
-              "timeoutSec": 1800
+              "command": "set -eu; corepack enable; pnpm install --frozen-lockfile; pnpm run build; pnpm run typecheck; if ! command -v cargo >/dev/null 2>&1; then curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain none; . $HOME/.cargo/env; fi; cargo test -p sync; cargo build -p sync; REQUIRE_SYNC_BIN=1 pnpm test",
+              "timeoutSec": 2400
             }

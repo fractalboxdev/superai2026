@@ -38,6 +38,7 @@ Run a script in one workspace: `pnpm --filter landing <script>` or `pnpm --filte
 | Task | Command |
 | --- | --- |
 | Seed control plane | `cargo run -p sync -- ctl seed` |
+| Approve a scoped grant (Flow A) | `cargo run -p sync -- ctl grant --to agent:cto/1 --view stripe/finance_private --fields gross,credits,discount_tier` |
 | Ingest + synthesize | `cargo run -p sync -- ingest --source stripe` |
 | Run relay (+presence) | `cargo run -p sync -- serve --addr 127.0.0.1:7878` |
 | Headless peer | `cargo run -p sync -- client --doc finops --principal agent:cto/1` |
