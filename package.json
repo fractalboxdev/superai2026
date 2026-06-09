@@ -17,6 +17,7 @@
     "sync": "cargo run -p sync --"
   },
   "devDependencies": {
+    "@dotenvx/dotenvx": "^1.71.0",
     "turbo": "^2.3.3",
     "typescript": "^5.7.3"
   }

@@ -1,0 +1,12 @@
+{
+  "name": "contextful-slides",
+  "private": true,
+  "scripts": {
+    "dev": "slidev --open",
+    "build": "slidev build",
+    "export": "slidev export"
+  },
+  "devDependencies": {
+    "@slidev/cli": "^0.50.0"
+  }
+}
