@@ -34,6 +34,7 @@ The control plane configures a deployment and seeds identity. It is **identity-r
 - **Tailnet config** — register the host; emit a Tailscale ACL stanza for the sync/MCP ports.
 - **Principal registry** — seed humans + agents with keypairs.
 - **Envelopes** — register each owner's auto-mode policy envelope ([03 §5](./03-access-control.md)).
+- **Schedules, daydream budget & egress policy** — cron schedules for ETL and the off-peak **daydream cycle** ([02 §9](./02-brain-memory.md), [05 §3](./05-connectors-etl.md)); the daydream budget (max cards/cycle, model tier, world-query cap); and the **egress allowlist** + Exa cost cap that bound world queries ([03 §4](./03-access-control.md)). Declared in config under `~/.contextful/control/`.
 - **CLI verbs** — `seed`, `mint`, `revoke`, `show`. `revoke` records a token id in a revocation list under `~/.contextful/caps/` that the MCP/relay auth path checks on every session and tool call. Backed by a config file under `~/.contextful/control/`.
 
 ## 4. Vercel projects

@@ -63,6 +63,14 @@ The brain query layer ([02 §4](./02-brain-memory.md)) authorizes **each field a
 - **Free-form Markdown cards cannot be column-redacted**, so they are authorized **all-or-nothing** against the card's `acl_tag` ([02 §3](./02-brain-memory.md)); synthesis keeps facts of different acl in different cards, with a value-scrub pass as defense-in-depth.
 - enforcement happens **before** any data reaches the agent or LLM.
 
+### Egress firewall (the inverse boundary)
+
+§4 above governs data flowing **in** to an agent. World enrichment ([02 §8](./02-brain-memory.md)) and daydream grounding ([02 §9](./02-brain-memory.md)) flow a query **out** to Exa — the inverse risk: an agent could smuggle `employee_salary = 412000` into a search string and exfiltrate it in plain sight. The **egress firewall** applies the same Biscuit boundary to **outbound** terms:
+
+- every term in a `world_search` / `ground` query is checked against its **provenance taint**, and **any term carrying a private `acl_tag` is blocked before it reaches the network** — exactly as a denied field is dropped from a projection.
+- only `world` / public-tainted terms leave the host; world queries are built from public entities (vendor, product, metric name), **never from a private value**. There is no "ask nicely" path.
+- the allowlist (which term classes count as public) and the Exa cost cap are control-plane config ([07 §3](./07-deployment-iac.md)).
+
 ## 5. Permission requests & auto-mode
 
 When an agent is **denied** (no grant, not merely redacted), it raises a structured `access_request`:
@@ -102,6 +110,8 @@ flowchart LR
 - **No capability super-root** — control-plane root covers identity/membership; sensitive resources are rooted at their owners.
 - **Enforcement at the data boundary** — field/row redaction in the brain query layer, before agent/LLM.
 - **No ambient authority** — sandboxes egress only through the brain MCP, every call capability-checked ([04](./04-sandbox-agents.md)).
+- **Egress firewall** — outbound world/daydream queries carry only public terms; a privately-tainted term is blocked before the network (§4, *Egress firewall*), so web enrichment can't exfiltrate a private value.
+- **Daydreaming stays in-bounds** — the background synthesis loop ([02 §9](./02-brain-memory.md)) samples only acl-admissible card pairs and stamps insights with `max(parents)` taint, so it can neither cross owners nor lower an acl_tag; the salary invariant holds under daydreaming too ([09](./09-testing-acceptance.md) Flow B/G).
 - **Confidential transport** — Tailscale WireGuard.
 - **Auditable grants** — every minted/attenuated token and `access_request` recorded under `~/.contextful/caps/`.
 - **The salary invariant** — no token and no approval path outside the CFO's own root yields `employee_salary` (proven in [09](./09-testing-acceptance.md) Flow B).
@@ -114,6 +124,7 @@ flowchart LR
 | Capability / Resource / Operation / Field / Row | `crates/sync/src/access/mod.rs` ✅ built |
 | mint / attenuate / authorize, field/row authorizer | `crates/sync/src/access/biscuit.rs` ✅ built |
 | `access_request` + grant + auto-mode envelope | `crates/sync/src/access/request.rs` ✅ built |
+| Egress firewall (outbound term taint check) | `crates/sync/src/access/egress.rs` (stub) |
 | Principal registry / root keys / envelopes (`ctl`) | `crates/sync/src/controlplane/` ✅ built |
 | TS types + helper signatures | `packages/protocol/src/access.ts` — `Capability`, `Action`, `Resource`, `PermissionRequest`/`Grant`, `attenuate()`/`authorize()` |
 
