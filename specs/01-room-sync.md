@@ -80,10 +80,10 @@ The room shows **who is actively reading vs. writing**. Presence rides Loro's **
 | Spec element | Code |
 |---|---|
 | `serve` / `client` subcommands | `crates/sync/src/main.rs` (dispatch) |
-| WS relay (authoritative) | `crates/sync/src/sync/server.rs` — `run(addr)` (stub) |
-| Headless file-sync peer | `crates/sync/src/sync/client.rs` — `run(addr)` (stub) |
-| Wire messages + version-vector framing | `crates/sync/src/sync/protocol.rs` — `SyncMessage` enum (stub) |
-| Presence / awareness | `crates/sync/src/sync/presence.rs` — `PresenceState` (stub) |
+| WS relay (authoritative) | `crates/sync/src/sync/server.rs` — `run(addr)` ✅ built |
+| Headless file-sync peer | `crates/sync/src/sync/client.rs` — `run(addr)` ✅ built |
+| Wire messages + version-vector framing | `crates/sync/src/sync/protocol.rs` — `SyncMessage` enum ✅ built |
+| Presence / awareness | `crates/sync/src/sync/presence.rs` — `PresenceState` ✅ built |
 | TS protocol mirror | `packages/protocol/src/sync.ts` — `SyncMessage`, `PresenceState`, `RoomId`, `PeerId` |
 
 **Future:** real Loro export/import handshake, OPFS↔serve reconciliation, compaction, Weaver transport plugin in `apps/web`, native client file watcher.

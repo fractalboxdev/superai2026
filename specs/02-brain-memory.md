@@ -95,11 +95,11 @@ Only already-permitted content is ever sent to any backend; structured query + r
 | Spec element | Code |
 |---|---|
 | `ingest` one-shot pipeline | `crates/sync/src/main.rs` → `connectors` + `brain` |
-| Markdown brain read/write/supersede | `crates/sync/src/brain/markdown.rs` (stub) |
-| Extract → synthesize → anomaly/learning | `crates/sync/src/brain/synthesis.rs` (stub) |
-| Capability-filtered retrieval | `crates/sync/src/brain/retrieval.rs` (stub) |
-| Memory / Scope / MemoryRef types | `crates/sync/src/brain/mod.rs` (stub) |
-| File store (Loro snapshots + DuckDB/SQLite) | `crates/sync/src/store/{docs,db}.rs` (stub) |
+| Markdown brain read/write/supersede | `crates/sync/src/brain/markdown.rs` ✅ built |
+| Extract → synthesize → anomaly/learning | `crates/sync/src/brain/synthesis.rs` ✅ built |
+| Capability-filtered retrieval | `crates/sync/src/brain/retrieval.rs` ✅ built |
+| Memory / Scope / MemoryRef types | `crates/sync/src/brain/mod.rs` ✅ built |
+| File store (Loro snapshots + DuckDB/SQLite) | `crates/sync/src/store/{docs,db}.rs` ✅ built |
 | TS types | `packages/protocol/src/brain.ts` — `MemoryRef`, `Scope`, `SearchQuery`, `SearchResult` |
 
 **Future:** real LLM extract/synthesize, embeddings, FTS indexing, anomaly thresholds, learning suppression, compaction.

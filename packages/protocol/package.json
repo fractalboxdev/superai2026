@@ -7,8 +7,10 @@
   "exports": {
     "./access": "./src/access.ts",
     "./brain": "./src/brain.ts",
+    "./brain.mcp": "./src/brain.mcp.ts",
     "./requests": "./src/requests.ts",
-    "./scenario": "./src/scenario.ts"
+    "./scenario": "./src/scenario.ts",
+    "./sync": "./src/sync.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

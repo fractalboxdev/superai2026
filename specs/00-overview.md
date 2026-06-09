@@ -151,4 +151,14 @@ flowchart LR
 
 ## 11. Scaffold / Status
 
-This overview maps onto the whole repo. The Rust binary subcommands and modules that anchor each subsystem are listed per spec file. Built this pass: `crates/sync` (compiling stubs) and `packages/protocol`. Spec-only this pass: `apps/web` UI, `packages/design-system` (portable from reference), Pulumi IaC, Vercel Sandbox orchestration.
+This overview maps onto the whole repo. The Rust binary subcommands and modules that anchor each subsystem are listed per spec file.
+
+**Built and verified this pass** (`cargo test`: 11 passing; `turbo run test`: 9 protocol unit + 4 acceptance e2e; clippy `-D warnings` clean):
+
+- `crates/sync` — a working library + 7-subcommand binary (`serve`, `client`, `ingest`, `cron`, `mcp`, `agent`, `ctl`). Real capability engine (M0), brain ingest/synthesis/retrieval over a file index + Markdown cards (M2), JSON-RPC MCP server (M6), Loro WS relay with presence + revocation (M1), control plane (M7), and the sandbox/agent/inference traits with `StubInference` (M3).
+- `packages/protocol` — capability engine + brain query (TS), and wire/MCP mirrors (`sync.ts`, `brain.mcp.ts`).
+- `apps/web` — interactive capability console (Flows A & B) + opt-in live presence against the relay.
+- `tests/acceptance` — end-to-end flows against the built binary.
+- `infra/` — Pulumi recipes (standalone; `pulumi preview` to apply).
+
+**Interface-complete but gated off** (the spec's "Future" edges; need external accounts/creds, so the default build is offline-capable): real Biscuit-WASM Datalog, AWS Bedrock + LM Studio inference, Exa HTTP, Vercel Sandbox SDK, Weaver transport plugin, DuckDB/SQLite + sqlite-vec index, Pulumi `apply`, flare-dispatch browser e2e.

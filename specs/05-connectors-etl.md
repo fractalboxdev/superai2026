@@ -47,10 +47,10 @@ Agents can author connectors at runtime using a **constrained primitive API** in
 
 | Spec element | Code |
 |---|---|
-| `Connector` trait, `ViewSchema`, `Cursor`, `Record`, `acl_tag` | `crates/sync/src/connectors/mod.rs` (stub) |
-| Stripe mock connector | `crates/sync/src/connectors/stripe.rs` (stub) |
-| Exa web-enrichment connector | `crates/sync/src/connectors/exa.rs` (stub) |
-| Cron scheduler | `crates/sync/src/cron/scheduler.rs` (stub) |
+| `Connector` trait, `ViewSchema`, `Cursor`, `Record`, `acl_tag` | `crates/sync/src/connectors/mod.rs` ✅ built |
+| Stripe mock connector | `crates/sync/src/connectors/stripe.rs` ✅ built |
+| Exa web-enrichment connector | `crates/sync/src/connectors/exa.rs` ✅ built |
+| Cron scheduler | `crates/sync/src/cron/scheduler.rs` ✅ built |
 | `ingest` / `cron` subcommands | `crates/sync/src/main.rs` |
 
 **Future:** real Kaggle→views mapping, Exa HTTP calls, cron expression parsing + pipeline triggers, ad-hoc connector primitives, OAuth connectors (Notion/Slack/Linear/AWS/Vercel).
