@@ -1,0 +1,53 @@
+# FlareDispatch — AI-driven product demo of the deployed site.
+#
+# Dispatches the `product-demo` run: attaches Browser Rendering over CDP, drives
+# the deployed site through each story in infra/flare-dispatch/demo-stories.md,
+# records ONE continuous rrweb replay (a chapter per story), and posts a replay
+# link + per-story summary on the `flare-dispatch/product-demo` check-run.
+#
+# Triggers:
+#   * PRs touching apps/** — drives vars.FLAREDISPATCH_DEMO_URL (a stable
+#     preview/staging URL). Only runs when that var is set.
+#   * workflow_dispatch — drive any URL (preview / staging / prod) on demand.
+#
+# Dormant until the dispatcher is deployed (FLAREDISPATCH_ENDPOINT guard).
+name: flare / product-demo
+
+on:
+  pull_request:
+    paths: ["apps/**", "packages/**"]
+  workflow_dispatch:
+    inputs:
+      deployed_url:
+        description: "URL to drive (preview / staging / prod)"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  product-demo:
+    if: ${{ vars.FLAREDISPATCH_ENDPOINT != '' && (github.event_name == 'workflow_dispatch' || vars.FLAREDISPATCH_DEMO_URL != '') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Load the tracked story script so the demo edits like documentation.
+      - id: stories
+        run: |
+          { echo 'md<<FLARE_EOF'; cat infra/flare-dispatch/demo-stories.md; echo FLARE_EOF; } >> "$GITHUB_OUTPUT"
+
+      - uses: OpenHackersClub/flare-dispatch/actions/flare-dispatch-action@1e47a54cab3ea4bce2d2a79a3deadb0860829feb
+        with:
+          run: product-demo
+          endpoint: ${{ vars.FLAREDISPATCH_ENDPOINT }}
+          hmac-secret: ${{ secrets.FLAREDISPATCH_HMAC }}
+          mode: fire-and-forget
+          inputs: |
+            {
+              "repo": "${{ github.repository }}",
+              "sha": "${{ github.event.pull_request.head.sha || github.sha }}",
+              "deployedUrl": ${{ toJSON(github.event.inputs.deployed_url || vars.FLAREDISPATCH_DEMO_URL) }},
+              "storiesMarkdown": ${{ toJSON(steps.stories.outputs.md) }},
+              "viewportPreset": "desktop"
+            }
