@@ -101,6 +101,7 @@ no one is allowed to hold all of them:
 | **Finance** | The invoice totals | Whether $100k/mo on tokens is reasonable or insane |
 | **CIO** | Sees a huge monthly burn | No idea what it's *for* |
 | **CFO** | Credits offsets, discount tier, team budgets, **+ Stripe** revenue/cashflow to size budgets per product & client | Doesn't want to expose all of it to everyone |
+| **Data Scientist** | *How* to aggregate & model product performance — joining Stripe revenue with internal product/usage databases (the warehouse) into per-product cost, margin, and ROI | Holds **no** standing access of their own; can only work the slices the CFO/COO release for a given request |
 
 **Why the existing tools don't close the gap:**
 
@@ -154,6 +155,13 @@ The **CTO's agent** pulls engineering signal it's allowed to see — Claude Code
 Linear throughput, what shipped — and reports the *value*. But it **can't** see real
 pricing or discount tiers. It hits the boundary.
 
+**As it drafts in the doc, the agent also reaches *outward*** — a live **web-research**
+pass (**Exa**) for the *public* market rate of the models and clouds in use. That's an
+open-internet benchmark, so it needs **no** boundary crossing; it anchors *"is this even
+reasonable?"* against the outside world before a single internal number is requested.
+Each figure lands with its **source link inline.** (Research runs the same way while
+*anyone* edits the doc — grounding claims as they're typed.)
+
 ### Demo beat 3 — A request crosses the boundary (the key moment)
 
 Instead of failing or over-reaching, the CTO's agent **raises a scoped request**:
@@ -188,7 +196,39 @@ The CFO's agent pulls **Stripe** data (mock data populated from a Kaggle dataset
 adds the piece only it has: *this product line's spend is covered by the revenue it
 drives; here's the cashflow headroom.* Now the answer has a denominator.
 
-### Demo beat 5 — The brain catches what humans missed
+### Demo beat 5 — The data scientist aggregates product performance (on request)
+
+The **COO** (who owns outcome evals) and the **CFO** (sizing budgets per product) want
+the same view nobody has produced yet: *which product lines is this spend actually for,
+and how is each one performing?*
+
+So they **request the Data Scientist's agent.** It holds none of the data standing —
+instead the CFO/COO scope a request that releases exactly what the job needs: **Stripe**
+revenue by product and the **internal product/usage databases** (the warehouse), and
+nothing else. The DS agent then does the thing it's good at — **joins and aggregates**
+those sources into a per-product performance view: revenue, the AI/cloud cost attributed
+to each line, and the resulting margin.
+
+```mermaid
+sequenceDiagram
+    participant Req as COO / CFO agent
+    participant Guard as Guardrails (deterministic)
+    participant DSa as Data Scientist agent
+    participant Src as Stripe + internal DBs
+    Req->>Guard: Request: aggregate product performance (scoped)
+    Guard->>DSa: Release Stripe revenue + product/usage tables only
+    DSa->>Src: Pull scoped slices
+    Src-->>DSa: Revenue by product · cost by product
+    DSa-->>Req: Per-product performance — revenue, cost, margin (this question only)
+```
+
+The output is a clean table the others build on: *spend per product vs. the revenue it
+drives.* The aggregation reached across two boundaries (Finance **and** the internal
+data store) and still **never pooled** — the DS agent saw only the scoped slices, for
+this question only. A specialist worker invoked **on request**, not a standing
+all-knowing analyst.
+
+### Demo beat 6 — The brain catches what humans missed
 
 Contextful surfaces an **anomaly** it learned from prior months:
 
@@ -198,12 +238,20 @@ Contextful surfaces an **anomaly** it learned from prior months:
 It learned the baseline from **past months' mistakes** and flags the outlier
 automatically.
 
-### Demo beat 6 — The answer assembles itself — and the boundary holds
+### Demo beat 7 — The answer assembles itself — and the boundary holds
 
 The shared doc now contains a **synthesized, sourced answer**: every claim attributed to
 the agent/owner that vouched for it (value ← CTO, rate ← CFO, revenue ← CFO/Stripe,
-anomaly ← Contextful). Meanwhile, an **engineer in the same document still cannot see
-salaries.** The scoping held the whole time. *That's the proof.*
+product performance ← Data Scientist, market benchmark ← web research/Exa, anomaly ←
+Contextful). Meanwhile, an **engineer in the same document still cannot see salaries.**
+The scoping held the whole time. *That's the proof.*
+
+**During synthesis, Contextful runs a regular web-research pass (Exa)** over the assembled
+claims — confirming the external benchmark is still current and pulling any fresh public
+context (a new price drop, a freshly published rate) — and **cites each source next to the
+claim it backs.** The final answer is checked against the outside world, not just internal
+data, and every figure is click-through verifiable. Only the *query* leaves the network;
+private context never does.
 
 ### What just happened (architecture)
 
@@ -216,21 +264,31 @@ flowchart TD
             CTOa["CTO agent"]
             COOa["COO agent"]
             CFOa["CFO agent"]
+            DSa["Data Scientist agent<br/>(aggregates on scoped request)"]
         end
         MC["Mission Control<br/>high-level prompt + deterministic guardrails"]
         Brain["Company brain<br/>(durable, growing memory + anomalies)"]
-        Conn["Connectors: Stripe · AWS · Linear · Notion · Slack · Vercel"]
+        Conn["Connectors: Stripe · AWS · Linear · Notion · Slack · Vercel · internal DBs"]
         Doc --- Agents
         Agents --- MC
         Agents --- Brain
         Agents --- Conn
     end
+    Web["Web research · Exa<br/>(public internet)"]
+    Agents -->|"benchmarks · fact-checks<br/>outbound, policy-gated — query out, no private data"| Web
     CP["Contextful Control Plane<br/>(policy & config)"] -.->|configures| MC
 ```
 
 The pillars to land on screen:
 
 - **Scoped agents** — each member's agent has *partial* access; nothing holds everything.
+- **Specialist agents on request** — a worker like the **Data Scientist agent** aggregates
+  product performance across Stripe + internal databases, but only on a scoped request from
+  the CFO/COO — never as a standing, all-seeing analyst.
+- **Researches the open web** — agents ground answers against the public internet via
+  **Exa** (integrating in a separate PR): inline **while editing** the doc, and as a
+  regular pass **during synthesis.** Every external figure is cited; only the query goes
+  out (policy-gated), never private context.
 - **Auto mode + human-in-the-loop** — agents decide what's safe, raise the rest.
 - **Mission Control** — steer with a high-level prompt *and* pin down
   **deterministic guardrails** (not vibes).
@@ -300,9 +358,9 @@ sync from this table by the **`slidev-deck`** skill → `slides/slides.md`.
 | 2 | **The problem** | Too little context → useless. Too much access → dangerous. Today you're forced to pick one. | Act 1 · Beat 4 | No |
 | 3 | **The scenario & the trap** | 50 people, 7 tools, one question — *"is the spend worth it?"* Nobody can answer alone, and the obvious fix (one all-knowing AI) is the one you can't allow. | Act 2 | No |
 | 4 | **Contextful** | A boundary at every person. The brain gets smarter as it gets more careful. | Act 3 intro | No |
-| 5 | **Live demo** | The question → a scoped request → approved at the boundary → a sourced answer assembles. **And the engineer still can't see salaries** — the money shot. | Act 3 · Beats 1–6 (anomaly demoted to a one-line flourish) | No |
+| 5 | **Live demo** | The question → a scoped request → a data-scientist agent aggregates product performance on request → approved at the boundary → a sourced answer assembles. **And the engineer still can't see salaries** — the money shot. | Act 3 · Beats 1–7 (anomaly demoted to a one-line flourish) | No |
 | 6 | **How it works** 🔧 | Scoped agents; a **deterministic policy engine** decides the boundary (the agent only *drafts* the request); auto-mode escalates to a human only on a policy breach. | Act 3 architecture | **Technical 1/3** |
-| 7 | **Where it runs** 🔧 | On-prem over Tailscale; Mission Control + guardrails; control plane; the brain grows (learns baselines, flags anomalies). | Act 3 architecture | **Technical 2/3** |
+| 7 | **Where it runs** 🔧 | On-prem over Tailscale; Mission Control + guardrails; control plane; the brain grows (learns baselines, flags anomalies); agents research the open web (Exa) — outbound, policy-gated, cited. | Act 3 architecture | **Technical 2/3** |
 | 8 | **Why now** | Most companies just *blocked* AI (safety by amputation). Other brains are one shared cloud pool; Contextful is boundaried + local-first. Workloads are going hybrid. | Act 4 (de-named — no "Gbrain") | No |
 | 9 | **The ask** | What we want — design partners (companies that already blocked AI and want the upside back). *Replace with the real ask once decided.* | Act 4 close | No |
 
@@ -323,6 +381,9 @@ sync from this table by the **`slidev-deck`** skill → `slides/slides.md`.
 - **Demo data:** Stripe connector populated with **mock data from a Kaggle dataset** —
   realistic revenue/cashflow without exposing anything real. Keep the FinOps language
   plain; no jargon on screen.
+- **Web research:** the agent's open-web lookups use **Exa** (landing in a separate PR).
+  For a reliable stage run, **cache/replay** the research results so it's deterministic;
+  show the inline source citations either way.
 - **Demo staging:** run the whole thing inside **one shared Contextful document** so the
   "meeting room of agents" reads instantly. Show the engineer's blocked salary query
   live — the denial is the money shot.
@@ -338,3 +399,5 @@ sync from this table by the **`slidev-deck`** skill → `slides/slides.md`.
 - "Gbrain" comparison: confirm which system(s) we name vs. describe generically.
 - **[TBC]** Whether the ad-hoc-connector-writing beat is in-scope for this demo or
   teased as roadmap.
+- **[TBC]** Web research (**Exa**, separate PR): run it **live** on stage or with
+  **cached/replayed** results to keep the demo deterministic.
