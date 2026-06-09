@@ -1,0 +1,9 @@
+# Contextful — demo app
+
+> Local-first company brain where humans and AI agents collaborate in shared documents, and every agent sees only what its capability token permits. This is the interactive demo: switch principals, run capability-filtered brain queries, approve a scoped access request (Flow A), and watch the salary invariant stay blocked (Flow B). Documents are live Loro CRDT rooms that sync across tabs (and a relay when configured).
+
+## Demo
+- [Capability console](https://demo.contextful.work/): the live demo described above.
+
+## More
+- [Marketing site](https://www.contextful.work/): product overview.

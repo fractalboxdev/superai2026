@@ -65,8 +65,8 @@ The brand stands for **Trust, Clarity, Security, Collaboration, Fluid**. These m
 |---|---|
 | Editor | [Weaver](https://github.com/OpenHackersClub/weaver) (headless TS, Loro source of truth, Effect-TS plugins, agents-as-peers) |
 | CRDT | [Loro](https://loro.dev) (`loro` crate / `loro-crdt` npm) |
-| Web | Next.js 15 / React 19; landing on Astro |
-| Workflow / app code | TypeScript, [Effect-TS](https://effect.website) (reactive FP) |
+| Web | **React Router 7** (framework mode, Vite · SSR/SSG) + React 19 — embeds Weaver client-side; landing stays Astro (static) |
+| Workflow / app code | TypeScript, [Effect-TS](https://effect.website) (reactive FP) — `effect` `Schema` validates the wire protocol today; `@effect/platform` Socket + `@effect-rx/rx-react` are the planned deepening |
 | Binary / connectors / sandbox control | Rust (tokio, clap) — owns lifecycle/identity; Vercel call via `packages/sandbox-bridge` (Node) |
 | Capabilities | Biscuit (`biscuit-auth` crate / `@biscuit-auth/biscuit-wasm`) |
 | MCP | `rmcp` (official Rust MCP SDK) |
@@ -79,12 +79,14 @@ The brand stands for **Trust, Clarity, Security, Collaboration, Fluid**. These m
 | IaC | Pulumi |
 | Tests | [flare-dispatch](https://github.com/OpenHackersClub/flare-dispatch) + `cargo test` |
 
+**Web app framework (`apps/web`).** Migrating off **Next.js** to **React Router 7** (framework mode, Vite-native SSR/SSG) to make embedding **Weaver** a first-class concern rather than an exception. Weaver is a client-side, WASM-backed (Loro), Effect-TS editor; under Next's App Router it had to be quarantined behind `dynamic(ssr:false)` with bespoke webpack/Turbopack WASM config. On Vite the editor mounts as an ordinary client component, Rolldown bundles `loro-crdt`'s WASM as a lazy async asset, and **Effect-TS** is the app's validation layer — `effect` `Schema` decodes the wire protocol today; the `@effect/platform` `Socket` transport + `@effect-rx/rx-react` store are the planned deepening (the relay transport currently uses the browser `WebSocket` + a `BroadcastChannel` cross-tab fallback). SSR/SSG is retained for the SEO shell (per-route metadata, canonical, OG, JSON-LD, `llms.txt`/sitemap) so the app stays crawlable; the WASM editor is lazy-loaded behind interaction to protect Core Web Vitals. The **landing stays Astro (static)**. *(Router choice: **React Router 7** for the most battle-tested Vercel integration in this pnpm/Turborepo monorepo — explicit `vercelPreset()`, multi-Function bundle splitting, Node runtime for WASM. **TanStack Start** is the sanctioned alternative if its type-safe router + server functions are preferred; both are Vite-based, so the Weaver/Effect-TS embedding is identical.)*
+
 ## 7. Repo map
 
 | Component | Location | Notes |
 |---|---|---|
 | Sync / brain / MCP / agent binary | `crates/sync` | one Rust binary, 7 subcommands |
-| Web app (editor host + UI) | `apps/web` | Next.js, Weaver, Effect-TS — spec-only this pass |
+| Web app (editor host + UI) | `apps/web` | React Router 7 (Vite) + React 19, Effect-TS — **migrated off Next.js**. Live Loro CRDT editor built (`loro-crdt`, cross-tab + relay); full Weaver rich-text/plugin editor still future |
 | Landing | `apps/landing` | Astro static (`www.contextful.work`) |
 | Shared protocol types | `packages/protocol` | `@superai2026/protocol` — built this pass |
 | Design system | `packages/design-system` | `@superai2026/design-system` — spec'd here, port from reference |
@@ -96,7 +98,7 @@ The brand stands for **Trust, Clarity, Security, Collaboration, Fluid**. These m
 ```mermaid
 flowchart TD
     subgraph Browser["Browser (member machine)"]
-        W["apps/web — Next.js + Weaver editor"]
+        W["apps/web — React Router 7 (Vite) + Weaver editor"]
         LD["LoroDoc (WASM) + OPFS"]
         W --- LD
     end
@@ -168,7 +170,7 @@ This overview maps onto the whole repo. The Rust binary subcommands and modules 
 
 - `crates/sync` — a working library + 7-subcommand binary (`serve`, `client`, `ingest`, `cron`, `mcp`, `agent`, `ctl`). Real capability engine (M0), brain ingest/synthesis/retrieval over a file index + Markdown cards (M2), JSON-RPC MCP server (M6), Loro WS relay with presence + revocation (M1), control plane (M7), and the sandbox/agent/inference traits with `StubInference` (M3).
 - `packages/protocol` — capability engine + brain query (TS), and wire/MCP mirrors (`sync.ts`, `brain.mcp.ts`).
-- `apps/web` — interactive capability console (Flows A & B) + opt-in live presence against the relay.
+- `apps/web` — **React Router 7 (Vite)** capability console (Flows A & B); **every document is a live Loro CRDT room** (`loro-crdt`) editable in-browser with cross-tab (BroadcastChannel) + opt-in relay sync; inbound wire frames validated via Effect `Schema`. Migrated off Next.js.
 - `tests/acceptance` — end-to-end flows against the built binary.
 - `infra/` — Pulumi recipes (standalone; `pulumi preview` to apply).
 

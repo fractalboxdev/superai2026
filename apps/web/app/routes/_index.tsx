@@ -1,6 +1,5 @@
-"use client";
-
 import { useMemo, useState } from "react";
+import type { MetaFunction } from "react-router";
 import { viewId, type Capability, type View } from "@superai2026/protocol/access";
 import { brainQuery, type BrainResult } from "@superai2026/protocol/brain";
 import {
@@ -9,7 +8,9 @@ import {
   type AccessRequest,
   type RouteDecision,
 } from "@superai2026/protocol/requests";
-import { useRoomPresence } from "./useRoomPresence";
+import { useLoroRoom } from "@/lib/loroRoom";
+import { DOCS, DEFAULT_DOC_ID } from "@/lib/docs";
+import { DocEditor } from "@/components/DocEditor";
 import {
   CFO,
   CFO_ENVELOPE,
@@ -25,6 +26,15 @@ import {
   initialCapability,
   tag,
 } from "@superai2026/protocol/scenario";
+
+export const meta: MetaFunction = () => [
+  { title: "Contextful — capability-scoped company brain" },
+  {
+    name: "description",
+    content:
+      "Live demo: humans and AI agents co-edit shared documents, and every agent sees only what its capability token permits. Watch a scoped access request get approved — and a salary read stay blocked.",
+  },
+];
 
 function Mark() {
   return (
@@ -72,7 +82,10 @@ export default function Home() {
   const [log, setLog] = useState<LogEntry[]>([]);
 
   const actor = PRINCIPALS.find((p) => p.id === actorId)!;
-  const { status: syncStatus, peers: livePeers } = useRoomPresence(actor.id, actor.name);
+  const [activeDocId, setActiveDocId] = useState<string>(DEFAULT_DOC_ID);
+  const activeDoc = DOCS.find((d) => d.id === activeDocId)!;
+  const room = useLoroRoom(actor.id, actor.name, activeDocId);
+  const { status: syncStatus, peers: livePeers } = room;
   const columns = useMemo(
     () => DATASETS.find((d) => viewId(d.view) === viewId(selView))?.columns ?? [],
     [selView],
@@ -208,15 +221,15 @@ export default function Home() {
         </div>
 
         <div className="app-doc-meta">
-          <span className="app-doc-meta__title">Q3 FinOps Review</span>
+          <span className="app-doc-meta__title">{activeDoc.title}</span>
           <span className="cf-badge cf-badge--accent">on-prem · tailnet</span>
           <span className="cf-badge cf-badge--danger">salary · redacted</span>
         </div>
 
         <div className="app-topbar__right">
           <span
-            className={`cf-badge ${syncStatus === "live" ? "cf-badge--success" : ""}`}
-            title="Live presence from the Rust relay (set NEXT_PUBLIC_SYNC_URL)"
+            className={`cf-badge ${syncStatus === "live" || livePeers.length > 0 ? "cf-badge--success" : ""}`}
+            title="Live CRDT sync — cross-tab by default; set VITE_SYNC_URL for the relay"
           >
             {syncStatus === "live"
               ? `● sync live · ${livePeers.length} peer${livePeers.length === 1 ? "" : "s"}`
@@ -224,7 +237,9 @@ export default function Home() {
                 ? "◌ connecting…"
                 : syncStatus === "offline"
                   ? "○ relay offline"
-                  : "○ sync off"}
+                  : livePeers.length > 0
+                    ? `● cross-tab · ${livePeers.length} peer${livePeers.length === 1 ? "" : "s"}`
+                    : "◐ local"}
           </span>
           <span className="cf-presence" aria-label="collaborators present">
             {PRINCIPALS.map((p) => (
@@ -288,12 +303,27 @@ export default function Home() {
             Documents
           </p>
           <ul className="app-doclist">
-            <li className="app-doclist__item" aria-current="true">
-              Q3 FinOps Review
-            </li>
-            <li className="app-doclist__item">Agent workflow evals</li>
-            <li className="app-doclist__item">Vendor consolidation</li>
-            <li className="app-doclist__item">2026 budget draft</li>
+            {DOCS.map((d) => (
+              <li key={d.id}>
+                <button
+                  type="button"
+                  className="app-doclist__item"
+                  aria-current={d.id === activeDocId}
+                  onClick={() => setActiveDocId(d.id)}
+                  style={{
+                    width: "100%",
+                    textAlign: "left",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    font: "inherit",
+                    color: "inherit",
+                  }}
+                >
+                  {d.title}
+                </button>
+              </li>
+            ))}
           </ul>
         </aside>
 
@@ -301,24 +331,21 @@ export default function Home() {
           <section className="app-editor" aria-label="Document">
             <div className="app-editor__inner">
               <span className="cf-eyebrow">Finance · Engineering · Operations</span>
-              <h1>Q3 FinOps Review</h1>
+              <h1>{activeDoc.title}</h1>
               <div className="app-editor__metarow">
                 <span className="cf-badge">Shared with 5 + 3 agents</span>
-                <span className="cf-badge cf-badge--success">Live</span>
+                <span className="cf-badge cf-badge--success">
+                  {syncStatus === "live"
+                    ? "Live"
+                    : livePeers.length > 0
+                      ? "Live · cross-tab"
+                      : "Local"}
+                </span>
                 <span className="cf-badge cf-badge--primary">acting: {actor.name}</span>
               </div>
 
               <div className="app-editor__body">
-                <p>
-                  Engineering reports Claude Code utilization is up across the platform team. The open
-                  question for this review: is the spend justified once credits and our discount tier are
-                  applied?
-                </p>
-                <p className="muted">
-                  Each principal queries the same brain but sees only what their capability token permits.
-                  Switch &ldquo;Acting as&rdquo; and run a query — the brain redacts fields you aren&rsquo;t
-                  cleared for, and a denied view is what triggers a scoped access request.
-                </p>
+                <DocEditor room={room} />
               </div>
 
               <QueryResult result={result} actorName={actor.name} />

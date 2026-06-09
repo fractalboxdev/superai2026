@@ -3,7 +3,9 @@ packages:
   - "packages/*"
   - "tests/*"
 allowBuilds:
+  '@swc/core': true
   esbuild: true
+  msgpackr-extract: true
   protobufjs: false
   sharp: true
   unrs-resolver: true
