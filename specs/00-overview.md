@@ -7,7 +7,7 @@
 A **local-first company brain** where humans and AI agents collaborate in shared documents, and every agent sees **exactly what it is permitted to** — nothing more. Three pillars:
 
 1. **Attenuated, capability-based access.** Access is delegated by [Biscuit](https://www.biscuitsec.org/) tokens that can only be *narrowed*, never widened. A person grants their agent a strict subset of their own authority. There is no company-wide "SuperAgent" that can read everything.
-2. **A brain that synthesizes context.** It ingests SaaS + document data, extracts atomic facts, synthesizes human-readable memory, detects anomalies, and learns from corrections — in the spirit of mem0 / GBrain / LLMWiki, but the memory is **human-readable Markdown**.
+2. **A brain that synthesizes context.** It ingests SaaS + document data, extracts atomic facts, synthesizes human-readable memory, detects anomalies, learns from corrections, **grounds itself in public world knowledge (Exa), and daydreams new connections in the background** — in the spirit of mem0 / GBrain / LLMWiki, but the memory is **human-readable Markdown** ([02 §8](./02-brain-memory.md) world memory, [02 §9](./02-brain-memory.md) daydreaming).
 3. **Local-first, cloud-optional.** Everything runs on-host (on-prem) over a Tailscale tailnet. Cloud is optional: managed inference (Vercel AI Gateway), agent compute (Vercel Sandbox), and web hosting (Vercel). **Raw source data and un-redacted brain content stay on-host**; only already-permitted, capability-redacted content is ever sent to cloud — and that path can be turned off entirely (Flow D).
 
 > **The one-line claim:** *"The CTO's agent can't read the CEO's salary — provably."*
@@ -51,6 +51,8 @@ The demo proves two things: **you can answer real questions with the company bra
 - **Flow C — the brain grows.** End-of-month ingest + synthesis flags a token-spend spike; a human annotates "one-off backfill, not a trend"; the correction is stored as a *learning* and suppresses the re-flag next month.
 - **Flow D — local-first proof.** Disconnect the cloud uplink; editing and the brain keep working. Offline mode swaps **both** cloud defaults — Vercel Sandbox → the on-host local runtime, and the Vercel AI Gateway → **local LM Studio** — and structured query + redaction need no LLM at all. Re-enable cloud to switch synthesis back to the Vercel AI Gateway (Claude) for higher quality. (The offline runtime relies on OS-enforced isolation; see [04 §2](./04-sandbox-agents.md).)
 
+Three further flows ([09](./09-testing-acceptance.md)) show the brain *grounding* and *thinking* on its own: **Flow E** — synthesis grounds a spend anomaly against public pricing it fetched from Exa (egress-firewalled, no private value leaves); **Flow F** — an agent researches a question typed in a doc and writes a cited answer back inline; **Flow G** — overnight, the **daydream loop** connects two unrelated cards into a cited insight ("Claude usage relates to the expiring discount tier") and surfaces it only to the people cleared to see it.
+
 Collaboration is shown live: members + their agents co-edit a room (a "meeting room"); presence shows who is reading vs. writing; the CFO's agent pulls from the right context after approval.
 
 ## 5. Design principles
@@ -71,7 +73,8 @@ The brand stands for **Trust, Clarity, Security, Collaboration, Fluid**. These m
 | Inference | Vercel AI Gateway → Claude (default; Vercel AI SDK `@ai-sdk/gateway` in TS, `async-openai` in Rust) · LM Studio OpenAI-compat (on-prem/offline) |
 | Storage | Markdown brain + SQLite / DuckDB (file-based); Loro per-doc snapshots |
 | Agent compute | Vercel Sandbox (default, from anywhere) · local constrained process (offline) |
-| Web enrichment | [Exa](https://exa.ai) |
+| Web enrichment / world memory | [Exa](https://exa.ai) — public grounding, egress-firewalled |
+| Background synthesis | Daydream loop (GBrain dream-cycle / [Gwern DDL](https://gwern.net/ai-daydreaming)) on cron |
 | Networking | Tailscale (external to this system, on the host) |
 | IaC | Pulumi |
 | Tests | [flare-dispatch](https://github.com/OpenHackersClub/flare-dispatch) + `cargo test` |
@@ -100,6 +103,7 @@ flowchart TD
     subgraph Cloud["Cloud (optional)"]
         VS["Vercel Sandbox — per-doc agent runtime (≤5h)"]
         BR2["Vercel AI Gateway — Claude inference"]
+        EX["Exa — world memory"]
         VC["Vercel — landing + web hosting"]
     end
     subgraph Host["On-prem host (Mac Studio) — Tailscale tailnet"]
@@ -121,6 +125,7 @@ flowchart TD
     MC --> BRN --> STORE
     CAP -. "attenuated tokens" .- MC
     CON --> BRN
+    CON -- "world queries (egress-firewalled, public terms only)" --> EX
     BRN -- default --> BR2
     BRN -- offline --> LM
     VS -- "Claude" --> BR2
@@ -140,6 +145,8 @@ flowchart LR
     M0 --> M1 --> M2 --> M3 --> M4
 ```
 
+**World memory** (Exa grounding + egress firewall) and the **daydream loop** land in **M2** as brain enrichments; both are cloud-optional and degrade to cache / local LM Studio offline (Flow D).
+
 ## 10. Glossary
 
 - **Room** — a document + its members (humans + agents) + a paired sandbox and brain scope.
@@ -148,7 +155,10 @@ flowchart LR
 - **View** — a named, field-typed projection of a source (e.g. `stripe/spend_by_team`). The unit of finance privacy.
 - **Brain scope** — the set of sources/views a document's sandbox may draw on.
 - **Envelope** — an owner's auto-mode policy describing which requests auto-approve vs. escalate.
-- **The salary invariant** — the provable property that no non-CFO path yields `employee_salary`.
+- **World memory** — public, cited knowledge fetched from the web (Exa); tagged `world`, default-readable, never authority ([02 §8](./02-brain-memory.md)).
+- **Egress firewall** — the outbound check that lets only public-tainted query terms leave the host, so enrichment can't exfiltrate a private value ([03 §4](./03-access-control.md)).
+- **Daydreaming** — a background, cron-scheduled loop that samples acl-admissible card pairs, proposes non-obvious connections (grounded via world memory), and keeps the valuable ones as hypothesis insight cards. GBrain dream-cycle / Gwern DDL ([02 §9](./02-brain-memory.md)).
+- **The salary invariant** — the provable property that no non-CFO path yields `employee_salary` — and that daydreaming, which connects cards, never breaches it.
 
 ## 11. Scaffold / Status
 

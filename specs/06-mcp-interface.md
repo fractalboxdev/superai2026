@@ -17,8 +17,11 @@ The brain is exposed to agents as an **embedded MCP server** built on [`rmcp`](h
 | `brain.detect_anomalies(view, period)` | anomalies for a period | `query(view)` |
 | `brain.remember(fact, doc)` | write a memory scoped to a document | `write(document)` |
 | `brain.request_access(resource, fields, rows, reason)` | raise a permission request ([03 §5](./03-access-control.md)) | none |
+| `brain.world_search(query, freshness?)` | egress-firewalled public web search (Exa) → world cards, cited ([02 §8](./02-brain-memory.md)) | `read(source("world"))` + per-term egress check |
+| `brain.ground(topic)` | private context card (redacted) + its public world grounding, cited | per-provenance auth + `read(source("world"))` |
+| `brain.daydreams(topic?)` | list recent daydreamed insight hypotheses the caller may see ([02 §9](./02-brain-memory.md)) | per-card `acl_tag` auth |
 
-`brain.query` is deterministic and **needs no LLM** — it is the path that keeps working offline. `brain.search` returns results each **independently authorized**; structured rows are field/row-redacted, while Markdown cards (`brain.search`, `brain.get_context`) are authorized **all-or-nothing** against the card's `acl_tag` ([02 §3](./02-brain-memory.md)) since prose cannot be column-redacted. The optional `scope?` on `brain.search` narrows by **brain scope** (sources/views), **tier** (`working`/`archive`/`wiki`), and **principal scope** ([02 §5](./02-brain-memory.md)) — it can only *narrow*, never widen, the caller's authority. `brain.remember` is **taint-tracked**: the written memory is stamped with at least the max `acl_tag` of every source the agent read in that turn, so privileged context can't be laundered into a low-acl card.
+`brain.query` is deterministic and **needs no LLM** — it is the path that keeps working offline. `brain.search` returns results each **independently authorized**; structured rows are field/row-redacted, while Markdown cards (`brain.search`, `brain.get_context`) are authorized **all-or-nothing** against the card's `acl_tag` ([02 §3](./02-brain-memory.md)) since prose cannot be column-redacted. The optional `scope?` on `brain.search` narrows by **brain scope** (sources/views), **tier** (`working`/`archive`/`wiki`), and **principal scope** ([02 §5](./02-brain-memory.md)) — it can only *narrow*, never widen, the caller's authority. `brain.remember` is **taint-tracked**: the written memory is stamped with at least the max `acl_tag` of every source the agent read in that turn, so privileged context can't be laundered into a low-acl card. `brain.world_search` and `brain.ground` are the **only** tools that cause **outbound** traffic; every query term passes the egress firewall ([03 §4](./03-access-control.md)) before reaching Exa, and results are cache-served when offline. `brain.daydreams` returns only insight cards whose `acl_tag` the caller dominates — daydreamed hypotheses ([02 §9](./02-brain-memory.md)) are authorized exactly like any other card.
 
 ## 2. Transports
 
@@ -42,4 +45,4 @@ The MCP server can run as its own subcommand (`sync mcp`) or be co-hosted with t
 | Per-call capability check | `crates/sync/src/access/biscuit.rs` ✅ built |
 | Tool names / arg + result types (TS) | `packages/protocol/src/brain.ts` — `BrainToolName`, `SearchQuery`, `SearchResult` |
 
-**Future:** real `rmcp` tool handlers, stdio + streamable-HTTP transports, session auth binding, result redaction wiring.
+**Future:** real `rmcp` tool handlers (incl. `world_search` / `ground` / `daydreams` with the outbound egress check), stdio + streamable-HTTP transports, session auth binding, result redaction wiring.
