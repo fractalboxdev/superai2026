@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+.pnp.*
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+.astro/
+.turbo/
+.vercel/
+
+# Rust
+target/
+**/*.rs.bk
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Local-first sync data (placeholder)
+*.sqlite
+*.sqlite-*
+*.db
+
+# OS / editor
+.DS_Store
+.idea/
+*.swp
+.tmp/

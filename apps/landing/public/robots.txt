@@ -1,0 +1,19 @@
+User-agent: *
+Allow: /
+
+# AI / LLM crawlers (see parent CLAUDE.md agentic-SEO policy).
+# Decide per-product whether to allow training crawls vs AI-search crawls.
+User-agent: GPTBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+# TODO: reference the sitemap once @astrojs/sitemap is wired up.
+# Sitemap: https://example.com/sitemap-index.xml

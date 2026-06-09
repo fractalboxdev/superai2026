@@ -1,0 +1,23 @@
+{
+  "name": "superai2026",
+  "private": true,
+  "version": "0.0.0",
+  "packageManager": "pnpm@11.5.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "clean": "turbo run clean",
+    "dev:landing": "pnpm --filter landing dev",
+    "dev:web": "pnpm --filter web dev",
+    "sync": "cargo run -p sync --"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.3"
+  }
+}

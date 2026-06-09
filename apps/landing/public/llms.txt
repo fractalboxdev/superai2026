@@ -1,0 +1,7 @@
+# superai2026
+
+> Placeholder landing page for superai2026. Internals to be specified later.
+
+## Pages
+
+- [Home](https://example.com/): landing page

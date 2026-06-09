@@ -1,0 +1,16 @@
+[package]
+name = "sync"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "sync"
+path = "src/main.rs"
+
+[dependencies]
+clap = { workspace = true }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
