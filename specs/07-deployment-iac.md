@@ -63,9 +63,9 @@ Pulumi is **spec-only** this pass (recipes described, not built).
 | Spec element | Code |
 |---|---|
 | `ctl` subcommand | `crates/sync/src/main.rs` → `controlplane` |
-| Principal registry / root keys | `crates/sync/src/controlplane/registry.rs` (stub) |
-| Auto-mode envelopes | `crates/sync/src/controlplane/envelope.rs` (stub) |
-| Config (paths, sources, inference, tailnet) | `crates/sync/src/config.rs` (stub) |
+| Principal registry / root keys | `crates/sync/src/controlplane/registry.rs` ✅ built |
+| Auto-mode envelopes | `crates/sync/src/controlplane/envelope.rs` ✅ built |
+| Config (paths, sources, inference, tailnet) | `crates/sync/src/config.rs` ✅ built |
 | Pulumi recipes | spec-only (future `infra/` package) |
 
 **Future:** Pulumi `infra/` package, real `ctl` seed/mint/revoke, Tailscale ACL emission, Vercel Sandbox provisioning glue.

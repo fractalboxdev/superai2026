@@ -9,6 +9,7 @@ import {
   type AccessRequest,
   type RouteDecision,
 } from "@superai2026/protocol/requests";
+import { useRoomPresence } from "./useRoomPresence";
 import {
   CFO,
   CFO_ENVELOPE,
@@ -71,6 +72,7 @@ export default function Home() {
   const [log, setLog] = useState<LogEntry[]>([]);
 
   const actor = PRINCIPALS.find((p) => p.id === actorId)!;
+  const { status: syncStatus, peers: livePeers } = useRoomPresence(actor.id, actor.name);
   const columns = useMemo(
     () => DATASETS.find((d) => viewId(d.view) === viewId(selView))?.columns ?? [],
     [selView],
@@ -212,10 +214,32 @@ export default function Home() {
         </div>
 
         <div className="app-topbar__right">
+          <span
+            className={`cf-badge ${syncStatus === "live" ? "cf-badge--success" : ""}`}
+            title="Live presence from the Rust relay (set NEXT_PUBLIC_SYNC_URL)"
+          >
+            {syncStatus === "live"
+              ? `● sync live · ${livePeers.length} peer${livePeers.length === 1 ? "" : "s"}`
+              : syncStatus === "connecting"
+                ? "◌ connecting…"
+                : syncStatus === "offline"
+                  ? "○ relay offline"
+                  : "○ sync off"}
+          </span>
           <span className="cf-presence" aria-label="collaborators present">
             {PRINCIPALS.map((p) => (
               <span key={p.id} className="cf-presence__dot" style={{ background: dotColor(p.id) }}>
                 {tag(p)}
+              </span>
+            ))}
+            {livePeers.map((p) => (
+              <span
+                key={`live-${p.principal}`}
+                className="cf-presence__dot"
+                style={{ background: "var(--cf-green-500)" }}
+                title={`${p.display_name} · ${p.mode}`}
+              >
+                ◆
               </span>
             ))}
           </span>

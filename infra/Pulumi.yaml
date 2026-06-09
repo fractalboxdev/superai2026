@@ -1,0 +1,18 @@
+name: contextful-infra
+runtime:
+  name: nodejs
+  options:
+    packagemanager: pnpm
+description: >-
+  Contextful cloud-side IaC (spec 07 §5): Vercel projects + custom domains,
+  Tailscale ACL/tag policy for the sync/MCP ports, Bedrock IAM for inference,
+  and a host bootstrap that lays down ~/.contextful and runs `sync ctl seed`.
+config:
+  contextful:tailnetTag:
+    default: tag:contextful
+  contextful:syncPort:
+    default: "7878"
+  contextful:mcpPort:
+    default: "7879"
+  contextful:bedrockRegion:
+    default: us-east-1
