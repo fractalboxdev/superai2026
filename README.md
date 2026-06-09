@@ -8,7 +8,7 @@ CEO's salary — provably."* See [`specs/`](./specs) for the full design.
 | Path | What | Stack |
 | --- | --- | --- |
 | `apps/landing` | Marketing / landing page | Astro (static) → Vercel |
-| `apps/web` | Interactive capability console (Flows A & B) + live presence | Next.js 15, React 19 → Vercel |
+| `apps/web` | Interactive capability console (Flows A & B) + live presence | React Router 7 (Vite), React 19 → Vercel |
 | `crates/sync` | Backend: capabilities, brain, MCP, Loro relay, control plane | Rust (7 subcommands) — self-hosted |
 | `packages/protocol` | Capability engine + brain query + wire/MCP mirrors | TypeScript |
 | `tests/acceptance` | End-to-end Flow A/B tests against the binary | vitest |
@@ -27,7 +27,7 @@ off, so the default build runs fully offline.
 
 ```bash
 pnpm install            # JS deps for the whole workspace
-pnpm dev:web            # the Next.js capability console
+pnpm dev:web            # the capability console (React Router 7 + Vite)
 pnpm test               # protocol unit + acceptance e2e
 
 # Backend (state under ~/.contextful; override with CONTEXTFUL_HOME):
@@ -39,6 +39,6 @@ cargo test -p sync                             # capability + brain tests (incl.
 ```
 
 To see live presence in the web app, run the relay and start it with
-`NEXT_PUBLIC_SYNC_URL=ws://localhost:7878/ pnpm dev:web`.
+`VITE_SYNC_URL=ws://localhost:7878/ pnpm dev:web`.
 
 See [CLAUDE.md](./CLAUDE.md) for the full command reference and architecture.

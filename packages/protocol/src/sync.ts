@@ -46,6 +46,20 @@ export const awareness = (
   presence: PresenceState,
 ): SyncMessage => ({ type: "AWARENESS", doc_id, presence });
 
+/** Loro update bytes (a delta) for a doc. Send requires `write(document)`. */
+export const update = (doc_id: RoomId, bytes: LoroBytes): SyncMessage => ({
+  type: "UPDATE",
+  doc_id,
+  bytes,
+});
+
+/** Full Loro snapshot bytes for a doc (catch-up / first publish). */
+export const snapshot = (doc_id: RoomId, bytes: LoroBytes): SyncMessage => ({
+  type: "SNAPSHOT",
+  doc_id,
+  bytes,
+});
+
 export const parseMessage = (data: string): SyncMessage | null => {
   try {
     return JSON.parse(data) as SyncMessage;

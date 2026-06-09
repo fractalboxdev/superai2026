@@ -18,6 +18,8 @@ The editor is [Weaver](https://github.com/OpenHackersClub/weaver): headless Type
 
 **Integration decision:** keep Weaver's editor + CRDT client; **replace its sync backend** with `crates/sync serve` over Tailscale (WSS). A Weaver transport plugin speaks the Contextful WS protocol (§4) instead of the default Cloudflare backend.
 
+**Host framework:** `apps/web` is **React Router 7** (framework mode, Vite), not Next.js — this is the concrete reason for the migration. Weaver is a client-side, WASM-backed (Loro), Effect-TS editor; the App Router's RSC-first model forced it behind `dynamic(ssr:false)` plus bespoke webpack/Turbopack WASM config. On Vite the editor is an ordinary client mount and Rolldown bundles `loro-crdt`'s WASM as a lazy async asset. The transport uses the browser `WebSocket` (relay) with Effect `Schema` validating inbound frames; when no relay is configured, a **`BroadcastChannel`** transport syncs the same Loro updates across browser tabs, so live CRDT editing is demonstrable without a host (e.g. the public Vercel demo). A `@effect/platform` `Socket` transport is the planned deepening.
+
 **Document model:** one `LoroDoc` per document.
 
 - a rich-text **tree** container (paragraphs, headings, formatting),
@@ -84,6 +86,7 @@ The room shows **who is actively reading vs. writing**. Presence rides Loro's **
 | Headless file-sync peer | `crates/sync/src/sync/client.rs` — `run(addr)` ✅ built |
 | Wire messages + version-vector framing | `crates/sync/src/sync/protocol.rs` — `SyncMessage` enum ✅ built |
 | Presence / awareness | `crates/sync/src/sync/presence.rs` — `PresenceState` ✅ built |
-| TS protocol mirror | `packages/protocol/src/sync.ts` — `SyncMessage`, `PresenceState`, `RoomId`, `PeerId` |
+| TS protocol mirror | `packages/protocol/src/sync.ts` — `SyncMessage`, `PresenceState`, `RoomId`, `PeerId` (+ `update`/`snapshot` constructors) |
+| Web Loro editor + transport | `apps/web/app/lib/loroRoom.ts`, `app/components/DocEditor.tsx` — ✅ built (`loro-crdt`; BroadcastChannel cross-tab + relay; Effect `Schema` wire decode in `app/lib/wire.ts`) |
 
-**Future:** per-message Biscuit `read`/`write(document)` capability verification (today: revocation + `doc_id` safety only), real Loro export/import handshake, OPFS↔serve reconciliation, compaction, Weaver transport plugin in `apps/web`, native client file watcher.
+**Future:** per-message Biscuit `read`/`write(document)` capability verification (today: revocation + `doc_id` safety only), real version-vector Loro export/import handshake (today the web client ships the full update log; the relay overwrite-persists), OPFS↔serve reconciliation, compaction, the **full Weaver editor** in `apps/web` (rich-text tree, Effect-TS plugins, OPFS — today a plaintext `loro-crdt` editor + transport is built), native client file watcher.

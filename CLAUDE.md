@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 `superai2026` is a monorepo with three deployable components:
 
 - **`apps/landing`** — Astro **static** landing page. Deploys to Vercel.
-- **`apps/web`** — Next.js (App Router, React 19) web app: the interactive capability console (Flows A & B) with opt-in live presence against the relay. Deploys to Vercel.
+- **`apps/web`** — React Router 7 (framework mode, Vite, React 19) web app: the interactive capability console (Flows A & B) with opt-in live presence against the relay; hosts the Weaver/Loro CRDT editor. Deploys to Vercel.
 - **`crates/sync`** — Rust library + binary implementing the Contextful backend. Seven subcommands: `serve` (Loro WS relay), `client` (headless peer), `ingest`, `cron`, `mcp` (brain over JSON-RPC), `agent`, `ctl` (control plane).
 - **`packages/protocol`** — `@superai2026/protocol`: TS capability engine + brain query + wire/MCP mirrors.
 - **`tests/acceptance`** — `@superai2026/acceptance`: end-to-end Flow A/B tests against the built binary.
@@ -60,7 +60,7 @@ State lives under `~/.contextful` (override with `CONTEXTFUL_HOME`). `pnpm sync 
 flowchart TD
     subgraph Vercel
         L["apps/landing — Astro (static)"]
-        W["apps/web — Next.js"]
+        W["apps/web — React Router 7 (Vite)"]
     end
     subgraph Local["User machine — local-first"]
         S["crates/sync — Rust binary"]
@@ -80,7 +80,7 @@ flowchart TD
 Two separate Vercel projects backed by the same repo:
 
 - **Landing** — Root Directory `apps/landing`, framework preset Astro.
-- **Web** — Root Directory `apps/web`, framework preset Next.js.
+- **Web** — Root Directory `apps/web`, React Router 7 (Vite). `apps/web/vercel.json` pins `framework: react-router` + `buildCommand: pnpm run build`; `vercelPreset()` (gated on `process.env.VERCEL`) emits the Vercel Build Output. Don't rely on the dashboard framework setting — git deploys auto-revert it to `nextjs`.
 
 Set the project Root Directory in the Vercel dashboard; Vercel handles the monorepo `pnpm install` from the repo root. Turborepo remote caching is optional. `crates/sync` is **not** deployed to Vercel — it runs locally / self-hosted.
 
