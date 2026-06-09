@@ -16,7 +16,7 @@ flowchart TD
     HOST --- STORE[("~/.contextful")]
     BROWSER -- "Loro sync (WSS)" --> HOST
     SBX -- "brain MCP (HTTP/SSE)" --> HOST
-    HOST -. "optional LLM egress" .-> BR["Bedrock / Claude"]
+    HOST -. "optional LLM egress" .-> BR["Vercel AI Gateway → Claude"]
     VERCEL["Vercel — landing + web hosting"]
 ```
 
@@ -24,7 +24,7 @@ flowchart TD
 
 - Everything runs on the tailnet; the host advertises the **sync WS** and **MCP** endpoints on its tailnet address.
 - **Tailscale ACLs** restrict which nodes can reach the sync/MCP ports.
-- Cloud touches the tailnet only for coordination and **optional** inference/sandbox egress; **raw source data and un-redacted brain content never leave the host** — only already-permitted, capability-redacted content is sent to cloud inference (Bedrock) or cloud agent compute (Vercel Sandbox), and that path can be disabled entirely ([09](./09-testing-acceptance.md) Flow D).
+- Cloud touches the tailnet only for coordination and **optional** inference/sandbox egress; **raw source data and un-redacted brain content never leave the host** — only already-permitted, capability-redacted content is sent to cloud inference (the Vercel AI Gateway) or cloud agent compute (Vercel Sandbox), and that path can be disabled entirely ([09](./09-testing-acceptance.md) Flow D).
 - Tailscale is set up **externally** on the host — this system assumes the tailnet exists and does not manage `tailscaled` itself (open question from reference §20: `tsnet` embedding deferred).
 
 ## 3. Control plane (`sync ctl`)
@@ -51,9 +51,9 @@ Two Vercel projects from the same repo (unchanged from the repo baseline):
 
 Pulumi recipes (TypeScript, to match the workspace) provision, idempotently:
 
-- Vercel projects + custom domains (`www` / `demo`) and env vars (Bedrock region/keys, Exa key, tailnet auth key).
+- Vercel projects + custom domains (`www` / `demo`) and env vars (`AI_GATEWAY_API_KEY`, Exa key, tailnet auth key).
 - Tailscale ACL/tag policy for sync/MCP ports.
-- Bedrock access (IAM role/policy) for inference.
+- Vercel AI Gateway API key (`AI_GATEWAY_API_KEY`) provisioned for inference.
 - A bootstrap that lays down `~/.contextful/` and invokes `sync ctl seed` for the demo principals + envelopes.
 
 Pulumi is **spec-only** this pass (recipes described, not built).
@@ -63,9 +63,9 @@ Pulumi is **spec-only** this pass (recipes described, not built).
 | Spec element | Code |
 |---|---|
 | `ctl` subcommand | `crates/sync/src/main.rs` → `controlplane` |
-| Principal registry / root keys | `crates/sync/src/controlplane/registry.rs` (stub) |
-| Auto-mode envelopes | `crates/sync/src/controlplane/envelope.rs` (stub) |
-| Config (paths, sources, inference, tailnet) | `crates/sync/src/config.rs` (stub) |
+| Principal registry / root keys | `crates/sync/src/controlplane/registry.rs` ✅ built |
+| Auto-mode envelopes | `crates/sync/src/controlplane/envelope.rs` ✅ built |
+| Config (paths, sources, inference, tailnet) | `crates/sync/src/config.rs` ✅ built |
 | Pulumi recipes | spec-only (future `infra/` package) |
 
 **Future:** Pulumi `infra/` package, real `ctl` seed/mint/revoke, Tailscale ACL emission, Vercel Sandbox provisioning glue.

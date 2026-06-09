@@ -7,12 +7,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 `superai2026` is a monorepo with three deployable components:
 
 - **`apps/landing`** — Astro **static** landing page. Deploys to Vercel.
-- **`apps/web`** — Next.js (App Router, React 19) web app. Deploys to Vercel.
-- **`crates/sync`** — Rust binary that runs as **both server and client** to support local-first sync. Subcommands: `sync serve` and `sync client`.
+- **`apps/web`** — Next.js (App Router, React 19) web app: the interactive capability console (Flows A & B) with opt-in live presence against the relay. Deploys to Vercel.
+- **`crates/sync`** — Rust library + binary implementing the Contextful backend. Seven subcommands: `serve` (Loro WS relay), `client` (headless peer), `ingest`, `cron`, `mcp` (brain over JSON-RPC), `agent`, `ctl` (control plane).
+- **`packages/protocol`** — `@superai2026/protocol`: TS capability engine + brain query + wire/MCP mirrors.
+- **`tests/acceptance`** — `@superai2026/acceptance`: end-to-end Flow A/B tests against the built binary.
+- **`infra/`** — Pulumi recipes (standalone; outside the pnpm workspace).
 
-Two toolchains share the repo root: a **pnpm + Turborepo** workspace for JS (`apps/*`, `packages/*`) and a **Cargo** workspace for Rust (`crates/*`).
+Two toolchains share the repo root: a **pnpm + Turborepo** workspace for JS (`apps/*`, `packages/*`, `tests/*`) and a **Cargo** workspace for Rust (`crates/*`).
 
-> Internals are intentionally placeholders ("to be specified later"). Scaffolding is in place; domain/protocol logic is not. Grep for `TODO` / `placeholder` before assuming behavior exists.
+> The backend is implemented and tested (capability engine, brain, MCP, relay, control plane). Cloud-integration edges the spec marks "Future" — real Biscuit-WASM, AWS Bedrock / LM Studio inference, Exa HTTP, Vercel Sandbox SDK, Weaver transport, Pulumi `apply` — are interface-complete and feature-gated off, so the default build is offline-capable with no external creds. Grep for `Future` / `feature` before assuming a cloud path is live.
 
 ## Commands
 
@@ -34,20 +37,21 @@ Run a script in one workspace: `pnpm --filter landing <script>` or `pnpm --filte
 
 | Task | Command |
 | --- | --- |
-| Run server | `cargo run -p sync -- serve --addr 127.0.0.1:7878` |
-| Run client | `cargo run -p sync -- client --addr 127.0.0.1:7878` |
-| Build | `cargo build -p sync` |
-| Check | `cargo check` |
-| Lint | `cargo clippy --all-targets -- -D warnings` |
-| Format | `cargo fmt` |
+| Seed control plane | `cargo run -p sync -- ctl seed` |
+| Ingest + synthesize | `cargo run -p sync -- ingest --source stripe` |
+| Run relay (+presence) | `cargo run -p sync -- serve --addr 127.0.0.1:7878` |
+| Headless peer | `cargo run -p sync -- client --doc finops --principal agent:cto/1` |
+| Brain over MCP (stdio) | `cargo run -p sync -- mcp --principal cfo` |
+| Agent loop | `cargo run -p sync -- agent --principal agent:cto/1 --ask "..."` |
+| Build / Lint / Format | `cargo build -p sync` · `cargo clippy --all-targets -- -D warnings` · `cargo fmt` |
 | Test (all) | `cargo test -p sync` |
-| Single test | `cargo test -p sync <test_name>` |
 
-`pnpm sync -- serve` is a convenience alias for `cargo run -p sync --`.
+State lives under `~/.contextful` (override with `CONTEXTFUL_HOME`). `pnpm sync -- serve` is a convenience alias for `cargo run -p sync --`.
 
 ### Tests
 
-No JS test runner is wired up yet (placeholder). When adding one, expose it as a `test` script in each package so `turbo run test` discovers it. Rust uses the built-in harness (`cargo test`).
+- **JS:** `pnpm test` (`turbo run test`) runs `@superai2026/protocol` unit tests (vitest) and `@superai2026/acceptance` end-to-end Flow A/B tests against the built binary (the acceptance suite skips if `target/debug/sync` is absent).
+- **Rust:** `cargo test -p sync` — capability/property tests (incl. the Flow B salary invariant) and brain synthesis/anomaly/card-scrub tests.
 
 ## Architecture
 

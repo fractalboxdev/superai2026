@@ -85,7 +85,7 @@ Prefer **DuckDB** for columnar FinOps aggregates, **SQLite** for transactional K
 
 The brain spawns agents to ingest and synthesize. Inference is **trait-based and swappable by config** (see [04 §3](./04-sandbox-agents.md)):
 
-- **Default:** AWS **Bedrock + Claude** via the Converse API. On Bedrock the model ids are inference-profile ids with a region prefix — `us.anthropic.claude-opus-4-8` (high-stakes synthesis), `us.anthropic.claude-sonnet-4-6` (routine extraction), `us.anthropic.claude-haiku-4-5` (cheap classification); the bare `claude-*` ids are first-party-API only.
+- **Default:** the **Vercel AI Gateway** — a single OpenAI-compatible endpoint (`https://ai-gateway.vercel.sh/v1`, auth via `AI_GATEWAY_API_KEY`) that fronts Claude with cross-provider failover and unified usage/billing. Models are addressed by provider-prefixed slug — `anthropic/claude-opus-4-8` (high-stakes synthesis), `anthropic/claude-sonnet-4-6` (routine extraction), `anthropic/claude-haiku-4-5` (cheap classification). The Rust brain reaches the Gateway with `async-openai`; TypeScript surfaces use the **Vercel AI SDK** (`@ai-sdk/gateway` provider) — see [04 §3](./04-sandbox-agents.md).
 - **On-prem / offline:** **LM Studio** via OpenAI-compatible endpoint (`http://localhost:1234/v1`) on the host (e.g. Mac Studio).
 
 Only already-permitted content is ever sent to any backend; structured query + redaction never call an LLM.
@@ -95,11 +95,11 @@ Only already-permitted content is ever sent to any backend; structured query + r
 | Spec element | Code |
 |---|---|
 | `ingest` one-shot pipeline | `crates/sync/src/main.rs` → `connectors` + `brain` |
-| Markdown brain read/write/supersede | `crates/sync/src/brain/markdown.rs` (stub) |
-| Extract → synthesize → anomaly/learning | `crates/sync/src/brain/synthesis.rs` (stub) |
-| Capability-filtered retrieval | `crates/sync/src/brain/retrieval.rs` (stub) |
-| Memory / Scope / MemoryRef types | `crates/sync/src/brain/mod.rs` (stub) |
-| File store (Loro snapshots + DuckDB/SQLite) | `crates/sync/src/store/{docs,db}.rs` (stub) |
+| Markdown brain read/write/supersede | `crates/sync/src/brain/markdown.rs` ✅ built |
+| Extract → synthesize → anomaly/learning | `crates/sync/src/brain/synthesis.rs` ✅ built |
+| Capability-filtered retrieval | `crates/sync/src/brain/retrieval.rs` ✅ built |
+| Memory / Scope / MemoryRef types | `crates/sync/src/brain/mod.rs` ✅ built |
+| File store (Loro snapshots + JSON index) | `crates/sync/src/store/{mod,docs}.rs` ✅ built (JSON index stand-in) |
 | TS types | `packages/protocol/src/brain.ts` — `MemoryRef`, `Scope`, `SearchQuery`, `SearchResult` |
 
-**Future:** real LLM extract/synthesize, embeddings, FTS indexing, anomaly thresholds, learning suppression, compaction.
+**Future:** the columnar/FTS/vector index (**DuckDB / SQLite FTS5 / sqlite-vec** — today the index is a single `brain.index.json`, not `brain.duckdb`), real LLM extract/synthesize, embeddings, non-destructive supersede (the current pass recomputes derived rows; `Memory.supersedes` is modeled but unused), `brain.remember` per-turn read-set taint, compaction.

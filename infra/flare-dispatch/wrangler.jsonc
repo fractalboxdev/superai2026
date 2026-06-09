@@ -1,0 +1,111 @@
+{
+  // ───────────────────────────────────────────────────────────────────────────
+  // superai2026 — FlareDispatch dispatcher OPERATOR OVERLAY.
+  //
+  // This is the ONE file `deploy-dispatcher-action` copies over the upstream
+  // checkout's `wrangler.jsonc` before `wrangler deploy`. Everything else is
+  // pulled from OpenHackersClub/flare-dispatch at the SHA in ./UPSTREAM_SHA.
+  // Keep paths (`main`, `containers[].image`, `migrations_dir`) relative to the
+  // UPSTREAM tree — they resolve inside that checkout, not this repo.
+  //
+  // BEFORE THE FIRST DEPLOY, fill the four `__SET_ME__` values below. The
+  // `./provision.sh` helper creates the R2 / D1 / KV resources and prints the
+  // ids to paste in. See ./README.md.
+  // ───────────────────────────────────────────────────────────────────────────
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "flare-dispatch-superai2026",
+  "main": "apps/dispatcher/src/index.ts",
+  "compatibility_date": "2026-05-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  "observability": { "enabled": true },
+
+  // Workers AI binding — backs the `modelGateway` capability the `pr-review`
+  // engine calls. The binding IS the auth (account-billed); no model API key.
+  "ai": { "binding": "AI" },
+
+  // Browser Rendering binding — backs the CDP attach the `product-demo` run
+  // uses to drive the deployed site and record the rrweb replay.
+  "browser": { "binding": "BROWSER" },
+
+  "vars": {
+    // Your 32-hex Cloudflare account id (from the dashboard URL). Lets the
+    // GitHub check-run link to the Cloudflare Workflows instance page.
+    "CLOUDFLARE_ACCOUNT_ID": "__SET_ME__account_id",
+    // Admission-semaphore slots per container pool. Keep ≤ each container's
+    // `max_instances` below.
+    "ADMISSION_CAP": "16"
+  },
+
+  "workflows": [
+    {
+      "name": "runs-workflow",
+      "binding": "RUNS_WORKFLOW",
+      "class_name": "RunWorkflow"
+    }
+  ],
+
+  // ONE Dockerfile (infra/Dockerfile.sandbox in the upstream tree) builds the
+  // sandbox image. It already bakes the `demo-agent` binary on PATH, so
+  // `product-demo` works with no custom image. Node 24 + Corepack + git + curl
+  // are present, so `offload-test`'s `pnpm install` / build run unmodified.
+  "containers": [
+    {
+      "class_name": "RunSandbox",
+      "image": "./infra/Dockerfile.sandbox",
+      "instance_type": "standard-2",
+      "max_instances": 16
+    },
+    {
+      "class_name": "RunSandboxBrowser",
+      "image": "./infra/Dockerfile.sandbox",
+      "image_vars": { "WITH_BROWSER": "true" },
+      "instance_type": "standard-2",
+      "max_instances": 16
+    }
+  ],
+
+  "durable_objects": {
+    "bindings": [
+      { "name": "RUNS_SANDBOX", "class_name": "RunSandbox" },
+      { "name": "RUNS_SANDBOX_BROWSER", "class_name": "RunSandboxBrowser" }
+    ]
+  },
+
+  "migrations": [
+    { "tag": "v0", "new_sqlite_classes": ["RunSandbox"] },
+    { "tag": "v1", "new_sqlite_classes": ["RunSandboxBrowser"] }
+  ],
+
+  "r2_buckets": [
+    { "binding": "RUNS_STORAGE", "bucket_name": "flare-dispatch-superai2026" }
+  ],
+
+  "d1_databases": [
+    {
+      "binding": "RUNS_METADATA",
+      "database_name": "flare-dispatch-superai2026",
+      "database_id": "__SET_ME__d1_database_id",
+      "migrations_dir": "infra/migrations"
+    }
+  ],
+
+  // CONFIG_KV backs the `config` capability + the `loadSecrets` store (model
+  // backend selection for pr-review, transport secrets for product-demo).
+  "kv_namespaces": [
+    {
+      "binding": "CONFIG_KV",
+      "id": "__SET_ME__config_kv_id"
+    }
+  ],
+
+  // Worker Secrets (HMAC_SECRET, GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY, …) are
+  // set out-of-band with `wrangler secret put` — see ./README.md § Secrets.
+
+  // No Cron Triggers: superai2026 dispatches all three runs in Action mode
+  // (the .github/workflows/flare-*.yml files). Add a cron here only if you wire
+  // a Schedule-mode run (e.g. a daily product-demo against staging).
+  "triggers": {
+    "crons": []
+  }
+}

@@ -1,0 +1,44 @@
+# FlareDispatch — run the test suite on Cloudflare instead of GHA minutes.
+#
+# Dispatches the `offload-test` run: clones the repo at the PR head, runs the
+# command in a Cloudflare Container sandbox, and reports green/red back as the
+# `flare-dispatch/offload-test` check-run (require THAT in branch protection).
+#
+# The command runs superai2026's actual tests:
+#   * JS monorepo gates — `pnpm build` + `pnpm typecheck` (no JS test runner is
+#     wired up yet; these are the correctness gate for apps/* + packages/*).
+#   * Rust — `cargo test -p sync`. The lean sandbox image is Node-based, so the
+#     command bootstraps rustup on demand (the repo's rust-toolchain.toml pins
+#     the toolchain rustup then fetches). Compiling Rust is exactly the
+#     expensive work worth offloading off GHA.
+#
+# Dormant until the dispatcher is deployed (FLAREDISPATCH_ENDPOINT guard).
+name: flare / tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  offload-test:
+    if: ${{ vars.FLAREDISPATCH_ENDPOINT != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: OpenHackersClub/flare-dispatch/actions/flare-dispatch-action@1e47a54cab3ea4bce2d2a79a3deadb0860829feb
+        with:
+          run: offload-test
+          endpoint: ${{ vars.FLAREDISPATCH_ENDPOINT }}
+          hmac-secret: ${{ secrets.FLAREDISPATCH_HMAC }}
+          installation-id: ${{ vars.FLAREDISPATCH_INSTALLATION_ID }}
+          mode: fire-and-forget
+          inputs: |
+            {
+              "repo": "${{ github.repository }}",
+              "sha": "${{ github.event.pull_request.head.sha || github.sha }}",
+              "command": "set -eu; corepack enable; pnpm install --frozen-lockfile; pnpm run build; pnpm run typecheck; if ! command -v cargo >/dev/null 2>&1; then curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain none; . $HOME/.cargo/env; fi; cargo test -p sync",
+              "timeoutSec": 1800
+            }
