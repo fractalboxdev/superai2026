@@ -55,6 +55,8 @@ Three further flows ([09](./09-testing-acceptance.md)) show the brain *grounding
 
 Collaboration is shown live: members + their agents co-edit a room (a "meeting room"); presence shows who is reading vs. writing; the CFO's agent pulls from the right context after approval.
 
+The web app also makes the access model **directly operable** by people (see [03 §6](./03-access-control.md)): a **company directory** of every principal and what their token can see; a **delegation** form where a member grants their own agent a narrowed subset of their authority; and an **inbox** where a resource owner accepts or declines incoming agent `access_request`s (Flow A approvals land here; Flow B salary requests appear as forbidden, with no approve button).
+
 ## 5. Design principles
 
 The brand stands for **Trust, Clarity, Security, Collaboration, Fluid**. These map to concrete tokens and components in [08 · Design System](./08-design-system.md). Voice: plain-spoken and precise — lead with the direct claim, then explain; no fear-mongering.
@@ -155,6 +157,9 @@ flowchart LR
 - **View** — a named, field-typed projection of a source (e.g. `stripe/spend_by_team`). The unit of finance privacy.
 - **Brain scope** — the set of sources/views a document's sandbox may draw on.
 - **Envelope** — an owner's auto-mode policy describing which requests auto-approve vs. escalate.
+- **Directory** — the web roster of every principal (humans + their agents) and the effective scope each token grants ([03 §6.1](./03-access-control.md#61-company-directory)).
+- **Delegation** — a member narrowing their own token and handing it to an agent they own (`delegateTo()`); intra-owner, needs no approval. The inverse-direction action to a cross-owner `access_request`.
+- **Inbox** — the web surface where a resource owner accepts/declines agent `access_request`s ([03 §6.3](./03-access-control.md#63-inbox--accept-or-decline-agent-access-requests)).
 - **World memory** — public, cited knowledge fetched from the web (Exa); tagged `world`, default-readable, never authority ([02 §8](./02-brain-memory.md)).
 - **Egress firewall** — the outbound check that lets only public-tainted query terms leave the host, so enrichment can't exfiltrate a private value ([03 §4](./03-access-control.md)).
 - **Daydreaming** — a background, cron-scheduled loop that samples acl-admissible card pairs, proposes non-obvious connections (grounded via world memory), and keeps the valuable ones as hypothesis insight cards. GBrain dream-cycle / Gwern DDL ([02 §9](./02-brain-memory.md)).
