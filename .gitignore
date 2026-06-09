@@ -10,6 +10,7 @@ out/
 .astro/
 .turbo/
 .vercel/
+*.tsbuildinfo
 
 # Rust
 target/

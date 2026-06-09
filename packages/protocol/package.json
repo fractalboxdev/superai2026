@@ -1,0 +1,21 @@
+{
+  "name": "@superai2026/protocol",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Contextful shared protocol — capability-based access control, brain query layer, and request/approve flow (pure TS, no runtime deps).",
+  "exports": {
+    "./access": "./src/access.ts",
+    "./brain": "./src/brain.ts",
+    "./requests": "./src/requests.ts",
+    "./scenario": "./src/scenario.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  }
+}
