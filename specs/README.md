@@ -11,13 +11,14 @@ Contextful is a **local-first company brain**: teams collaborate in shared docum
 | 00 | [Overview](./00-overview.md) | Problem, personas, what we showcase, architecture, stack, repo map, milestones, glossary |
 | 01 | [Rooms & Sync](./01-room-sync.md) | Rooms, Weaver editor, Loro CRDT sync over WebSocket/Tailscale, presence, wire protocol |
 | 02 | [Brain & Memory](./02-brain-memory.md) | Markdown brain + SQLite/DuckDB index, ingest→synthesize lifecycle, scoping, storage layout |
-| 03 | [Access Control](./03-access-control.md) | Biscuit capabilities, attenuation, field/row auth, permission requests, the salary invariant |
+| 03 | [Access Control](./03-access-control.md) | Biscuit capabilities, attenuation, field/row auth, permission requests, the salary invariant, web access-control UI (directory · delegation · inbox) |
 | 04 | [Sandbox & Agents](./04-sandbox-agents.md) | Vercel Sandbox (+ local fallback), agent runtime, inference backends, identity |
 | 05 | [Connectors & ETL](./05-connectors-etl.md) | Connector trait, Stripe (mock), Exa, cron scheduling, context layer |
 | 06 | [MCP Interface](./06-mcp-interface.md) | Embedded `rmcp` server, brain tools, stdio + HTTP/SSE transports, auth |
 | 07 | [Deployment & IaC](./07-deployment-iac.md) | Local-first deploy, Tailscale, Vercel, control plane, Pulumi recipes |
 | 08 | [Design System](./08-design-system.md) | Brand pillars, tokens, components (`@superai2026/design-system`) |
 | 09 | [Testing & Acceptance](./09-testing-acceptance.md) | flare-dispatch, reference flows A–D, capability property tests |
+| 10 | [macOS App](./10-macos-app.md) | Native Mac app to install + run the host/member peer (no terminal): Tauri shell, bundled `sync` sidecar, supervisor, first-run setup, launchd auto-start, signing/notarization |
 
 *New here? Start with [00 · Overview](./00-overview.md). Implementers can jump straight to the spec for their component — every file cross-references the others and ends with a Scaffold / Status map.*
 

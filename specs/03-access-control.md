@@ -104,7 +104,41 @@ flowchart LR
 
 **Auto-mode** avoids permission fatigue: an owner sets a **policy envelope**, e.g. *"auto-approve read of `spend_by_team` aggregates to internal agents, max ttl 7d; always escalate `employee_salary` or `finance_private`."* Requests inside the envelope are granted by the agent runtime automatically; anything outside escalates to the human.
 
-## 6. Security model summary
+## 6. Web access-control UI
+
+The web app ([`apps/web`](../apps/web)) surfaces the access-control model so **people** — not just agents over MCP — can see who exists, delegate authority to their own agents, and decide on incoming requests. Three surfaces, all backed by `@superai2026/protocol` (`access.ts`, `requests.ts`) so the browser computes the same `caps(child) ⊆ caps(parent)` result the host enforces. The host stays authoritative: a browser-side "approve" or "delegate" is a **request to mint**, re-verified and recorded on the host (`ctl`, [07](./07-deployment-iac.md)) — the UI never holds a minting key.
+
+### 6.1 Company directory
+
+A roster of the control-plane **principal registry** ([§1](#1-principals--identity)): every human (id, display name, role) and, nested under each, the agents they own (`agent:<owner>/<n>`). For each principal it summarizes **effective capability** — the views, fields, and row-scopes their token grants, computed via `effectiveCapability()` — rendered as quiet capability chips (`.cf-badge`); any principal holding `employee_salary` shows it as a **danger** chip, so *"who can see salary"* is answerable at a glance. The directory reads identity/membership from the control plane only and never exposes token secrets — only the computed scope. It is membership-rooted, so **no data authority is mintable here** ([§1](#1-principals--identity)).
+
+### 6.2 Delegation — a member grants their agent a subset
+
+From a principal's detail in the directory, a member delegates authority to one of **their own** agents. This is intra-owner and needs **no approval** — you are narrowing your own token. The delegation form lets the owner pick a view they already hold, choose a subset of its fields and a row-scope, and set a TTL. It can only **narrow**: fields outside `effectiveCapability(owner)` are not selectable, and `employee_salary` / any [`NEVER_DELEGABLE`](#5-permission-requests--auto-mode) field is never offered. Submitting calls `delegateTo(ownerCap, agentId, { allowFields, denyFields, rows, ttl })`, handing a fresh attenuated token to the agent and recording it in the audit trail. The result — `caps(agent) ⊆ caps(owner)` — is visible, not just asserted.
+
+### 6.3 Inbox — accept or decline agent access requests
+
+When an agent is denied a resource it does not hold (typically owned by someone else — e.g. the CFO's `finance_private`), it raises an `access_request` ([§5](#5-permission-requests--auto-mode)). The **owner of that resource** sees it in their **inbox**. Each item shows the requester (with a presence dot), the requested view / fields / row-scope, the reason, the doc, and the requested TTL, plus the **routing decision** (`routeRequest()`) as a badge:
+
+- **auto** — inside the owner's envelope; already granted by the runtime, shown for the record.
+- **escalate** — outside the envelope; the owner decides. **Approve (scoped)** calls `approveRequest(ownerCap, req)` — mints exactly the requested scope, salary always denied — and delegates the token to the requester, who retries and answers. **Deny** leaves it blocked.
+- **forbidden** — names a `NEVER_DELEGABLE` field; **no approve action is rendered at all**. The salary invariant is enforced as a UI affordance too, not only as a server check ([§7 summary](#7-security-model-summary)).
+
+Request lifecycle: `pending → {auto | approved | denied | forbidden} → expired` (on TTL). The inbox is the human end of **Flow A**; **Flow B**'s salary request lands here as a forbidden item with no approve button (see [09](./09-testing-acceptance.md)).
+
+```mermaid
+flowchart LR
+    DIR["Company directory<br/>who exists · what each can see"] --> DEL["Delegate to my agent<br/>delegateTo() — narrow-only"]
+    REQ["Agent access_request"] --> IN{"Owner inbox<br/>routeRequest()"}
+    IN -- auto --> G["already granted (envelope)"]
+    IN -- escalate --> A["Approve (scoped) / Deny"]
+    IN -- forbidden --> NB["no approve button<br/>salary invariant"]
+    A -- approve --> M["approveRequest() → token"]
+    DEL --> M2["delegateTo() → token"]
+    M --> R["requester retries → answers"]
+```
+
+## 7. Security model summary
 
 - **Least authority by construction** — `caps(agent) ⊆ caps(owner)` via append-only blocks.
 - **No capability super-root** — control-plane root covers identity/membership; sensitive resources are rooted at their owners.
@@ -114,9 +148,9 @@ flowchart LR
 - **Daydreaming stays in-bounds** — the background synthesis loop ([02 §9](./02-brain-memory.md)) samples only acl-admissible card pairs and stamps insights with `max(parents)` taint, so it can neither cross owners nor lower an acl_tag; the salary invariant holds under daydreaming too ([09](./09-testing-acceptance.md) Flow B/G).
 - **Confidential transport** — Tailscale WireGuard.
 - **Auditable grants** — every minted/attenuated token and `access_request` recorded under `~/.contextful/caps/`.
-- **The salary invariant** — no token and no approval path outside the CFO's own root yields `employee_salary` (proven in [09](./09-testing-acceptance.md) Flow B).
+- **The salary invariant** — no token and no approval path outside the CFO's own root yields `employee_salary` (proven in [09](./09-testing-acceptance.md) Flow B), and the [delegation form](#62-delegation--a-member-grants-their-agent-a-subset) / [inbox](#63-inbox--accept-or-decline-agent-access-requests) never even offer it.
 
-## 7. Scaffold / Status
+## 8. Scaffold / Status
 
 | Spec element | Code |
 |---|---|
@@ -127,5 +161,7 @@ flowchart LR
 | Egress firewall (outbound term taint check) | `crates/sync/src/access/egress.rs` (stub) |
 | Principal registry / root keys / envelopes (`ctl`) | `crates/sync/src/controlplane/` ✅ built |
 | TS types + helper signatures | `packages/protocol/src/access.ts` — `Capability`, `Action`, `Resource`, `PermissionRequest`/`Grant`, `attenuate()`/`authorize()` |
+| Web UI logic — route/approve/delegate | `packages/protocol/src/{requests,access}.ts` — `routeRequest()`, `approveRequest()`, `delegateTo()`, `effectiveCapability()` ✅ built |
+| Web UI surfaces — directory · delegation · inbox | `apps/web/src/app/page.tsx` — embedded request panel + audit trail prototyped; **company directory, delegation form, standalone inbox: Future** |
 
-**Future:** real Biscuit Datalog policies + `Authorizer`, `@biscuit-auth/biscuit-wasm` integration in the web for client-side checks, revocation, audit UI.
+**Future:** real Biscuit Datalog policies + `Authorizer`, `@biscuit-auth/biscuit-wasm` integration in the web for client-side checks, revocation, audit UI; the standalone web access-control surfaces of [§6](#6-web-access-control-ui) — company directory, agent-delegation form, and a request inbox (today: a single embedded request panel + audit trail in the demo console).
