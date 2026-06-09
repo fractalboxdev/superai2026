@@ -65,17 +65,35 @@ jobs:
       - name: Frontend typecheck + build
         run: pnpm --filter desktop build
 
+      # Tauri signs whenever APPLE_CERTIFICATE is *set* — and an absent repo
+      # secret still materializes as an empty env var, which makes the cert
+      # import fail. Only export the signing env when the secrets exist.
+      - name: Configure signing (when Developer ID secrets exist)
+        env:
+          _CERT: ${{ secrets.APPLE_CERTIFICATE }}
+          _CERT_PW: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          _IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          _APPLE_ID: ${{ secrets.APPLE_ID }}
+          _APPLE_PW: ${{ secrets.APPLE_PASSWORD }}
+          _TEAM: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -n "$_CERT" ]; then
+            {
+              echo "APPLE_CERTIFICATE=$_CERT"
+              echo "APPLE_CERTIFICATE_PASSWORD=$_CERT_PW"
+              echo "APPLE_SIGNING_IDENTITY=$_IDENTITY"
+              echo "APPLE_ID=$_APPLE_ID"
+              echo "APPLE_PASSWORD=$_APPLE_PW"
+              echo "APPLE_TEAM_ID=$_TEAM"
+            } >> "$GITHUB_ENV"
+            echo "Developer ID secrets found — signing + notarization enabled."
+          else
+            echo "No Developer ID secrets — producing an unsigned artifact."
+          fi
+
       - name: Bundle universal .app + .dmg
         working-directory: apps/desktop
         run: pnpm exec tauri build --target universal-apple-darwin
-        env:
-          # Empty secrets ⇒ tauri skips signing/notarization (unsigned artifact).
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
       - uses: actions/upload-artifact@v4
         with:
