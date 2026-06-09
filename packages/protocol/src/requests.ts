@@ -9,6 +9,7 @@
 
 import {
   attenuate,
+  effectiveCapability,
   type Capability,
   type RowScope,
   type View,
@@ -17,6 +18,20 @@ import {
 
 /** Fields that may never be delegated to an agent by any approval path. */
 export const NEVER_DELEGABLE = ["employee_salary"] as const;
+
+/**
+ * The fields an owner may offer when delegating or approving: every field their
+ * own token effectively grants, minus the {@link NEVER_DELEGABLE} set. The
+ * delegation form ([03 §6.2]) and inbox ([03 §6.3]) render checkboxes from this
+ * list, so a `NEVER_DELEGABLE` field is *structurally never offered* — the
+ * salary invariant becomes a UI affordance, not only a server-side refusal.
+ */
+export function delegableFields(ownerCap: Capability): string[] {
+  const eff = effectiveCapability(ownerCap);
+  if (!eff) return [];
+  const banned = new Set<string>(NEVER_DELEGABLE);
+  return [...eff.fields].filter((f) => !banned.has(f));
+}
 
 export type AccessRequest = {
   id: string;

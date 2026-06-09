@@ -10,6 +10,7 @@ import type { LinksFunction, MetaFunction } from "react-router";
 import designSystemStyles from "@superai2026/design-system/styles.css?url";
 import globalStyles from "./globals.css?url";
 import { HyperDXInit } from "@/components/hyperdx-init";
+import { AccessProvider } from "@/lib/accessStore";
 
 const DESCRIPTION =
   "Local-first company brain. Every agent sees only the context it's permitted to — scoped by capability.";
@@ -80,5 +81,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  return <Outlet />;
+  // Shared access-control state (directory · delegation · inbox) spans all routes.
+  return (
+    <AccessProvider>
+      <Outlet />
+    </AccessProvider>
+  );
 }
