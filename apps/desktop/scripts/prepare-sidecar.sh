@@ -44,14 +44,18 @@ dest="apps/desktop/src-tauri/binaries"
 mkdir -p "$dest"
 
 if [[ "$universal" == 1 ]]; then
+  # Stage per-triple copies too: tauri-build resolves externalBin by the
+  # triple it is currently compiling for (host triple during clippy/test,
+  # each Apple triple during a universal `tauri build`).
   for t in aarch64-apple-darwin x86_64-apple-darwin; do
     build --target "$t"
+    cp "target/$t/$mode/sync" "$dest/sync-$t"
   done
   lipo -create \
     "target/aarch64-apple-darwin/$mode/sync" \
     "target/x86_64-apple-darwin/$mode/sync" \
     -output "$dest/sync-universal-apple-darwin"
-  echo "staged $dest/sync-universal-apple-darwin"
+  echo "staged $dest/sync-{aarch64,x86_64,universal}-apple-darwin"
   exit 0
 fi
 
