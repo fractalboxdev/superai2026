@@ -99,7 +99,7 @@ Only already-permitted content is ever sent to any backend; structured query + r
 | Extract → synthesize → anomaly/learning | `crates/sync/src/brain/synthesis.rs` ✅ built |
 | Capability-filtered retrieval | `crates/sync/src/brain/retrieval.rs` ✅ built |
 | Memory / Scope / MemoryRef types | `crates/sync/src/brain/mod.rs` ✅ built |
-| File store (Loro snapshots + DuckDB/SQLite) | `crates/sync/src/store/{docs,db}.rs` ✅ built |
+| File store (Loro snapshots + JSON index) | `crates/sync/src/store/{mod,docs}.rs` ✅ built (JSON index stand-in) |
 | TS types | `packages/protocol/src/brain.ts` — `MemoryRef`, `Scope`, `SearchQuery`, `SearchResult` |
 
-**Future:** real LLM extract/synthesize, embeddings, FTS indexing, anomaly thresholds, learning suppression, compaction.
+**Future:** the columnar/FTS/vector index (**DuckDB / SQLite FTS5 / sqlite-vec** — today the index is a single `brain.index.json`, not `brain.duckdb`), real LLM extract/synthesize, embeddings, non-destructive supersede (the current pass recomputes derived rows; `Memory.supersedes` is modeled but unused), `brain.remember` per-turn read-set taint, compaction.

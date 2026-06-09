@@ -36,4 +36,8 @@ jobs:
       # --- JS: typecheck, test (protocol unit + acceptance e2e), build ---
       - run: pnpm typecheck
       - run: pnpm test
+        env:
+          # fail loudly if the acceptance suite can't find the binary built
+          # above, instead of silently skipping to green
+          REQUIRE_SYNC_BIN: "1"
       - run: pnpm build

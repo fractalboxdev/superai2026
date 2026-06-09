@@ -20,6 +20,11 @@ const HOME = mkdtempSync(join(tmpdir(), "contextful-accept-"));
 const env = { ...process.env, CONTEXTFUL_HOME: HOME, RUST_LOG: "error" };
 
 const haveBin = existsSync(BIN);
+// CI sets REQUIRE_SYNC_BIN=1 so a missing binary FAILS loudly instead of
+// silently skipping to green (false-confidence guard). Locally it may skip.
+if (process.env.REQUIRE_SYNC_BIN === "1" && !haveBin) {
+  throw new Error(`REQUIRE_SYNC_BIN=1 but binary not found at ${BIN} — build it with \`cargo build -p sync\``);
+}
 const d = haveBin ? describe : describe.skip;
 
 /** Drive the MCP stdio server: send JSON-RPC lines, collect responses by id. */
@@ -74,7 +79,8 @@ d("Contextful acceptance flows", () => {
     const sc = r[1]?.result?.structuredContent;
     expect(sc?.status).toBe("ok");
     expect(sc.fields).toContain("employee_salary");
-    expect(sc.rows[0]).toHaveProperty("employee_salary");
+    expect(sc.rows).toHaveLength(4); // one per seeded team
+    expect(sc.rows.every((row: Record<string, unknown>) => "employee_salary" in row)).toBe(true);
   });
 
   it("Flow B — engineering agent is denied finance_private", async () => {
@@ -98,6 +104,13 @@ d("Contextful acceptance flows", () => {
     const r = await mcpCall("agent:cto/1", [query(1, "stripe/spend_by_team", ["gross", "net"])]);
     const sc = r[1]?.result?.structuredContent;
     expect(sc?.status).toBe("ok");
-    expect(sc.rows.length).toBeGreaterThan(0);
+    expect(sc.rows).toHaveLength(4);
+    expect(sc.rows.every((row: Record<string, unknown>) => !("employee_salary" in row))).toBe(true);
+  });
+
+  it("malformed brain.query (no view) is a tool error, not a crash", async () => {
+    const bad = { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "brain.query", arguments: { select: ["gross"] } } };
+    const r = await mcpCall("cfo", [bad]);
+    expect(r[1]?.result?.isError).toBe(true);
   });
 });

@@ -7,6 +7,7 @@
 
 import {
   authorize,
+  effectiveCapability,
   rowAllowed,
   viewId,
   type Capability,
@@ -67,8 +68,11 @@ export function brainQuery(cap: Capability, datasets: Dataset[], spec: QuerySpec
     return { ok: false, reason: decision.reason, answer: DENIAL_COPY[decision.reason] };
   }
 
-  // Always carry the team key so row-scoped aggregates remain labelled.
-  const projection = uniq(["team", "period", ...decision.grantedFields]).filter((f) => ds.columns.includes(f));
+  // Keep team/period labels when the caller's TOKEN grants them (even if not in
+  // this query's select) — never project a field outside the token's authority.
+  const effFields = effectiveCapability(cap)?.fields ?? new Set<string>();
+  const labels = ["team", "period"].filter((f) => effFields.has(f));
+  const projection = uniq([...labels, ...decision.grantedFields]).filter((f) => ds.columns.includes(f));
   const visibleRows = ds.rows
     .filter((row) => rowAllowed(row, decision.rowFilter))
     .map((row) => project(row, projection));

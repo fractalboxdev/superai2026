@@ -64,7 +64,7 @@ Message types (mirrored in `packages/protocol/src/sync.ts`):
 **Technical choices:**
 
 - **CRDT payloads are native Loro bytes.** Sync handshake uses Loro version vectors: a peer exports `doc.export(updates(peer_vv))`, the other `import`s, replies with its own delta. Snapshots use `export(snapshot)` for catch-up.
-- **Authorization is per-message.** The Biscuit token arrives in `HELLO` and is re-checked on each `SUBSCRIBE`/`UPDATE`. Capabilities are on `document(<doc_id>)` (see [03](./03-access-control.md)).
+- **Authorization is per-message.** The Biscuit token arrives in `HELLO`; **today the relay re-checks revocation on every message** (a principal revoked mid-session is dropped) and validates `doc_id` against path traversal. Full per-message Biscuit `read`/`write(document)` *capability* verification on `document(<doc_id>)` (see [03](./03-access-control.md)) lands with real Biscuit-WASM and is **Future** — the relay ships opaque Loro bytes; structured data is gated on the fully capability-checked brain MCP path.
 - **Persistence:** per-doc Loro **snapshot + oplog** in the file store (`~/.contextful/docs/<doc_id>.loro`), periodically compacted (see [02 §6](./02-brain-memory.md)).
 
 ## 5. Presence / awareness ("who is here")
@@ -86,4 +86,4 @@ The room shows **who is actively reading vs. writing**. Presence rides Loro's **
 | Presence / awareness | `crates/sync/src/sync/presence.rs` — `PresenceState` ✅ built |
 | TS protocol mirror | `packages/protocol/src/sync.ts` — `SyncMessage`, `PresenceState`, `RoomId`, `PeerId` |
 
-**Future:** real Loro export/import handshake, OPFS↔serve reconciliation, compaction, Weaver transport plugin in `apps/web`, native client file watcher.
+**Future:** per-message Biscuit `read`/`write(document)` capability verification (today: revocation + `doc_id` safety only), real Loro export/import handshake, OPFS↔serve reconciliation, compaction, Weaver transport plugin in `apps/web`, native client file watcher.

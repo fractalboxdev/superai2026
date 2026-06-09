@@ -21,7 +21,7 @@ use tokio_tungstenite::tungstenite::Message;
 
 use crate::config::Config;
 use crate::controlplane::is_revoked;
-use crate::store::docs::DocStore;
+use crate::store::docs::{is_safe_doc_id, DocStore};
 use crate::sync::protocol::SyncMessage;
 
 /// (sender_peer_id, json) so peers can suppress their own echoes.
@@ -68,10 +68,7 @@ async fn handle_conn(stream: TcpStream, rooms: Rooms, config: Arc<Config>) -> Re
         _ => {
             send(
                 &write,
-                &SyncMessage::Error {
-                    code: "expected_hello".into(),
-                    message: "first message must be HELLO".into(),
-                },
+                &err("expected_hello", "first message must be HELLO"),
             )
             .await?;
             return Ok(());
@@ -80,25 +77,42 @@ async fn handle_conn(stream: TcpStream, rooms: Rooms, config: Arc<Config>) -> Re
     if is_revoked(&config, &principal) {
         send(
             &write,
-            &SyncMessage::Error {
-                code: "revoked".into(),
-                message: format!("principal {principal} is revoked"),
-            },
+            &err("revoked", &format!("principal {principal} is revoked")),
         )
         .await?;
         return Ok(());
     }
 
-    let mut subscribed_doc: Option<String> = None;
-
     // --- message loop ---
     while let Some(msg) = next_message(&mut read).await? {
+        // Per-message authorization: re-check revocation on every data message
+        // (a principal revoked mid-session must stop being served), and reject
+        // unsafe doc ids before they touch the filesystem. NOTE: full per-message
+        // Biscuit `read`/`write(document)` verification is future work (real
+        // Biscuit-WASM) — today the relay enforces revocation + doc-id safety and
+        // ships opaque Loro bytes; structured data is gated by the brain MCP path.
+        if is_revoked(&config, &principal) {
+            send(
+                &write,
+                &err("revoked", &format!("principal {principal} is revoked")),
+            )
+            .await?;
+            break;
+        }
         match msg {
             SyncMessage::Subscribe { doc_id, .. } => {
-                // read(document) check: revoked already rejected; membership is
-                // open for seeded demo principals. (Real doc-cap check: spec 03.)
-                let docs = DocStore::new((*config).clone());
-                let snapshot = docs.load_snapshot(&doc_id)?.unwrap_or_default();
+                if !is_safe_doc_id(&doc_id) {
+                    send(&write, &err("bad_doc_id", "unsafe doc_id")).await?;
+                    continue;
+                }
+                // Subscribe to the room FIRST so updates that arrive while we load
+                // and send the snapshot are buffered for delivery (no lost update).
+                let tx = room_sender(&rooms, &doc_id).await;
+                let mut rx = tx.subscribe();
+
+                let snapshot = DocStore::new((*config).clone())
+                    .load_snapshot(&doc_id)?
+                    .unwrap_or_default();
                 send(
                     &write,
                     &SyncMessage::HelloOk {
@@ -116,27 +130,34 @@ async fn handle_conn(stream: TcpStream, rooms: Rooms, config: Arc<Config>) -> Re
                 )
                 .await?;
 
-                let tx = room_sender(&rooms, &doc_id).await;
-                let mut rx = tx.subscribe();
-                subscribed_doc = Some(doc_id.clone());
-
                 // forward room traffic from other peers to this socket
                 let write_fwd = write.clone();
                 tokio::spawn(async move {
-                    while let Ok((from, json)) = rx.recv().await {
-                        if from == peer_id {
-                            continue; // skip our own echo
-                        }
-                        let mut w = write_fwd.lock().await;
-                        if w.send(Message::Text(json)).await.is_err() {
-                            break;
+                    loop {
+                        match rx.recv().await {
+                            Ok((from, json)) => {
+                                if from == peer_id {
+                                    continue; // skip our own echo
+                                }
+                                let mut w = write_fwd.lock().await;
+                                if w.send(Message::Text(json)).await.is_err() {
+                                    break;
+                                }
+                            }
+                            // a lagged slow peer skips dropped messages rather than dying
+                            Err(broadcast::error::RecvError::Lagged(_)) => continue,
+                            Err(broadcast::error::RecvError::Closed) => break,
                         }
                     }
                 });
                 tracing::info!(%principal, doc = %doc_id, peer_id, "subscribed");
             }
             SyncMessage::Update { doc_id, bytes } => {
-                // send requires write(document) — revoked already rejected.
+                if !is_safe_doc_id(&doc_id) {
+                    send(&write, &err("bad_doc_id", "unsafe doc_id")).await?;
+                    continue;
+                }
+                // send requires write(document); revocation re-checked above.
                 if let Some(tx) = rooms.lock().await.get(&doc_id) {
                     let _ = tx.send((
                         peer_id,
@@ -151,6 +172,10 @@ async fn handle_conn(stream: TcpStream, rooms: Rooms, config: Arc<Config>) -> Re
                 DocStore::new((*config).clone()).save_snapshot(&doc_id, &bytes)?;
             }
             SyncMessage::Snapshot { doc_id, bytes } => {
+                if !is_safe_doc_id(&doc_id) {
+                    send(&write, &err("bad_doc_id", "unsafe doc_id")).await?;
+                    continue;
+                }
                 DocStore::new((*config).clone()).save_snapshot(&doc_id, &bytes)?;
             }
             SyncMessage::Awareness { doc_id, presence } => {
@@ -166,8 +191,14 @@ async fn handle_conn(stream: TcpStream, rooms: Rooms, config: Arc<Config>) -> Re
         }
     }
 
-    let _ = subscribed_doc;
     Ok(())
+}
+
+fn err(code: &str, message: &str) -> SyncMessage {
+    SyncMessage::Error {
+        code: code.to_string(),
+        message: message.to_string(),
+    }
 }
 
 async fn room_sender(rooms: &Rooms, doc_id: &str) -> broadcast::Sender<RoomMsg> {

@@ -101,6 +101,16 @@ pub fn approve_request(
         return Err(SalaryInvariantViolation { fields: forbidden });
     }
 
+    // Grant the requested fields plus the non-private row labels (team/period)
+    // so row-scoped results stay labelled. Labels are not sensitive and are
+    // never in NEVER_DELEGABLE.
+    let mut allow = req.fields.clone();
+    for label in ["team", "period"] {
+        if !allow.iter().any(|f| f == label) {
+            allow.push(label.to_string());
+        }
+    }
+
     let mut delegated = approver_cap.clone();
     delegated.holder = req.requester.clone();
     Ok(attenuate(
@@ -108,7 +118,7 @@ pub fn approve_request(
         AttenuationBlock {
             by: approver_cap.holder.clone(),
             deny_fields: NEVER_DELEGABLE.iter().map(|s| s.to_string()).collect(),
-            allow_fields: Some(req.fields.clone()),
+            allow_fields: Some(allow),
             deny_views: Vec::new(),
             rows: req.row_scope.clone(),
             ttl: Some(req.ttl.clone()),

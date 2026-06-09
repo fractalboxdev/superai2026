@@ -8,7 +8,7 @@
 use serde::Serialize;
 use serde_json::{json, Map, Value};
 
-use crate::access::biscuit::{authorize, row_allowed};
+use crate::access::biscuit::{authorize, effective_capability, row_allowed};
 use crate::access::{
     AuthDecision, Capability, DenyReason, Operation, QueryRequest, RowScope, View,
 };
@@ -68,8 +68,17 @@ pub fn query(index: &BrainIndex, cap: &Capability, view: &View, select: &[String
         } => (granted_fields, redacted_fields, row_filter),
     };
 
-    // always keep team/period for labelling row-scoped aggregates
-    let mut projection = vec!["team".to_string(), "period".to_string()];
+    // Keep team/period for labelling row-scoped aggregates, but only if the
+    // caller's TOKEN grants them (effective set) — never project a field outside
+    // the token's authority, even when not in this query's select.
+    let eff_fields = effective_capability(cap)
+        .map(|e| e.fields)
+        .unwrap_or_default();
+    let mut projection: Vec<String> = ["team", "period"]
+        .into_iter()
+        .filter(|label| eff_fields.contains(*label))
+        .map(String::from)
+        .collect();
     for f in &granted {
         if !projection.contains(f) {
             projection.push(f.clone());
@@ -183,17 +192,30 @@ pub fn search(index: &BrainIndex, cap: &Capability, q: &str) -> Vec<Value> {
 
 /// Anomalies for a view/period the caller may query (spec 06 `brain.detect_anomalies`).
 pub fn detect_anomalies(index: &BrainIndex, cap: &Capability, view: &View) -> QueryResult {
-    let decision = authorize(
+    // Anomaly figures are derived from `gross`, so the caller must actually hold
+    // `gross` — a denied view OR `gross` landing in `redacted` is a denial,
+    // otherwise gross-derived baseline/observed would leak past field redaction.
+    match authorize(
         cap,
         &QueryRequest {
             op: Operation::Query,
             view: view.clone(),
             fields: vec!["gross".into()],
         },
-    );
-    if let AuthDecision::Denied(reason) = decision {
-        let answer = deny_copy(&reason);
-        return QueryResult::Denied { reason, answer };
+    ) {
+        AuthDecision::Denied(reason) => {
+            let answer = deny_copy(&reason);
+            return QueryResult::Denied { reason, answer };
+        }
+        AuthDecision::Ok { granted_fields, .. } if !granted_fields.iter().any(|f| f == "gross") => {
+            return QueryResult::Denied {
+                reason: DenyReason::NoGrant,
+                answer:
+                    "Denied — anomalies require the gross metric, which your token does not grant."
+                        .into(),
+            };
+        }
+        AuthDecision::Ok { .. } => {}
     }
     let rows: Vec<Value> = index
         .anomalies
@@ -219,10 +241,11 @@ pub fn detect_anomalies(index: &BrainIndex, cap: &Capability, view: &View) -> Qu
     }
 }
 
-/// Write a memory scoped to a document, taint-tracked (spec 06 `brain.remember`).
-/// `read_acl` is the max acl_tag of everything the agent read this turn; the
-/// written card is stamped at least that high so privileged context can't be
-/// laundered into a low-acl card.
+/// Write a memory scoped to a document (spec 06 `brain.remember`). The card is
+/// stamped with `read_acl` as its acl floor. Full taint tracking — stamping
+/// with the max acl_tag of every source the agent read *this turn* — needs a
+/// per-session read-set the MCP server does not yet thread through; today the
+/// caller passes a doc-scoped floor. Tracking that read-set is future work.
 pub fn remember(
     store: &Store,
     index: &mut BrainIndex,

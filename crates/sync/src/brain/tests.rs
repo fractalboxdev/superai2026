@@ -4,8 +4,9 @@
 
 use serde_json::json;
 
+use crate::access::biscuit::attenuate;
 use crate::access::request::{approve_request, AccessRequest};
-use crate::access::View;
+use crate::access::{AttenuationBlock, View};
 use crate::brain::synthesis::{detect_anomalies, synthesize};
 use crate::brain::{retrieval, BrainIndex, Learning};
 use crate::config::{Config, InferenceBackend};
@@ -152,4 +153,79 @@ fn card_scrub_under_authorized_caller_denied() {
 
     // but the public spend card is readable
     assert!(retrieval::get_context(&store, &index, &cto, "spend").is_ok());
+}
+
+fn spike_index() -> BrainIndex {
+    let mut index = BrainIndex::default();
+    for team in ["eng", "ops"] {
+        index.raw_events.push(spend_event("2026-04", team, 10_000));
+        index.raw_events.push(spend_event("2026-05", team, 35_000));
+    }
+    index
+}
+
+fn learning(applies_from: &str, metric: &str) -> Learning {
+    Learning {
+        id: "l".into(),
+        topic: "spend".into(),
+        statement: "annotation".into(),
+        applies_from: applies_from.into(),
+        acl_tag: AclTag {
+            view: View::new("stripe", "spend_by_team"),
+            fields: vec!["gross".into()],
+        },
+        provenance_id: None,
+        source: "human".into(),
+        suppresses_metric: Some(metric.into()),
+    }
+}
+
+#[test]
+fn learning_in_future_period_does_not_suppress() {
+    let mut index = spike_index();
+    // a correction that only applies from a LATER period must not suppress the May spike
+    index
+        .learnings
+        .push(learning("2026-06", "stripe/spend_by_team:gross"));
+    detect_anomalies(&mut index, "stripe/spend_by_team", "gross");
+    assert_eq!(
+        index.anomalies.len(),
+        1,
+        "future-dated learning must not suppress"
+    );
+}
+
+#[test]
+fn learning_for_other_metric_does_not_suppress() {
+    let mut index = spike_index();
+    // a learning about :net must not suppress a :gross anomaly
+    index
+        .learnings
+        .push(learning("2026-05", "stripe/spend_by_team:net"));
+    detect_anomalies(&mut index, "stripe/spend_by_team", "gross");
+    assert_eq!(
+        index.anomalies.len(),
+        1,
+        "metric mismatch must not suppress"
+    );
+}
+
+#[test]
+fn detect_anomalies_denied_without_gross_field() {
+    // a token that can query the view but is NOT granted `gross` must not get
+    // gross-derived anomaly figures (field redaction enforced on the tool).
+    let mut index = spike_index();
+    detect_anomalies(&mut index, "stripe/spend_by_team", "gross");
+    let no_gross = attenuate(
+        &scenario::cto_agent_capability(),
+        AttenuationBlock {
+            by: "cto".into(),
+            deny_fields: vec!["gross".into()],
+            ..Default::default()
+        },
+    );
+    assert!(matches!(
+        retrieval::detect_anomalies(&index, &no_gross, &scenario::spend_by_team()),
+        retrieval::QueryResult::Denied { .. }
+    ));
 }

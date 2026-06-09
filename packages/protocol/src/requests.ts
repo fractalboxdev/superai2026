@@ -78,14 +78,16 @@ export function approveRequest(
   const forbidden = req.fields.filter((f) => (NEVER_DELEGABLE as readonly string[]).includes(f));
   if (forbidden.length > 0) throw new SalaryInvariantViolation(forbidden);
 
-  // Narrow the approver's token to exactly the requested fields + row scope,
-  // then hand it to the requester. denyViews on everything except the target
-  // view keeps the delegated token single-purpose.
+  // Grant the requested fields plus the non-private row labels (team/period) so
+  // row-scoped results stay labelled, then hand the token to the requester.
+  const allowFields = [...req.fields];
+  for (const label of ["team", "period"]) if (!allowFields.includes(label)) allowFields.push(label);
+
   return attenuate(
     { ...approverCap, holder: req.requester },
     {
       by: approverCap.holder,
-      allowFields: req.fields,
+      allowFields,
       denyFields: [...NEVER_DELEGABLE],
       rows: req.rowScope,
       ttl: req.ttl,

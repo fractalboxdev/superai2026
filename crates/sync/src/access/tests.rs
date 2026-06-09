@@ -193,6 +193,59 @@ fn flow_b_salary_invariant_no_approval_path() {
 }
 
 #[test]
+fn deny_views_cannot_be_re_granted() {
+    let cap = attenuate(
+        &scenario::cfo_capability(),
+        AttenuationBlock {
+            by: "cfo".into(),
+            deny_views: vec![scenario::finance_private()],
+            ..Default::default()
+        },
+    );
+    assert!(matches!(
+        authorize(&cap, &q(scenario::finance_private(), &["gross"])),
+        AuthDecision::Denied(DenyReason::ViewDenied)
+    ));
+}
+
+#[test]
+fn wrong_operation_is_denied() {
+    // a read-only token cannot be used for a query op
+    let cap = mint(
+        &scenario::cfo_root(),
+        "agent:cto/1",
+        vec![Operation::Read],
+        scenario::spend_by_team(),
+        vec!["team".into(), "gross".into()],
+        vec![],
+    )
+    .unwrap();
+    assert!(matches!(
+        authorize(&cap, &q(scenario::spend_by_team(), &["gross"])),
+        AuthDecision::Denied(DenyReason::WrongOp)
+    ));
+}
+
+#[test]
+fn route_request_auto_approves_inside_envelope() {
+    // spend_by_team is in the CFO envelope's auto-approve list
+    let req = crate::access::request::AccessRequest {
+        id: "r".into(),
+        requester: "agent:cto/1".into(),
+        view: scenario::spend_by_team(),
+        fields: vec!["gross".into()],
+        row_scope: None,
+        reason: "usage".into(),
+        doc: "finops".into(),
+        ttl: "7d".into(),
+    };
+    assert!(matches!(
+        route_request(&req, &scenario::cfo_envelope()),
+        RouteDecision::Auto { .. }
+    ));
+}
+
+#[test]
 fn engineering_agent_has_no_path_to_salary() {
     let cap = scenario::eng_agent_capability();
     // no grant at all for finance_private
