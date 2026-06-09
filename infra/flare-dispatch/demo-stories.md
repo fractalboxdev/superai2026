@@ -23,3 +23,20 @@ Navigate to the web app (follow the primary "Get started" / "Launch app" CTA, or
 go to the `/app` path if the CTA is absent). Confirm the app shell loads — a
 visible header and the main content region — without a blank screen or an error
 overlay. Capture the loaded app as the story's key screenshot.
+
+## capability-console-flow-a
+In the web app, find the "Acting as" switcher and the "Run a flow" controls in
+the left sidebar. Click "Flow A · request → approve". Confirm a permission
+request card appears in the right panel showing the CTO's agent asking for
+`gross`, `credits` and `discount_tier` on `stripe/finance_private` with
+`employee_salary` denied. Click "Approve (scoped)". Confirm the query result then shows a
+net-of-credits answer and that the audit trail logs a minted scoped token.
+Capture the approved result as the story's key screenshot.
+
+## capability-console-flow-b
+Click "Flow B · salary invariant". Confirm the permission request card shows the
+Engineering agent reaching for `employee_salary`, that it is marked **forbidden /
+no approval path** (no Approve button is offered), and that the audit trail logs
+the request as blocked. Confirm the document still shows the salary column as
+redacted. This is the provable "the CTO's agent can't read the CEO's salary"
+claim, observed in the UI.
