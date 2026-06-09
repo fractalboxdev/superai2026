@@ -11,7 +11,7 @@ Contextful is a **local-first company brain**: teams collaborate in shared docum
 | 00 | [Overview](./00-overview.md) | Problem, personas, what we showcase, architecture, stack, repo map, milestones, glossary |
 | 01 | [Rooms & Sync](./01-room-sync.md) | Rooms, Weaver editor, Loro CRDT sync over WebSocket/Tailscale, presence, wire protocol |
 | 02 | [Brain & Memory](./02-brain-memory.md) | Markdown brain + SQLite/DuckDB index, ingest→synthesize lifecycle, scoping, storage layout |
-| 03 | [Access Control](./03-access-control.md) | Biscuit capabilities, attenuation, field/row auth, permission requests, the salary invariant |
+| 03 | [Access Control](./03-access-control.md) | Biscuit capabilities, attenuation, field/row auth, permission requests, the salary invariant, web access-control UI (directory · delegation · inbox) |
 | 04 | [Sandbox & Agents](./04-sandbox-agents.md) | Vercel Sandbox (+ local fallback), agent runtime, inference backends, identity |
 | 05 | [Connectors & ETL](./05-connectors-etl.md) | Connector trait, Stripe (mock), Exa, cron scheduling, context layer |
 | 06 | [MCP Interface](./06-mcp-interface.md) | Embedded `rmcp` server, brain tools, stdio + HTTP/SSE transports, auth |
