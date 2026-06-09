@@ -108,7 +108,13 @@ For a team member to double-click and run, Gatekeeper must pass:
 **Alternatives considered:**
 
 - **Native SwiftUI + Sparkle.** Most "Mac-native" feel and the lightest menu-bar story, but introduces a third language/toolchain and a parallel UI implementation; rejected to avoid a Swift silo divergent from the web UI. Revisit only if Tauri's menu-bar/Keychain ergonomics prove insufficient.
-- **Electron.** Heaviest bundle, no Rust affinity, no advantage over Tauri here. Rejected.
+- **Electron.** Rejected. Electron would let us reuse the `apps/web` UI — but Tauri already does that (same WebView UI) *and* keeps the Rust core, so Electron's one advantage is neutralized while every cost remains:
+  - **Bundle weight.** Electron ships a full Chromium + Node runtime — a ~150–250 MB `.app` and ~100 MB RAM at idle. Tauri uses the OS **WKWebView** (already on every Mac) for a ~5–15 MB bundle and a fraction of the memory. This is a background, always-on host process; idle footprint matters.
+  - **Wrong-language supervisor.** The supervisor that spawns, health-checks, and restarts the `crates/sync` sidecar ([§2](#2-architecture)) is naturally Rust — same workspace, same `crates/sync` types. Under Electron it would be **Node** glue shelling out to the binary, adding a JS↔binary process boundary and a second runtime to sign, notarize, and patch (Chromium ships frequent security CVEs the host would inherit).
+  - **No Rust affinity.** Electron has no first-class story for bundling a Rust binary as a sidecar or sharing code with `crates/sync`; Tauri treats both as native ([Tauri sidecar](https://tauri.app/develop/sidecar/)).
+  - **Security surface.** A bundled Chromium widens the attack surface and the hardened-runtime/entitlements story ([§7](#7-distribution--signing)) for an app whose whole pitch is a *thin, trustworthy* shell that adds no new trust surface ([§2](#2-architecture)). Less runtime = less to audit.
+
+  Net: Electron pays Tauri's only benefit back in full and adds bundle weight, a second runtime, and a larger CVE/attack surface — strictly dominated here.
 
 ## 9. Repo map
 
