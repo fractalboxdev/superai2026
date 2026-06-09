@@ -12,7 +12,7 @@ Monorepo with three deployable components:
 
 ## Prerequisites
 
-- Node ≥ 20 and [pnpm](https://pnpm.io) 11
+- Node ≥ 22.13 and [pnpm](https://pnpm.io) 11
 - Rust (stable) via [rustup](https://rustup.rs)
 
 ## Quick start
