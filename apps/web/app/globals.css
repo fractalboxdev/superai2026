@@ -253,3 +253,161 @@
   .app-body { grid-template-columns: 1fr; }
   .app-sidebar { display: none; }
 }
+
+/* ================================================================== */
+/* Web access-control UI (specs/03 §6): directory · delegation · inbox */
+/* ================================================================== */
+
+.ac-shell { min-height: 100vh; background: var(--color-bg); }
+
+/* ---- Cross-surface nav ------------------------------------------- */
+.ac-nav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  height: 3.5rem;
+  padding-inline: var(--space-6);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+.ac-nav__brand {
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-text);
+  text-decoration: none;
+}
+.ac-nav__links { display: flex; align-items: center; gap: var(--space-1); list-style: none; margin: 0; padding: 0; }
+.ac-nav__link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-muted);
+  text-decoration: none;
+}
+.ac-nav__link:hover { background: var(--color-surface-hover); color: var(--color-text); }
+.ac-nav__link--on { background: var(--color-primary-subtle); color: var(--color-primary-on-subtle); }
+.ac-nav__count {
+  min-width: 1.25rem;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-full);
+  background: var(--color-accent-subtle);
+  color: var(--color-accent-hover);
+  font-size: var(--text-xs);
+  text-align: center;
+}
+
+/* ---- Page shell -------------------------------------------------- */
+.ac-page {
+  width: 100%;
+  max-width: var(--container-wide);
+  margin-inline: auto;
+  padding: var(--space-8) var(--space-6) var(--space-10);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+.ac-page__head h1 { font-size: var(--text-3xl); margin-top: var(--space-2); }
+.ac-page__head p { margin-top: var(--space-2); max-width: var(--container-prose); }
+.ac-page__head code, .ac-note code, .ac-page__head--row code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  color: var(--color-text);
+}
+.ac-page__head--row { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); }
+
+.ac-note {
+  font-size: var(--text-sm);
+  color: var(--color-text-subtle);
+  border-top: 1px solid var(--color-divider);
+  padding-top: var(--space-4);
+}
+
+/* ---- Principal / capability shared bits -------------------------- */
+.ac-principal__head { display: flex; align-items: center; gap: var(--space-3); }
+.ac-principal__id { min-width: 0; }
+.ac-principal__name { font-weight: var(--weight-semibold); color: var(--color-text); }
+.ac-principal__sub { font-size: var(--text-xs); color: var(--color-text-subtle); }
+.ac-mono { font-family: var(--font-mono); }
+
+.ac-caps { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-3); }
+.ac-caps__empty { font-size: var(--text-sm); }
+
+/* ---- Directory --------------------------------------------------- */
+.ac-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+  gap: var(--space-5);
+  align-items: start;
+}
+.ac-agents { margin-top: var(--space-5); border-top: 1px solid var(--color-divider); padding-top: var(--space-4); }
+.ac-agents__label {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--color-text-subtle);
+  margin-bottom: var(--space-3);
+}
+.ac-agent {
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+}
+.ac-agent + .ac-agent { margin-top: var(--space-3); }
+.ac-agent__action { margin-left: auto; flex: none; }
+
+/* ---- Delegation form --------------------------------------------- */
+.ac-form-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: var(--space-5); align-items: start; }
+.ac-form select.cf-input { cursor: pointer; }
+.ac-hint { font-weight: var(--weight-normal); text-transform: none; letter-spacing: 0; color: var(--color-text-subtle); }
+.ac-card__label {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--color-text-subtle);
+  margin-bottom: var(--space-2);
+}
+.ac-subset {
+  margin-top: var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+.ac-subset--ok { color: var(--color-success); }
+.ac-subset--bad { color: var(--color-danger); }
+
+/* ---- Inbox ------------------------------------------------------- */
+.ac-inbox { display: flex; flex-direction: column; gap: var(--space-4); }
+.ac-request__top { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.ac-request__who { display: flex; align-items: center; gap: var(--space-3); }
+.ac-request__reason { margin-top: var(--space-3); font-size: var(--text-sm); color: var(--color-text-muted); }
+.ac-request__scope {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  line-height: var(--leading-relaxed);
+}
+.ac-request__actions { margin-top: var(--space-4); display: flex; gap: var(--space-2); }
+.ac-status { margin-top: var(--space-4); font-size: var(--text-sm); }
+.ac-status--auto { color: var(--color-text-muted); }
+.ac-status--ok { color: var(--color-success); }
+.ac-status--ok .ac-caps { margin-top: var(--space-3); }
+.ac-status--deny { color: var(--color-danger); font-weight: var(--weight-semibold); }
+.ac-audit { display: flex; flex-direction: column; gap: var(--space-2); }
+
+@media (max-width: 820px) {
+  .ac-form-grid { grid-template-columns: 1fr; }
+  .ac-page__head--row { flex-direction: column; }
+}

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router";
 import type { MetaFunction } from "react-router";
 import { viewId, type Capability, type View } from "@superai2026/protocol/access";
 import { brainQuery, type BrainResult } from "@superai2026/protocol/brain";
@@ -258,6 +259,9 @@ export default function Home() {
               </span>
             ))}
           </span>
+          <Link className="cf-btn cf-btn--ghost cf-btn--sm" to="/directory">
+            Access control →
+          </Link>
           <button className="cf-btn cf-btn--ghost cf-btn--sm" onClick={resetAll}>
             Reset demo
           </button>
