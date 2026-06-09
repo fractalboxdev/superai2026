@@ -1,0 +1,9 @@
+/* Contextful Design System — single entry point.
+ * Import once at the app root:
+ *
+ *   import "@superai2026/design-system/styles.css";
+ *
+ * Order matters: tokens define the variables that base + components consume. */
+@import "./tokens.css";
+@import "./base.css";
+@import "./components.css";

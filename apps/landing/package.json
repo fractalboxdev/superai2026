@@ -12,6 +12,7 @@
     "clean": "rm -rf dist .astro"
   },
   "dependencies": {
+    "@superai2026/design-system": "workspace:*",
     "astro": "^5.2.5"
   },
   "devDependencies": {

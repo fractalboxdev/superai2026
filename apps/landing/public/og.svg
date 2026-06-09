@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="Contextful — the company brain that keeps every agent in its lane">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f8fafc" />
+      <stop offset="1" stop-color="#eef2ff" />
+    </linearGradient>
+    <linearGradient id="mark" x1="80" y1="80" x2="200" y2="200" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#6366f1" />
+      <stop offset="1" stop-color="#0ea5e9" />
+    </linearGradient>
+    <linearGradient id="ink" x1="0" y1="0" x2="900" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4f46e5" />
+      <stop offset="1" stop-color="#0ea5e9" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)" />
+  <g transform="translate(80,80)">
+    <rect width="96" height="96" rx="24" fill="url(#mark)" />
+    <path d="M66 34a21 21 0 1 0 0 28" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" />
+    <circle cx="68" cy="48" r="8" fill="#f59e0b" />
+  </g>
+  <text x="200" y="148" font-family="Inter, system-ui, sans-serif" font-size="40" font-weight="700" fill="#0f172a">Contextful</text>
+  <text x="80" y="320" font-family="Inter, system-ui, sans-serif" font-size="76" font-weight="800" letter-spacing="-1.5" fill="#0f172a">The company brain that keeps</text>
+  <text x="80" y="408" font-family="Inter, system-ui, sans-serif" font-size="76" font-weight="800" letter-spacing="-1.5" fill="url(#ink)">every agent in its lane.</text>
+  <text x="80" y="486" font-family="Inter, system-ui, sans-serif" font-size="32" font-weight="500" fill="#475569">Local-first context, scoped by capability. No SuperAgent. No leaks.</text>
+  <text x="80" y="566" font-family="Inter, system-ui, sans-serif" font-size="26" font-weight="600" fill="#4f46e5">www.contextful.work</text>
+</svg>

@@ -17,6 +17,9 @@ importers:
 
   apps/landing:
     dependencies:
+      '@superai2026/design-system':
+        specifier: workspace:*
+        version: link:../../packages/design-system
       astro:
         specifier: ^5.2.5
         version: 5.18.2(@types/node@22.19.20)(rollup@4.61.1)(typescript@5.9.3)(yaml@2.9.0)
@@ -27,6 +30,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@superai2026/design-system':
+        specifier: workspace:*
+        version: link:../../packages/design-system
       next:
         specifier: ^15.1.6
         version: 15.5.19(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -55,6 +61,8 @@ importers:
       typescript:
         specifier: ^5.7.3
         version: 5.9.3
+
+  packages/design-system: {}
 
 packages:
 

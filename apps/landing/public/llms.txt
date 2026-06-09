@@ -1,7 +1,14 @@
-# superai2026
+# Contextful
 
-> Placeholder landing page for superai2026. Internals to be specified later.
+> Local-first company brain. Humans and their AI agents collaborate in shared documents, and every agent sees only the context it is permitted to — scoped by capability. No company-wide "SuperAgent".
 
 ## Pages
 
-- [Home](https://example.com/): landing page
+- [Home](https://www.contextful.work/): what Contextful is, the demo video, the deck, and the spec
+- [Demo](https://demo.contextful.work/): live collaborative demo
+
+## Highlights
+
+- Capability-based access control with attenuation — an agent's access is provably a subset of its owner's (e.g. the CTO's agent cannot read the CEO's salary).
+- A memory/brain that synthesizes context from your tools, detects anomalies, and grows over time — exposed over MCP.
+- Local-first sync (Loro CRDT) over Tailscale; cloud is optional, used only for sync transport and LLM inference.

@@ -1,0 +1,24 @@
+{
+  "name": "@superai2026/design-system",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Contextful design system — design tokens, base styles, and component primitives (Trust Indigo direction).",
+  "sideEffects": ["*.css"],
+  "exports": {
+    "./styles.css": "./styles.css",
+    "./tokens.css": "./tokens.css",
+    "./base.css": "./base.css",
+    "./components.css": "./components.css",
+    "./tokens.json": "./tokens.json",
+    "./logo.svg": "./logo.svg"
+  },
+  "files": [
+    "styles.css",
+    "tokens.css",
+    "base.css",
+    "components.css",
+    "tokens.json",
+    "logo.svg"
+  ]
+}

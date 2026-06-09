@@ -1,15 +1,31 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import "@superai2026/design-system/styles.css";
 import "./globals.css";
 
 // Per-page metadata via the Next.js Metadata API (parent CLAUDE.md SEO rules).
-// TODO: set metadataBase to the production domain.
 export const metadata: Metadata = {
-  metadataBase: new URL("https://example.com"),
+  metadataBase: new URL("https://demo.contextful.work"),
+  applicationName: "Contextful",
   title: {
-    default: "superai2026",
-    template: "%s · superai2026",
+    default: "Contextful",
+    template: "%s · Contextful",
   },
-  description: "Placeholder web app for superai2026.",
+  description:
+    "Local-first company brain. Every agent sees only the context it's permitted to — scoped by capability.",
+  openGraph: {
+    title: "Contextful",
+    description:
+      "Local-first company brain. Every agent sees only the context it's permitted to — scoped by capability.",
+    type: "website",
+  },
+  twitter: { card: "summary_large_image" },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f8fafc" },
+    { media: "(prefers-color-scheme: dark)", color: "#020617" },
+  ],
 };
 
 export default function RootLayout({
@@ -19,6 +35,18 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+          rel="stylesheet"
+        />
+      </head>
       <body>{children}</body>
     </html>
   );
