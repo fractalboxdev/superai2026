@@ -42,7 +42,7 @@ The control plane configures a deployment and seeds identity. It is **identity-r
 Two Vercel projects from the same repo (unchanged from the repo baseline):
 
 - **Landing** — Root Directory `apps/landing`, Astro preset → `www.contextful.work`.
-- **Web** — Root Directory `apps/web`, **React Router 7 (Vite)** build → `demo.contextful.work`. (Vercel preset via `vercelPreset()` in `react-router.config.ts` with `ssr: true`; Vercel splits the app across Functions + static assets.)
+- **Web** — Root Directory `apps/web`, **React Router 7 (Vite)** build → `demo.contextful.work`. `apps/web/vercel.json` pins `framework: react-router` + `buildCommand: pnpm run build` — git auto-detection otherwise reverts the project framework to `nextjs` (build fails "No Next.js version detected"), and the raw `react-router` bin 127s because it isn't on `PATH` in the pnpm workspace. `vercelPreset()` in `react-router.config.ts` (gated on `process.env.VERCEL`) emits the Vercel Build Output.
 
 `crates/sync` is **not** deployed to Vercel — it runs on the host. **Vercel Sandbox** (agent compute, [04](./04-sandbox-agents.md)) is a separate Vercel capability, provisioned on demand by the agent runtime.
 

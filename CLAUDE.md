@@ -80,7 +80,7 @@ flowchart TD
 Two separate Vercel projects backed by the same repo:
 
 - **Landing** — Root Directory `apps/landing`, framework preset Astro.
-- **Web** — Root Directory `apps/web`, React Router 7 (Vite) via `vercelPreset()` (framework preset Vite).
+- **Web** — Root Directory `apps/web`, React Router 7 (Vite). `apps/web/vercel.json` pins `framework: react-router` + `buildCommand: pnpm run build`; `vercelPreset()` (gated on `process.env.VERCEL`) emits the Vercel Build Output. Don't rely on the dashboard framework setting — git deploys auto-revert it to `nextjs`.
 
 Set the project Root Directory in the Vercel dashboard; Vercel handles the monorepo `pnpm install` from the repo root. Turborepo remote caching is optional. `crates/sync` is **not** deployed to Vercel — it runs locally / self-hosted.
 
