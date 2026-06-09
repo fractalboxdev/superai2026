@@ -53,6 +53,11 @@
     {
       "class_name": "RunSandbox",
       "image": "./infra/Dockerfile.sandbox",
+      // Bake a C/C++ toolchain into the lean image (upstream #129): `offload-test`
+      // compiles Rust (`cargo test -p sync`), and rustc needs a `cc`/linker that
+      // the base cloudflare/sandbox image doesn't ship. Requires UPSTREAM_SHA at
+      // or past the #129 merge (the arg is a no-op on older images).
+      "image_vars": { "WITH_BUILD_TOOLS": "true" },
       "instance_type": "standard-2",
       "max_instances": 16
     },
