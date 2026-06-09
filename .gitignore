@@ -19,6 +19,8 @@ target/
 .env
 .env.local
 .env.*.local
+# dotenvx private decryption keys — NEVER commit. The encrypted .env.production IS safe to commit.
+.env.keys
 
 # Logs
 *.log
