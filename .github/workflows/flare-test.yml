@@ -5,8 +5,15 @@
 # `flare-dispatch/offload-test` check-run (require THAT in branch protection).
 #
 # The command runs superai2026's actual tests:
-#   * Rust — `cargo test -p sync` (capability + brain unit/property tests). The
-#     lean sandbox image is Node-based, so the command bootstraps rustup on
+#   * Rust — `cargo test -p sync` (capability + brain unit/property tests). Rust
+#     always needs a `cc`/linker to link. The sandbox image *can* bake one via the
+#     WITH_BUILD_TOOLS arg (set on RunSandbox in flare-dispatch/wrangler.jsonc;
+#     upstream flare-dispatch#129) — but only once the dispatcher is redeployed at
+#     that UPSTREAM_SHA. The inline `apt-get` below is a GUARDED fallback
+#     (`command -v cc`) so the command is green against the currently-deployed
+#     (stock) image too, and no-ops once `cc` is present. Without a `cc` from
+#     either source, every offload-test died at link with `linker 'cc' not found`
+#     (green locally, red on Cloudflare). The command then bootstraps rustup on
 #     demand (rust-toolchain.toml pins the toolchain). Compiling Rust is exactly
 #     the expensive work worth offloading off GHA.
 #   * JS monorepo gates — `pnpm build` + `pnpm typecheck`.
@@ -44,6 +51,6 @@ jobs:
             {
               "repo": "${{ github.repository }}",
               "sha": "${{ github.event.pull_request.head.sha || github.sha }}",
-              "command": "set -eu; corepack enable; pnpm install --frozen-lockfile; pnpm run build; pnpm run typecheck; if ! command -v cargo >/dev/null 2>&1; then curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain none; . $HOME/.cargo/env; fi; cargo test -p sync; cargo build -p sync; REQUIRE_SYNC_BIN=1 pnpm test",
+              "command": "set -eu; corepack enable; pnpm install --frozen-lockfile; pnpm run build; pnpm run typecheck; if ! command -v cc >/dev/null 2>&1; then export DEBIAN_FRONTEND=noninteractive; apt-get update; apt-get install -y --no-install-recommends build-essential; fi; if ! command -v cargo >/dev/null 2>&1; then curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain none; . $HOME/.cargo/env; fi; cargo test -p sync; cargo build -p sync; REQUIRE_SYNC_BIN=1 pnpm test",
               "timeoutSec": 2400
             }
