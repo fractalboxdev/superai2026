@@ -1,0 +1,33 @@
+{
+  "name": "desktop",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "tauri": "tauri",
+    "sidecar": "./scripts/prepare-sidecar.sh",
+    "app:dev": "pnpm sidecar && tauri dev",
+    "app:build": "pnpm sidecar --release && tauri build"
+  },
+  "dependencies": {
+    "@superai2026/design-system": "workspace:*",
+    "@tauri-apps/api": "^2.5.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.5.0",
+    "@types/react": "^19.0.7",
+    "@types/react-dom": "^19.0.3",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.7.3",
+    "vite": "^6.0.7"
+  }
+}

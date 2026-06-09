@@ -1,6 +1,6 @@
 # 10 · macOS App
 
-**Status:** Draft v1 · **Anchors:** new `apps/desktop` (Tauri shell); wraps the `crates/sync` binary (`serve`, `client`, `mcp`, `ctl`).
+**Status:** Implemented v1 · **Anchors:** `apps/desktop` (Tauri shell); wraps the `crates/sync` binary (`serve`, `client`, `mcp`, `ctl`).
 
 A native **macOS app** so a non-technical team member can **install and run Contextful without a terminal** — double-click, click through a short setup, and the host peer (`serve` + `mcp` + brain) or a member peer (`client`) is running and supervised. It is a thin, trustworthy shell around the existing Rust binary ([00 §7](./00-overview.md)); it adds **no new authority** and owns **no data** — the binary and `~/.contextful` remain the source of truth ([02](./02-brain-memory.md), [03](./03-access-control.md)).
 
@@ -120,8 +120,8 @@ For a team member to double-click and run, Gatekeeper must pass:
 
 | Component | Location | Notes |
 |---|---|---|
-| Desktop app | `apps/desktop` | Tauri shell (Rust core + TS/Effect WebView UI), spec-only this pass |
-| Sidecar binary | `crates/sync` (existing) | bundled into the app at build; no code change to ship as sidecar |
+| Desktop app | `apps/desktop` | Tauri shell — Rust core (`src-tauri/`) + React/TS WebView UI (`src/`) |
+| Sidecar binary | `crates/sync` (existing) | staged by `apps/desktop/scripts/prepare-sidecar.sh`; no code change to ship as sidecar |
 | Shared UI | `packages/design-system` ([08](./08-design-system.md)) | menu-bar + window UI reuse tokens/components |
 
 The app is **outside** the Vercel deploy ([07 §4](./07-deployment-iac.md)) — it is a downloadable artifact, not a hosted site.
@@ -130,11 +130,14 @@ The app is **outside** the Vercel deploy ([07 §4](./07-deployment-iac.md)) — 
 
 | Spec element | Code |
 |---|---|
-| Tauri shell + sidecar packaging | `apps/desktop` — spec-only |
-| Supervisor (spawn/health/restart) | `apps/desktop/src-tauri` — spec-only |
-| Identity → Keychain | wraps `sync ctl seed`/`mint` ([07 §3](./07-deployment-iac.md)) — spec-only |
+| Tauri shell + sidecar packaging | `apps/desktop/src-tauri/tauri.conf.json` (`externalBin`) + `apps/desktop/scripts/prepare-sidecar.sh` ✅ |
+| Supervisor (spawn/health/restart) | `apps/desktop/src-tauri/src/supervisor.rs` ✅ |
+| Menu-bar status item ([§3](#3-menu-bar-ui)) | `apps/desktop/src-tauri/src/tray.rs` ✅ |
+| First-run wizard ([§4](#4-first-run-setup)) | `apps/desktop/src/views/Wizard.tsx` ✅ |
+| Identity → Keychain | `apps/desktop/src-tauri/src/identity.rs` + `keychain.rs` (wraps `sync ctl seed`/`mint`, [07 §3](./07-deployment-iac.md)) ✅ |
+| Tailscale detect ([§6](#6-tailscale-integration)) | `apps/desktop/src-tauri/src/tailscale.rs` ✅ |
 | Sidecar binary | `crates/sync` ✅ built (shipped as-is) |
-| LaunchAgent auto-start | spec-only |
-| Sign / notarize / DMG in CI | spec-only |
+| LaunchAgent auto-start | `apps/desktop/src-tauri/src/launchagent.rs` ✅ |
+| Sign / notarize / DMG in CI | `.github/workflows/desktop.yml` ✅ (unsigned until Developer ID secrets land) |
 
-**Future:** scaffold `apps/desktop` (Tauri sidecar wrapping the existing binary), the supervisor + menu-bar status item, the first-run wizard, Keychain-backed identity, the LaunchAgent installer, and the signed/notarized universal `.dmg` build in CI. All of it wraps already-built behavior — no new authority, no change to the capability path ([03](./03-access-control.md)).
+**Future:** real Apple Developer ID secrets in CI (today the artifact is unsigned), the Tauri updater feed ([§5](#5-lifecycle--auto-start) "Updates"), graceful relay drain on host update, and the member-registration path against a remote host's control plane (today `ctl mint` runs against the local store). The shell wraps already-built behavior — no new authority, no change to the capability path ([03](./03-access-control.md)).

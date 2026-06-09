@@ -1,0 +1,86 @@
+# Desktop (macOS) — build, test, and package the Contextful menu-bar app
+# (spec 10). Runs on its own macOS lane: the Tauri crate is deliberately a
+# standalone Cargo workspace so the ubuntu CI lane never needs webkit deps.
+#
+# Signing/notarization are gated on secrets: with no Developer ID secrets the
+# job still produces an unsigned .app/.dmg artifact (fine for CI verification;
+# spec 10 §7 distribution needs the secrets in place).
+name: Desktop
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/desktop/**"
+      - "crates/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/desktop.yml"
+  pull_request:
+    paths:
+      - "apps/desktop/**"
+      - "crates/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/desktop.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  desktop:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            .
+            apps/desktop/src-tauri
+
+      - run: pnpm install --frozen-lockfile
+
+      # Stage the sidecar first — tauri-build resolves externalBin at compile
+      # time, so the shell crate won't even type-check without it.
+      - name: Stage sidecar (universal)
+        run: ./apps/desktop/scripts/prepare-sidecar.sh --release --universal
+
+      - name: Rust fmt / clippy / test (shell crate)
+        working-directory: apps/desktop/src-tauri
+        run: |
+          cargo fmt --all -- --check
+          cargo clippy --all-targets -- -D warnings
+          cargo test
+
+      - name: Frontend typecheck + build
+        run: pnpm --filter desktop build
+
+      - name: Bundle universal .app + .dmg
+        working-directory: apps/desktop
+        run: pnpm exec tauri build --target universal-apple-darwin
+        env:
+          # Empty secrets ⇒ tauri skips signing/notarization (unsigned artifact).
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Contextful-macos-universal
+          path: |
+            apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+            apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app
+          if-no-files-found: error
