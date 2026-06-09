@@ -18,6 +18,7 @@ Contextful is a **local-first company brain**: teams collaborate in shared docum
 | 07 | [Deployment & IaC](./07-deployment-iac.md) | Local-first deploy, Tailscale, Vercel, control plane, Pulumi recipes |
 | 08 | [Design System](./08-design-system.md) | Brand pillars, tokens, components (`@superai2026/design-system`) |
 | 09 | [Testing & Acceptance](./09-testing-acceptance.md) | flare-dispatch, reference flows A–D, capability property tests |
+| 10 | [macOS App](./10-macos-app.md) | Native Mac app to install + run the host/member peer (no terminal): Tauri shell, bundled `sync` sidecar, supervisor, first-run setup, launchd auto-start, signing/notarization |
 
 *New here? Start with [00 · Overview](./00-overview.md). Implementers can jump straight to the spec for their component — every file cross-references the others and ends with a Scaffold / Status map.*
 

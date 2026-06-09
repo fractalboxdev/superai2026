@@ -29,7 +29,7 @@ The editor is [Weaver](https://github.com/OpenHackersClub/weaver): headless Type
 
 - **Centralized & authoritative — not P2P.** The host's `serve` instance is the single source of truth; all peers (browsers, headless `client`s, sandbox agents) sync through it.
 - **Transport:** WSS over **Tailscale** (WireGuard mesh + TLS). Tailscale is set up externally on the host (see [07](./07-deployment-iac.md)); this system assumes the tailnet exists.
-- **Local client peer:** `sync client` is a headless peer that syncs documents to **local files** for editing outside the browser (e.g. a CLI or, in future, a native Mac app). It uses the same protocol and reflects local file edits as Loro updates.
+- **Local client peer:** `sync client` is a headless peer that syncs documents to **local files** for editing outside the browser (e.g. a CLI or the native Mac app, [10](./10-macos-app.md)). It uses the same protocol and reflects local file edits as Loro updates.
 
 ## 4. Wire protocol (`serve` ↔ peer)
 
