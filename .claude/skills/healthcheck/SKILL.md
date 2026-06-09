@@ -11,6 +11,7 @@ Verify the three deployable surfaces of this monorepo are healthy, then **fix th
 | --- | --- | --- |
 | `apps/landing` (Astro → Vercel) | `https://www.contextful.work` serves 2xx with expected content; `robots.txt` + `llms.txt` resolve | HTTP probe |
 | `apps/web` (Next.js → Vercel) | `https://demo.contextful.work` serves 2xx with expected content | HTTP probe |
+| HyperDX observability | OTLP ingest endpoint reachable; app wiring (instrumentation, browser RUM, SDK deps) intact; prod ingestion key set | HTTP probe + repo checks |
 | GitHub Actions CI | latest run of every workflow concluded `success` | `gh run list` |
 | Local build (opt-in) | `cargo check` + `pnpm lint/typecheck/build` pass | `--full` |
 
@@ -53,6 +54,12 @@ cargo clippy --all-targets -- -D warnings    # confirm clean
 - **5xx** → a bad build or runtime error. Check the latest deploy in the Vercel dashboard or `vercel logs`; if the cause is in-repo (build break), fix and let it redeploy.
 - **404 on `/robots.txt` or `/llms.txt`** → the file is missing from `apps/landing/public/`. Add it (these are required by the repo SEO rules).
 - **`marker not in body` warning** → page is up but served unexpected content (wrong project at that domain, or a placeholder). Verify the right project owns the domain.
+
+**HyperDX observability failing.** See `apps/web/OBSERVABILITY.md` for the full setup.
+- **`server APM missing` / `browser RUM missing` / `SDK deps missing`** (✗) → the integration was removed or moved. Restore `apps/web/src/instrumentation.ts`, `apps/web/src/components/hyperdx-init.tsx` (mounted in `layout.tsx`), and the `@hyperdx/node-opentelemetry` + `@hyperdx/browser` deps. These are real regressions — fix in-repo.
+- **`OTLP endpoint no response`** (●) → usually benign (the collector rejects the GET probe). Only act if traces also stop appearing in HyperDX Search; then check `OTEL_EXPORTER_OTLP_ENDPOINT` and network egress.
+- **`HYPERDX_API_KEY not set`** (●) → prod telemetry won't flow until the key is set. Add `HYPERDX_API_KEY` (server) and `NEXT_PUBLIC_HYPERDX_API_KEY` (browser, needed **at build time**) to the Vercel project env / encrypted `.env.production`. This is config, not code — hand back the concrete step.
+- **`platform log-drain not configured`** (–) → intentional. The Vercel→HyperDX log drain is **Pro-only**; do not propose it unless the account is on Pro. App logs already ship via the SDK's console capture.
 
 ## 3. Re-verify and report
 

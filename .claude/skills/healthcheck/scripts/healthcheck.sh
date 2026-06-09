@@ -3,11 +3,13 @@
 # healthcheck.sh — health-check every deployable surface of the superai2026 monorepo.
 #
 # Checks, in order:
-#   1. Deployments  — HTTP probes of the live Vercel landing + web apps (status, latency,
-#                     content marker) plus landing's robots.txt / llms.txt.
-#   2. Vercel CLI   — latest deployment state per project, if the `vercel` CLI is installed.
-#   3. CI           — latest GitHub Actions run per workflow, via `gh`.
-#   4. Local build  — (opt-in, --full) cargo check + pnpm lint/typecheck/build.
+#   1. Deployments   — HTTP probes of the live Vercel landing + web apps (status, latency,
+#                      content marker) plus landing's robots.txt / llms.txt.
+#   2. Vercel CLI    — latest deployment state per project, if the `vercel` CLI is installed.
+#   3. Observability — HyperDX OTLP ingest endpoint reachable + app wiring (instrumentation,
+#                      browser RUM, SDKs) intact + production ingestion key set.
+#   4. CI            — latest GitHub Actions run per workflow, via `gh`.
+#   5. Local build   — (opt-in, --full) cargo check + pnpm lint/typecheck/build.
 #
 # Production URLs are derived from the app configs (single source of truth):
 #   apps/landing/astro.config.mjs   -> site:
@@ -35,6 +37,11 @@ LANDING_URL="$(grep -oE 'https?://[^"]+' "$REPO_ROOT/apps/landing/astro.config.m
 WEB_URL="$(grep -oE 'new URL\("https?://[^"]+' "$REPO_ROOT/apps/web/src/app/layout.tsx" 2>/dev/null | grep -oE 'https?://[^"]+' | head -1)"
 : "${LANDING_URL:=https://www.contextful.work}"
 : "${WEB_URL:=https://demo.contextful.work}"
+
+# HyperDX OTLP ingestion endpoint the apps report to — derived from .env.example
+# (single source of truth), falling back to HyperDX Cloud.
+HYPERDX_ENDPOINT="$(grep -oE '^OTEL_EXPORTER_OTLP_ENDPOINT=[^ ]+' "$REPO_ROOT/.env.example" 2>/dev/null | cut -d= -f2-)"
+: "${HYPERDX_ENDPOINT:=https://in-otel.hyperdx.io}"
 
 # Brand marker we expect in served HTML (sanity-checks the page isn't an error shell).
 MARKER="Contextful"
@@ -110,6 +117,51 @@ check_deployments() {
       skip "vercel CLI present but not logged in (run 'vercel login')"
     fi
   fi
+}
+
+check_observability() {
+  section "Observability — HyperDX"
+
+  # 1. Ingestion endpoint reachable. OTLP rejects plain GET, so we only treat
+  #    "no HTTP response at all" as a problem — and even then only a warning,
+  #    since the collector may simply refuse non-POST rather than being down.
+  local code
+  code="$(curl -sS -L --max-time "$TIMEOUT" -o /dev/null -w '%{http_code}' "$HYPERDX_ENDPOINT" 2>/dev/null)"
+  if [ -n "$code" ] && [ "$code" != "000" ]; then
+    ok   "ingest    OTLP endpoint reachable   ${D}HTTP $code · $HYPERDX_ENDPOINT${N}"
+  else
+    note "ingest    OTLP endpoint no response  ${D}$HYPERDX_ENDPOINT (may reject GET — verify ingest in HyperDX)${N}"
+  fi
+
+  # 2. App wiring intact — catches an accidental removal of the integration.
+  local web="$REPO_ROOT/apps/web"
+  if [ -f "$web/src/instrumentation.ts" ] && grep -qi 'hyperdx' "$web/src/instrumentation.ts"; then
+    ok  "web       server APM wired          ${D}(src/instrumentation.ts)${N}"
+  else
+    bad "web       server APM missing        ${D}(apps/web/src/instrumentation.ts → @hyperdx/node-opentelemetry)${N}"
+  fi
+  if [ -f "$web/src/components/hyperdx-init.tsx" ]; then
+    ok  "web       browser RUM wired         ${D}(src/components/hyperdx-init.tsx)${N}"
+  else
+    bad "web       browser RUM missing       ${D}(apps/web/src/components/hyperdx-init.tsx)${N}"
+  fi
+  if grep -q '@hyperdx/node-opentelemetry' "$web/package.json" 2>/dev/null \
+     && grep -q '@hyperdx/browser' "$web/package.json" 2>/dev/null; then
+    ok  "web       HyperDX SDKs present      ${D}(apps/web/package.json)${N}"
+  else
+    bad "web       HyperDX SDK deps missing  ${D}(apps/web/package.json)${N}"
+  fi
+
+  # 3. Production ingestion key — prod telemetry is dark until this is set.
+  if [ -f "$REPO_ROOT/.env.production" ] && grep -q '^HYPERDX_API_KEY=' "$REPO_ROOT/.env.production"; then
+    ok   "prod      HYPERDX_API_KEY set        ${D}(.env.production)${N}"
+  else
+    note "prod      HYPERDX_API_KEY not set    ${D}(.env.production / Vercel env — prod telemetry won't flow until set)${N}"
+  fi
+
+  # 4. Vercel platform log drain is Pro-gated and intentionally not configured —
+  #    app logs already reach HyperDX via the SDK's console capture.
+  skip "vercel    platform log-drain not configured (Pro-only; app logs ship via SDK)"
 }
 
 check_ci() {
@@ -210,10 +262,10 @@ esac
 printf "${B}superai2026 healthcheck${N}  ${D}%s${N}\n" "$REPO_ROOT"
 
 case "$MODE" in
-  deploy) check_deployments ;;
+  deploy) check_deployments; check_observability ;;
   ci)     check_ci ;;
-  full)   check_deployments; check_ci; check_local ;;
-  *)      check_deployments; check_ci ;;
+  full)   check_deployments; check_observability; check_ci; check_local ;;
+  *)      check_deployments; check_observability; check_ci ;;
 esac
 
 section "Summary"

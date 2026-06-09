@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "@superai2026/design-system/styles.css";
 import "./globals.css";
+import { HyperDXInit } from "@/components/hyperdx-init";
 
 // Per-page metadata via the Next.js Metadata API (parent CLAUDE.md SEO rules).
 export const metadata: Metadata = {
@@ -47,7 +48,10 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <HyperDXInit />
+        {children}
+      </body>
     </html>
   );
 }
