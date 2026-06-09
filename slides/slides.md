@@ -94,10 +94,10 @@ Everything runs on the company's own machines.
 <v-clicks>
 
 1. The CIO asks the room: *"Justify the spend."*
-2. Engineering's agent brings the **value** — then hits a wall on cost.
+2. Engineering's agent brings the **value** — and checks the **open web** for the going market rate (cited). Then hits a wall on real cost.
 3. It asks the CFO's agent for **one scoped slice**. Approved — just that slice.
-4. The CFO's agent adds the **revenue** that covers it.
-5. A **sourced** answer appears — every claim vouched for by its owner.
+4. A **data-scientist agent** aggregates **per-product performance** on request — revenue, cost, margin — scoped to Stripe + internal data, nothing more.
+5. A **sourced** answer assembles — every claim vouched for by its owner, every web figure cited.
 
 </v-clicks>
 
@@ -108,6 +108,11 @@ MONEY SHOT: the salary denial. Make this the climax and give it air.
 IMPORTANT: that denial must be a hard-coded, deterministic policy rule — NEVER a live
 model call — so it is 100% reproducible on stage. Demo the agent's reasoning only on the
 safe path. (One-line flourish if there's time: "and it flagged a runaway AWS job humans missed.")
+WEB RESEARCH (Exa, separate PR): step 2 = inline grounding while the doc is edited; step 5 =
+a research pass during synthesis — each external figure cited. For a reliable stage run,
+cache/replay the lookups so it's deterministic. Don't say "Exa" on stage — say "the open web".
+DATA SCIENTIST (step 4): a specialist agent invoked on request — joins Stripe + internal data
+into per-product performance; it holds NO standing access, only the scoped slice for this question.
 -->
 
 ---
@@ -145,6 +150,7 @@ layout: two-cols
 - **Mission Control** — steer with a prompt *and* pin deterministic guardrails.
 - **Control plane** sets policy & topology once, centrally.
 - The **brain grows** — learns baselines, flags anomalies next month.
+- **Open-web research (Exa)** — the one outbound path: policy-gated and cited; only the *query* leaves.
 
 ::right::
 
@@ -153,7 +159,8 @@ flowchart TD
     Doc[Shared document] --- Agents[Scoped agents]
     Agents --- MC[Mission Control]
     Agents --- Brain[(Growing brain)]
-    Agents --- Conn[Connectors<br/>Stripe · AWS · Linear · …]
+    Agents --- Conn[Connectors<br/>Stripe · AWS · internal DBs · …]
+    Agents -->|outbound, policy-gated| Web[Web research · Exa]
     CP[Control plane] -.configures.-> MC
 ```
 
@@ -161,6 +168,8 @@ flowchart TD
 TECHNICAL 2/3. On-prem + Tailscale is the trust story; be ready for the "single coordination
 plane" question. The growing brain = durable, approved reasoning + learned baselines that make
 next month's same question faster. Keep this to ≤3 technical slides total.
+WEB RESEARCH (Exa, separate PR) is the ONE outbound path — only the query leaves the network,
+never private context; results are cited. Reconciles with "data never leaves" via the hybrid story.
 -->
 
 ---
