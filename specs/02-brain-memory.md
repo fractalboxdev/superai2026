@@ -85,7 +85,7 @@ Prefer **DuckDB** for columnar FinOps aggregates, **SQLite** for transactional K
 
 The brain spawns agents to ingest and synthesize. Inference is **trait-based and swappable by config** (see [04 §3](./04-sandbox-agents.md)):
 
-- **Default:** AWS **Bedrock + Claude** via the Converse API. On Bedrock the model ids are inference-profile ids with a region prefix — `us.anthropic.claude-opus-4-8` (high-stakes synthesis), `us.anthropic.claude-sonnet-4-6` (routine extraction), `us.anthropic.claude-haiku-4-5` (cheap classification); the bare `claude-*` ids are first-party-API only.
+- **Default:** the **Vercel AI Gateway** — a single OpenAI-compatible endpoint (`https://ai-gateway.vercel.sh/v1`, auth via `AI_GATEWAY_API_KEY`) that fronts Claude with cross-provider failover and unified usage/billing. Models are addressed by provider-prefixed slug — `anthropic/claude-opus-4-8` (high-stakes synthesis), `anthropic/claude-sonnet-4-6` (routine extraction), `anthropic/claude-haiku-4-5` (cheap classification). The Rust brain reaches the Gateway with `async-openai`; TypeScript surfaces use the **Vercel AI SDK** (`@ai-sdk/gateway` provider) — see [04 §3](./04-sandbox-agents.md).
 - **On-prem / offline:** **LM Studio** via OpenAI-compatible endpoint (`http://localhost:1234/v1`) on the host (e.g. Mac Studio).
 
 Only already-permitted content is ever sent to any backend; structured query + redaction never call an LLM.

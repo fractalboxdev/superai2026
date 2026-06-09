@@ -33,6 +33,10 @@ flowchart TD
     OWN --> AG
 ```
 
+**Ownership & lifecycle.** Sandbox provisioning is owned by the **host**, never the member — entering a room only *signals* presence and carries no authority to spin up compute. `serve` is authoritative for room presence; on a room's first entrant it calls `Sandbox::ensure(room_id)` (**single-flight** per room), which **reuses** a live sandbox (optionally `extendTimeout`) or **provisions** a fresh one via the configured driver. The host mints the agent's attenuated Biscuit identity at launch ([03](./03-access-control.md)). When the last member leaves, the host stops refreshing the sandbox and lets it expire; re-entry recreates it.
+
+**Rust owns control; the Vercel call is the only TypeScript.** The lifecycle decision, the `room → sandbox` registry, and identity minting all live in Rust (`crates/sync`) — that is where the trust root and brain data are. The **local/offline driver** (`sandbox/local.rs`) is pure Rust. Only the **Vercel driver** (`sandbox/vercel.rs`) needs TypeScript: `@vercel/sandbox` is a TS-only SDK and Vercel ships the SDK as the supported contract (no stable public REST surface), so `sandbox/vercel.rs` shells out to a thin Node bridge — `packages/sandbox-bridge` (`@superai2026/sandbox-bridge`) — that wraps `Sandbox.create` / `extendTimeout` / teardown. The bridge is **hands-and-feet only**: it makes no policy decisions and never touches Biscuit minting. (Start as a per-call `node` subprocess; graduate to a warm host-side sidecar over a local socket for log streaming.)
+
 > **Divergence from reference:** the reference (original `superai2026/specs/SPEC.md` draft) ran agents only in an on-host process. Here **Vercel Sandbox is the default** runtime (to support "run agents from anywhere with any harness"); the on-host constrained process is retained as the offline fallback.
 >
 > The trust boundary is **data-egress, not compute-locality**: a cloud sandbox holds **no ambient authority** and only ever sees the redacted, capability-filtered slice the brain returns — so cloud compute does not widen data exposure. Both runtimes share MCP-only-egress and ephemerality, but they are **not** equally isolated *yet*: the Vercel microVM is enforced today, whereas the local process's filesystem isolation is the future `wasmtime`/OS-sandbox work. Until that lands, the local fallback must run under OS-enforced isolation before it can claim the Vercel path's guarantee (see [02 §4](./02-brain-memory.md) — direct host-FS access bypasses the capability layer).
@@ -47,11 +51,18 @@ Inference is **trait-based**, swapped by config:
 
 | Backend | Crate | Use |
 |---|---|---|
-| **Bedrock + Claude** (default) | `aws-sdk-bedrockruntime` (Converse API) | high-quality synthesis & agent turns |
+| **Vercel AI Gateway** (default) | `async-openai` pointed at `https://ai-gateway.vercel.sh/v1` (auth via `AI_GATEWAY_API_KEY`) | high-quality synthesis & agent turns — one key fronts Claude, with cross-provider failover |
 | **OpenAI-compatible** (LM Studio) | `async-openai` pointed at `http://localhost:1234/v1` | on-prem / offline mode |
 | `StubInference` | — | default when no backend feature is enabled (keeps the scaffold compiling) |
 
-> **Divergence from reference:** the reference defaulted to LM Studio + Gemma. Here the **default is Bedrock + Claude**, with LM Studio as the explicit on-prem/offline backend. The local-first guarantee still holds because the data boundary (field/row redaction, structured query) needs **no** LLM — and the offline demo runs on LM Studio.
+Because the Gateway speaks the OpenAI API, the cloud and offline backends share **one** `async-openai` client implementation — only the base URL, key, and model id differ.
+
+**Client SDKs — one Gateway, two callers**, both sharing `AI_GATEWAY_API_KEY` and the `anthropic/claude-*` model slugs:
+
+- **Rust (`crates/sync` inference trait)** — `async-openai` against the Gateway's OpenAI-compatible endpoint; drives brain synthesis and the Rust agent loop.
+- **TypeScript (Vercel Sandbox agent harnesses, `apps/web`)** — the **Vercel AI SDK** (`ai` + the `@ai-sdk/gateway` provider, e.g. `gateway('anthropic/claude-opus-4-8')`), which gives streaming, tool-calling, and Gateway routing/observability out of the box. On Vercel it can authenticate via an OIDC token instead of a static key.
+
+> **Divergence from reference:** the reference defaulted to LM Studio + Gemma. Here the **default is the Vercel AI Gateway** (a single OpenAI-compatible endpoint that routes to Claude with unified usage/billing and provider failover), with LM Studio as the explicit on-prem/offline backend. The local-first guarantee still holds because the data boundary (field/row redaction, structured query) needs **no** LLM — and the offline demo runs on LM Studio.
 
 ## 4. Learning from past mistakes & anomalies
 
@@ -63,9 +74,10 @@ Agents improve month-over-month: the synthesis pipeline detects anomalies agains
 |---|---|
 | `agent` subcommand | `crates/sync/src/main.rs` → `agent::runtime::run` |
 | Agent loop (MCP-only tool surface, request_access) | `crates/sync/src/agent/runtime.rs` (stub) |
-| Inference trait + StubInference (+ Bedrock/OpenAI features) | `crates/sync/src/agent/inference.rs` (stub) |
+| Inference trait + StubInference (+ OpenAI-compatible backend feature) | `crates/sync/src/agent/inference.rs` (stub) |
 | Sandbox trait + lifecycle | `crates/sync/src/sandbox/mod.rs` (stub) |
-| Vercel Sandbox driver | `crates/sync/src/sandbox/vercel.rs` (stub) |
+| Vercel Sandbox driver (Rust control) | `crates/sync/src/sandbox/vercel.rs` (stub) |
+| Vercel Sandbox Node bridge (`@vercel/sandbox` wrapper) | `packages/sandbox-bridge` (Node, stub) |
 | Local constrained-process driver | `crates/sync/src/sandbox/local.rs` (stub) |
 
-**Future:** real Vercel Sandbox SDK orchestration (`@vercel/sandbox`), recreate-on-re-entry wiring, `wasmtime` isolation, Bedrock/LM Studio calls, agent harness adapters (Claude Code / OpenClaw).
+**Future:** real Vercel Sandbox orchestration via the `packages/sandbox-bridge` Node wrapper, recreate-on-re-entry wiring, `wasmtime` isolation, Vercel AI Gateway / LM Studio calls, agent harness adapters (Claude Code / OpenClaw).

@@ -1,6 +1,6 @@
 # Contextful — Technical Specs
 
-> **Source of truth.** This `specs/` directory is the authoritative technical specification for Contextful in the `2super` repo. It supersedes the earlier draft in `../superai2026/specs/SPEC.md` (kept as a reference). Where the two differ, **this spec wins** — notably: agents run in **Vercel Sandbox**, inference defaults to **AWS Bedrock + Claude** (LM Studio local as offline mode), the brain is a **human-readable Markdown** store, ingestion is **cron-scheduled**, the web is enriched via **Exa**, and infra is provisioned with **Pulumi**.
+> **Source of truth.** This `specs/` directory is the authoritative technical specification for Contextful in the `2super` repo. It supersedes the earlier draft in `../superai2026/specs/SPEC.md` (kept as a reference). Where the two differ, **this spec wins** — notably: agents run in **Vercel Sandbox**, inference defaults to the **Vercel AI Gateway** (routing to Claude; LM Studio local as offline mode), the brain is a **human-readable Markdown** store, ingestion is **cron-scheduled**, the web is enriched via **Exa**, and infra is provisioned with **Pulumi**.
 
 Contextful is a **local-first company brain**: teams collaborate in shared documents ("rooms"); every member's AI agent gets **attenuated, capability-scoped** access to company context — never one all-powerful "SuperAgent". The motivating scenario is multi-SaaS **FinOps** (Stripe, AWS, Vercel, Claude, …) where Eng / Ops / Finance / CTO / CIO / CFO each need a different, provably-bounded slice of the same brain.
 

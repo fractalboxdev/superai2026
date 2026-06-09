@@ -26,8 +26,8 @@ These are the scenarios that must work on stage. They double as the acceptance s
 
 ### Flow D — local-first (on-prem proof, performed live)
 1. Disconnect the cloud uplink entirely; keep editing — Weaver persists to OPFS, Loro accumulates locally, peers sync through the host.
-2. The brain keeps working: structured `brain.query` + redaction need no LLM; offline mode swaps **both** cloud defaults — agent compute Vercel Sandbox → the on-host local runtime (under OS-enforced isolation, [04 §2](./04-sandbox-agents.md)), and inference Bedrock → **local LM Studio** — so synthesis/agent answers run entirely on the host, no internet.
-3. (Optional) Re-enable cloud to switch synthesis back to **Bedrock/Claude** for higher quality.
+2. The brain keeps working: structured `brain.query` + redaction need no LLM; offline mode swaps **both** cloud defaults — agent compute Vercel Sandbox → the on-host local runtime (under OS-enforced isolation, [04 §2](./04-sandbox-agents.md)), and inference the Vercel AI Gateway → **local LM Studio** — so synthesis/agent answers run entirely on the host, no internet.
+3. (Optional) Re-enable cloud to switch synthesis back to the **Vercel AI Gateway (Claude)** for higher quality.
 
 ## 2. Test layers
 
