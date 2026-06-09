@@ -39,7 +39,24 @@ flowchart LR
   RWF -->|check-run| PR
 ```
 
-## One-time setup
+## Two ways to point at a dispatcher
+
+- **Option A — your own dispatcher (BYOC).** Run the one-time setup below to
+  deploy `flare-dispatch-superai2026` into your Cloudflare account.
+- **Option B — a shared hosted dispatcher.** If a dispatcher is already running,
+  skip the deploy entirely. Just set three repo settings and you're done:
+  - Variable `FLAREDISPATCH_ENDPOINT` = the hosted Worker URL.
+  - Secret `FLAREDISPATCH_HMAC` = the hosted Worker's `HMAC_SECRET` (verify with
+    `printf %s "<value>" | openssl dgst -sha256 | cut -c1-8` — it must equal the
+    `dispatcher_secret_fingerprint` that the Worker returns on a bad-signature
+    `POST /v1/dispatch/<run>`).
+  - Variable `FLAREDISPATCH_INSTALLATION_ID` = the FlareDispatch GitHub App's
+    installation id on this repo (the App must be installed on
+    `fractalboxdev/superai2026`; get it with
+    `gh api repos/fractalboxdev/superai2026/installation --jq .id`). Without it,
+    the run can't open the check-run callback.
+
+## One-time setup (Option A — BYOC)
 
 Everything below is **operator-only** — it needs your Cloudflare Workers Paid
 account and GitHub App, which can't be scripted from the repo. It's a
@@ -93,6 +110,7 @@ Add these to the repo (Settings → Secrets and variables → Actions):
 | Secret | `CLOUDFLARE_ACCOUNT_ID` | your 32-hex account id |
 | Secret | `FLAREDISPATCH_HMAC` | same value as the Worker's `HMAC_SECRET` |
 | Variable | `FLAREDISPATCH_ENDPOINT` | the deployed Worker URL (set **after** the first deploy) |
+| Variable | `FLAREDISPATCH_INSTALLATION_ID` | the App's installation id on this repo (`gh api repos/fractalboxdev/superai2026/installation --jq .id`) |
 | Variable | `FLAREDISPATCH_DEMO_URL` | deployed site URL `product-demo` drives on PRs (optional) |
 
 Then run the deploy:

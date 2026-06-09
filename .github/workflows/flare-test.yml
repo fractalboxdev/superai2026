@@ -33,6 +33,7 @@ jobs:
           run: offload-test
           endpoint: ${{ vars.FLAREDISPATCH_ENDPOINT }}
           hmac-secret: ${{ secrets.FLAREDISPATCH_HMAC }}
+          installation-id: ${{ vars.FLAREDISPATCH_INSTALLATION_ID }}
           mode: fire-and-forget
           inputs: |
             {
