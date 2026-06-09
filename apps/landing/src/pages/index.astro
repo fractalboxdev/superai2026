@@ -41,6 +41,13 @@ const jsonLd = {
   ],
 };
 
+const stats = [
+  { to: 100, suffix: "%", label: "On-device by default" },
+  { to: 0, suffix: "", label: "Bytes leave without consent" },
+  { to: 48, suffix: "ms", label: "Scoped-query median" },
+  { to: 7, suffix: "+", label: "Tools in one brain" },
+];
+
 const features = [
   {
     title: "Capability-scoped access",
@@ -65,6 +72,27 @@ const steps = [
   { n: "02", title: "Delegate scoped access", body: "Grant your agent a narrow slice of your permissions. It asks for more only when it needs to." },
   { n: "03", title: "Ask the company brain", body: "Agents answer from synthesized context — capability-filtered, with the parts you can't see redacted." },
 ];
+
+const compare = {
+  bad: {
+    label: "One omniscient SuperAgent",
+    points: [
+      "Sees everything — so one prompt injection leaks everything.",
+      "Trust by configuration: a forgotten ACL is a breach.",
+      "Your context lives in someone else's cloud.",
+      "No proof of what it could and couldn't access.",
+    ],
+  },
+  good: {
+    label: "Contextful",
+    points: [
+      "Each agent sees a provable subset — never more than its grantor.",
+      "Trust by construction: scopes attenuate, they can't widen.",
+      "Context stays on your machine, on-prem by default.",
+      "Every answer is auditable, with redactions shown inline.",
+    ],
+  },
+};
 
 const tools = ["Claude", "Notion", "Slack", "Linear", "AWS", "Vercel", "Stripe"];
 ---
@@ -94,13 +122,25 @@ const tools = ["Claude", "Notion", "Slack", "Linear", "AWS", "Vercel", "Stripe"]
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap"
       rel="stylesheet"
     />
     <script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
   </head>
 
   <body>
+    <!-- Scroll progress -->
+    <div class="progress" aria-hidden="true"></div>
+
+    <!-- Dynamic ambient background — drifts behind all content -->
+    <div class="bg" aria-hidden="true">
+      <div class="bg__grid"></div>
+      <div class="bg__orb bg__orb--1"></div>
+      <div class="bg__orb bg__orb--2"></div>
+      <div class="bg__orb bg__orb--3"></div>
+      <div class="bg__spot"></div>
+    </div>
+
     <header class="nav">
       <div class="cf-container nav__inner">
         <a class="brand" href="/" aria-label="Contextful home">
@@ -118,10 +158,10 @@ const tools = ["Claude", "Notion", "Slack", "Linear", "AWS", "Vercel", "Stripe"]
           <span class="brand__name">Contextful</span>
         </a>
         <nav class="nav__links" aria-label="Primary">
-          <a href="#features">Product</a>
-          <a href="#how">How it works</a>
           <a href="#demo">Demo</a>
-          <a class="cf-btn cf-btn--primary cf-btn--sm" href={demoUrl}>Open the demo →</a>
+          <a href="#capability">How it's safe</a>
+          <a href="#how">How it works</a>
+          <a class="cf-btn cf-btn--primary cf-btn--sm" href="#demo">See it live ↓</a>
         </nav>
       </div>
     </header>
@@ -131,20 +171,22 @@ const tools = ["Claude", "Notion", "Slack", "Linear", "AWS", "Vercel", "Stripe"]
       <section class="hero">
         <div class="cf-container hero__inner">
           <div class="hero__copy">
-            <span class="cf-eyebrow">Local-first company brain</span>
-            <h1 class="hero__title">
+            <span class="cf-eyebrow" data-reveal>
+              <span class="pulse"></span> Local-first company brain
+            </span>
+            <h1 class="hero__title" data-reveal style="--d:.06s">
               The company brain that keeps <span class="cf-text-gradient">every agent in its lane.</span>
             </h1>
-            <p class="hero__sub">
+            <p class="hero__sub" data-reveal style="--d:.12s">
               Contextful gives every teammate — and every AI agent — exactly the context they're
               permitted to see. No omniscient SuperAgent. No accidental leaks. Local-first,
               collaborative, scoped by capability.
             </p>
-            <div class="hero__cta">
-              <a class="cf-btn cf-btn--primary cf-btn--lg" href={demoUrl}>Watch the demo</a>
+            <div class="hero__cta" data-reveal style="--d:.18s">
+              <a class="cf-btn cf-btn--primary cf-btn--lg" href="#demo">▶ Watch it think</a>
               <a class="cf-btn cf-btn--secondary cf-btn--lg" href={slidesUrl}>See the deck</a>
             </div>
-            <p class="hero__note">Runs on-prem over Tailscale · Cloud optional</p>
+            <p class="hero__note" data-reveal style="--d:.24s">Runs on-prem over Tailscale · Cloud optional</p>
           </div>
 
           <!-- Product glimpse -->
@@ -167,20 +209,145 @@ const tools = ["Claude", "Notion", "Slack", "Linear", "AWS", "Vercel", "Stripe"]
         </div>
       </section>
 
+      <!-- DEMO — the product showing itself -->
+      <section id="demo" class="section section--demo">
+        <div class="cf-container">
+          <header class="section__head section__head--center" data-reveal>
+            <span class="cf-eyebrow">Watch it think</span>
+            <h2>A 100-person FinOps review, <span class="cf-text-gradient">showing itself.</span></h2>
+            <p class="section__lead">
+              Live below: a CFO agent asks a budget question. The brain answers from synthesized
+              context — with the salary line redacted, because that's outside the agent's scope.
+            </p>
+          </header>
+
+          <div class="stage cf-card cf-card--raised" data-reveal style="--d:.08s">
+            <div class="stage__bar">
+              <span class="stage__dots" aria-hidden="true"><i></i><i></i><i></i></span>
+              <span class="stage__title">contextful · Q3 FinOps Review</span>
+              <span class="stage__presence cf-presence" aria-hidden="true">
+                <span class="cf-presence__dot" style="background:var(--cf-indigo-500)">CT</span>
+                <span class="cf-presence__dot" style="background:var(--cf-sky-500)">CF</span>
+                <span class="cf-presence__dot stage__bot" style="background:var(--cf-amber-500)">◆</span>
+              </span>
+            </div>
+
+            <div class="stage__body">
+              <!-- Shared, real-time document -->
+              <article class="doc" aria-hidden="true">
+                <span class="doc__cursor"><b>CFO</b></span>
+                <h4 class="doc__h">Q3 FinOps Review</h4>
+                <p class="doc__p">Cloud + AI spend reached <b>$142k</b> this quarter. After committed-use and model credits, <b>net spend fell 18% MoM</b>.</p>
+                <span class="doc__skel" style="width:92%"></span>
+                <span class="doc__skel" style="width:78%"></span>
+                <p class="doc__p doc__p--redact">Headcount cost: <span class="doc__redact">redacted · outside your scope</span></p>
+                <span class="doc__skel" style="width:64%"></span>
+                <span class="doc__skel" style="width:84%"></span>
+              </article>
+
+              <!-- Ask the brain -->
+              <aside class="ask">
+                <div class="ask__brand">
+                  <span class="ask__spark">✦</span> Ask the company brain
+                </div>
+
+                <div class="ask__q" data-cue="1">
+                  Is this month's Claude spend justified after credits?<span class="caret"></span>
+                </div>
+
+                <div class="ask__scoping" data-cue="2">
+                  <span class="ask__scopelabel">Scoping to capabilities</span>
+                  <span class="cf-badge cf-badge--success">spend_by_team ✓</span>
+                  <span class="cf-badge cf-badge--danger">payroll.salary ✗</span>
+                </div>
+
+                <div class="ask__a">
+                  <p data-cue="3"><b>Net spend is down 18% MoM</b> while agent utilization is up 31%.</p>
+                  <p data-cue="4">Cost per resolved task fell <b>$0.42 → $0.29</b>.</p>
+                  <p data-cue="5" class="ask__a--redact">Headcount impact: <span class="doc__redact">▦▦▦ redacted</span> — outside this agent's scope.</p>
+                  <p data-cue="6" class="ask__verdict">Verdict: <b>justified</b> — efficiency gains outpace spend.</p>
+                </div>
+              </aside>
+            </div>
+
+            <div class="stage__foot">
+              <span class="stage__live"><span class="stage__livedot"></span> live · capability-filtered</span>
+              <button class="stage__replay" type="button" aria-label="Replay the demo">↻ Replay</button>
+            </div>
+          </div>
+
+          <p class="demo__links" data-reveal>
+            <a href={demoUrl}>Open the full interactive demo →</a>
+          </p>
+        </div>
+      </section>
+
+      <!-- Stats -->
+      <section class="stats">
+        <div class="cf-container stats__grid">
+          {stats.map((s, i) => (
+            <div class="stat" data-reveal style={`--d:${i * 0.06}s`}>
+              <div class="stat__num" data-to={s.to} data-suffix={s.suffix}>0{s.suffix}</div>
+              <div class="stat__label">{s.label}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
       <!-- Trust strip -->
       <section class="strip">
         <div class="cf-container">
-          <p class="strip__label">Brings your stack into one capability-scoped brain</p>
+          <p class="strip__label" data-reveal>Brings your stack into one capability-scoped brain</p>
           <ul class="strip__tools">
-            {tools.map((t) => <li>{t}</li>)}
+            {tools.map((t, i) => <li data-reveal style={`--d:${i * 0.04}s`}>{t}</li>)}
           </ul>
+        </div>
+      </section>
+
+      <!-- Capability — the core idea, animated -->
+      <section id="capability" class="section section--alt">
+        <div class="cf-container cap">
+          <header class="section__head" data-reveal>
+            <span class="cf-eyebrow">The core idea</span>
+            <h2>Delegation is attenuation.</h2>
+            <p class="section__lead">
+              An agent can never out-see its grantor. When you delegate, you hand over a
+              <em>narrower</em> slice of your own context — and that slice can only shrink as it
+              passes down the chain.
+            </p>
+            <ul class="cap__list">
+              <li><span class="cap__chk">✓</span> Scopes compose by intersection, never union.</li>
+              <li><span class="cap__chk">✓</span> Redactions are shown, not silently dropped.</li>
+              <li><span class="cap__chk">✓</span> Every grant is revocable and auditable.</li>
+            </ul>
+          </header>
+
+          <figure class="flow cf-card cf-card--raised" data-reveal style="--d:.1s" aria-label="A query flows through a capability filter, which redacts what is out of scope.">
+            <div class="flow__node flow__node--you">
+              <span class="flow__icon">◆</span>
+              <span class="flow__name">CFO agent</span>
+              <span class="flow__sub">grant: spend.read</span>
+            </div>
+            <div class="flow__wire"><span class="flow__pulse"></span></div>
+            <div class="flow__filter">
+              <span class="flow__filterlabel">capability filter</span>
+              <span class="flow__pass">spend_by_team ✓</span>
+              <span class="flow__block">payroll.salary ✗</span>
+            </div>
+            <div class="flow__wire"><span class="flow__pulse flow__pulse--2"></span></div>
+            <div class="flow__node flow__node--brain">
+              <span class="flow__icon">✦</span>
+              <span class="flow__name">scoped answer</span>
+              <span class="flow__sub">salary redacted</span>
+            </div>
+          </figure>
         </div>
       </section>
 
       <!-- Features -->
       <section id="features" class="section">
         <div class="cf-container">
-          <header class="section__head">
+          <header class="section__head" data-reveal>
             <span class="cf-eyebrow">Why Contextful</span>
             <h2>Context, with consent.</h2>
             <p class="section__lead">
@@ -189,8 +356,9 @@ const tools = ["Claude", "Notion", "Slack", "Linear", "AWS", "Vercel", "Stripe"]
             </p>
           </header>
           <div class="grid grid--2">
-            {features.map((f) => (
-              <article class="cf-card cf-card--interactive">
+            {features.map((f, i) => (
+              <article class="cf-card cf-card--interactive feature" data-reveal style={`--d:${i * 0.08}s`}>
+                <span class="feature__idx">{String(i + 1).padStart(2, "0")}</span>
                 <h3>{f.title}</h3>
                 <p class="cf-text-muted">{f.body}</p>
               </article>
@@ -202,13 +370,14 @@ const tools = ["Claude", "Notion", "Slack", "Linear", "AWS", "Vercel", "Stripe"]
       <!-- How it works -->
       <section id="how" class="section section--alt">
         <div class="cf-container">
-          <header class="section__head">
+          <header class="section__head" data-reveal>
             <span class="cf-eyebrow">How it works</span>
             <h2>Share. Delegate. Ask.</h2>
           </header>
           <ol class="grid grid--3 steps">
-            {steps.map((s) => (
-              <li class="cf-card step">
+            <span class="steps__line" aria-hidden="true"><span class="steps__linefill"></span></span>
+            {steps.map((s, i) => (
+              <li class="cf-card step" data-reveal style={`--d:${i * 0.1}s`}>
                 <span class="step__n">{s.n}</span>
                 <h3>{s.title}</h3>
                 <p class="cf-text-muted">{s.body}</p>
@@ -218,25 +387,40 @@ const tools = ["Claude", "Notion", "Slack", "Linear", "AWS", "Vercel", "Stripe"]
         </div>
       </section>
 
-      <!-- Demo -->
-      <section id="demo" class="section">
+      <!-- Comparison -->
+      <section id="why-not" class="section">
         <div class="cf-container">
-          <header class="section__head">
-            <span class="cf-eyebrow">See it run</span>
-            <h2>A 100-person FinOps review, live.</h2>
-            <p class="section__lead">
-              Watch a CTO ask a budget question, a CFO approve a scoped grant, and the brain answer —
-              with the salary line redacted the whole way through.
-            </p>
+          <header class="section__head section__head--center" data-reveal>
+            <span class="cf-eyebrow">Why not a SuperAgent</span>
+            <h2>Omniscience is the vulnerability.</h2>
           </header>
-          <div class="video cf-card cf-card--raised">
-            <div class="video__frame">
-              <a class="cf-btn cf-btn--primary cf-btn--lg" href={demoUrl}>▶ Watch the demo</a>
-            </div>
+          <div class="vs">
+            <article class="vs__col vs__col--bad" data-reveal>
+              <h3 class="vs__title">{compare.bad.label}</h3>
+              <ul class="vs__list">
+                {compare.bad.points.map((p) => <li><span class="vs__mk vs__mk--x">✕</span>{p}</li>)}
+              </ul>
+            </article>
+            <span class="vs__div" aria-hidden="true">vs</span>
+            <article class="vs__col vs__col--good" data-reveal style="--d:.1s">
+              <h3 class="vs__title">{compare.good.label}</h3>
+              <ul class="vs__list">
+                {compare.good.points.map((p) => <li><span class="vs__mk vs__mk--c">✓</span>{p}</li>)}
+              </ul>
+            </article>
           </div>
-          <p class="demo__links">
-            <a href={demoUrl}>Open the live demo</a> · <a href={slidesUrl}>Read the deck</a>
-          </p>
+        </div>
+      </section>
+
+      <!-- CTA -->
+      <section class="cta">
+        <div class="cf-container cta__inner" data-reveal>
+          <h2 class="cta__title">Give every agent <span class="cf-text-gradient">its own lane.</span></h2>
+          <p class="cta__sub">Local-first, capability-scoped, collaborative. See the brain answer — live.</p>
+          <div class="cta__btns">
+            <a class="cf-btn cf-btn--primary cf-btn--lg" href="#demo">▶ Watch it think</a>
+            <a class="cf-btn cf-btn--secondary cf-btn--lg" href={demoUrl}>Open the demo</a>
+          </div>
         </div>
       </section>
     </main>
@@ -258,7 +442,7 @@ const tools = ["Claude", "Notion", "Slack", "Linear", "AWS", "Vercel", "Stripe"]
           <span class="brand__name">Contextful</span>
         </div>
         <nav class="footer__links" aria-label="Footer">
-          <a href={demoUrl}>Demo</a>
+          <a href="#demo">Demo</a>
           <a href={slidesUrl}>Deck</a>
           <a href="https://www.contextful.work">contextful.work</a>
         </nav>
@@ -267,20 +451,118 @@ const tools = ["Claude", "Notion", "Slack", "Linear", "AWS", "Vercel", "Stripe"]
     </footer>
 
     <style>
+      /* ============================================================ *
+       * Dynamic ambient background
+       * Fixed, full-viewport. Drifting aurora orbs + faint grid +
+       * a cursor-following spotlight. Sits behind every section, which
+       * stay opaque islands so copy keeps full clarity & contrast.
+       * ============================================================ */
+      body { background: transparent; }
+
+      .progress {
+        position: fixed;
+        top: 0; left: 0;
+        height: 3px;
+        width: 100%;
+        z-index: calc(var(--z-sticky) + 1);
+        transform: scaleX(var(--p, 0));
+        transform-origin: 0 50%;
+        background: var(--gradient-brand);
+        box-shadow: var(--shadow-ring-primary);
+      }
+
+      .bg {
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        overflow: hidden;
+        pointer-events: none;
+        background: var(--color-bg);
+      }
+
+      .bg__grid {
+        position: absolute;
+        inset: -1px;
+        background-image:
+          linear-gradient(to right, color-mix(in srgb, var(--color-text) 5%, transparent) 1px, transparent 1px),
+          linear-gradient(to bottom, color-mix(in srgb, var(--color-text) 5%, transparent) 1px, transparent 1px);
+        background-size: 58px 58px;
+        -webkit-mask-image: radial-gradient(140% 100% at 50% 0%, #000 0%, transparent 78%);
+        mask-image: radial-gradient(140% 100% at 50% 0%, #000 0%, transparent 78%);
+      }
+
+      .bg__orb {
+        position: absolute;
+        width: 46rem;
+        height: 46rem;
+        border-radius: var(--radius-full);
+        filter: blur(72px);
+        opacity: 0.5;
+        will-change: transform;
+        mix-blend-mode: multiply;
+      }
+      .bg__orb--1 {
+        top: -16rem; left: -10rem;
+        background: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--cf-indigo-500) 70%, transparent) 0%, transparent 68%);
+        animation: orb-a 26s var(--ease-in-out) infinite alternate;
+      }
+      .bg__orb--2 {
+        top: -22rem; right: -14rem;
+        background: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--cf-sky-500) 65%, transparent) 0%, transparent 68%);
+        animation: orb-b 32s var(--ease-in-out) infinite alternate;
+      }
+      .bg__orb--3 {
+        top: 34%; left: 36%;
+        width: 38rem; height: 38rem; opacity: 0.32;
+        background: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--cf-amber-400) 48%, transparent) 0%, transparent 70%);
+        animation: orb-c 38s var(--ease-in-out) infinite alternate;
+      }
+
+      .bg__spot {
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(34rem circle at var(--mx, 50%) var(--my, 24%), color-mix(in srgb, var(--cf-indigo-500) 12%, transparent) 0%, transparent 60%);
+        opacity: 0;
+        transition: opacity var(--duration-slow) var(--ease-out);
+      }
+      .bg.is-tracking .bg__spot { opacity: 1; }
+
+      @keyframes orb-a { from { transform: translate3d(0,0,0) scale(1); } to { transform: translate3d(8rem,6rem,0) scale(1.18); } }
+      @keyframes orb-b { from { transform: translate3d(0,0,0) scale(1.1); } to { transform: translate3d(-7rem,9rem,0) scale(0.92); } }
+      @keyframes orb-c { from { transform: translate3d(0,0,0) scale(0.95); } to { transform: translate3d(-6rem,-7rem,0) scale(1.2); } }
+
+      :global(:root[data-theme="dark"]) .bg__orb,
+      :global(:root:not([data-theme="light"])) .bg__orb { mix-blend-mode: screen; opacity: 0.42; }
+
+      /* ---- Scroll-reveal primitive ------------------------------- */
+      [data-reveal] {
+        opacity: 0;
+        transform: translateY(22px);
+        transition: opacity 0.7s var(--ease-out), transform 0.7s var(--ease-out);
+        transition-delay: var(--d, 0s);
+      }
+      [data-reveal].in { opacity: 1; transform: none; }
+
+      /* ---- Animated gradient accent text ------------------------- */
+      .cf-text-gradient {
+        background-image: linear-gradient(110deg, var(--cf-indigo-600) 0%, var(--cf-sky-500) 40%, var(--cf-indigo-500) 70%, var(--cf-sky-400) 100%);
+        background-size: 220% 100%;
+        -webkit-background-clip: text;
+        background-clip: text;
+        animation: text-pan 9s var(--ease-in-out) infinite alternate;
+      }
+      @keyframes text-pan { from { background-position: 0% 50%; } to { background-position: 100% 50%; } }
+
+      /* ============================================================ *
+       * Nav
+       * ============================================================ */
       .nav {
-        position: sticky;
-        top: 0;
-        z-index: var(--z-sticky);
+        position: sticky; top: 0; z-index: var(--z-sticky);
         background: color-mix(in srgb, var(--color-bg) 82%, transparent);
         backdrop-filter: saturate(140%) blur(10px);
         border-bottom: 1px solid var(--color-border);
       }
-      .nav__inner {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        height: 4rem;
-      }
+      .nav__inner { display: flex; align-items: center; justify-content: space-between; height: 4rem; }
       .brand { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--color-text); }
       .brand:hover { color: var(--color-text); }
       .brand__mark { width: 28px; height: 28px; }
@@ -289,33 +571,45 @@ const tools = ["Claude", "Notion", "Slack", "Linear", "AWS", "Vercel", "Stripe"]
       .nav__links a { color: var(--color-text-muted); font-size: var(--text-sm); font-weight: var(--weight-medium); }
       .nav__links a:hover { color: var(--color-text); }
       .nav__links a.cf-btn { color: var(--color-text-on-primary); }
-      @media (max-width: 640px) {
-        .nav__links a:not(.cf-btn) { display: none; }
-      }
+      @media (max-width: 640px) { .nav__links a:not(.cf-btn) { display: none; } }
 
-      .hero { position: relative; padding-block: var(--space-24) var(--space-16); background: var(--gradient-hero); }
+      /* ============================================================ *
+       * Hero
+       * ============================================================ */
+      .hero { position: relative; padding-block: var(--space-24) var(--space-16); }
       .hero__inner { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: var(--space-12); align-items: center; }
       .hero__title { font-size: var(--text-6xl); margin-top: var(--space-4); }
       .hero__sub { margin-top: var(--space-6); font-size: var(--text-lg); color: var(--color-text-muted); max-width: 34rem; }
       .hero__cta { margin-top: var(--space-8); display: flex; gap: var(--space-3); flex-wrap: wrap; }
       .hero__note { margin-top: var(--space-4); font-size: var(--text-sm); color: var(--color-text-subtle); }
+      .cf-eyebrow .pulse {
+        width: 8px; height: 8px; border-radius: var(--radius-full);
+        background: var(--color-success);
+        box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-success) 60%, transparent);
+        animation: pulse 2s var(--ease-out) infinite;
+      }
+      @keyframes pulse {
+        0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-success) 60%, transparent); }
+        70% { box-shadow: 0 0 0 8px transparent; }
+        100% { box-shadow: 0 0 0 0 transparent; }
+      }
 
-      .glimpse { padding: var(--space-5); }
+      .glimpse { padding: var(--space-5); animation: float 7s var(--ease-in-out) infinite alternate; }
       .glimpse__head { display: flex; align-items: center; justify-content: space-between; }
       .glimpse__title { font-weight: var(--weight-semibold); }
       .glimpse__line { margin-top: var(--space-4); font-weight: var(--weight-medium); }
       .glimpse__answer { margin-top: var(--space-4); padding: var(--space-4); background: var(--color-surface-sunken); border-radius: var(--radius-md); display: flex; flex-wrap: wrap; gap: var(--space-2); }
       .glimpse__answer p { width: 100%; margin-top: var(--space-2); font-size: var(--text-sm); color: var(--color-text-muted); }
+      @keyframes float { from { transform: translateY(0); } to { transform: translateY(-10px); } }
       @media (max-width: 880px) { .hero__inner { grid-template-columns: 1fr; } .glimpse { display: none; } }
 
-      .strip { padding-block: var(--space-10); border-block: 1px solid var(--color-border); }
-      .strip__label { text-align: center; font-size: var(--text-sm); color: var(--color-text-subtle); }
-      .strip__tools { list-style: none; padding: 0; margin: var(--space-5) 0 0; display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-6); }
-      .strip__tools li { font-weight: var(--weight-semibold); color: var(--color-text-muted); }
-
-      .section { padding-block: var(--space-24); }
+      /* ============================================================ *
+       * Sections (generic)
+       * ============================================================ */
+      .section { padding-block: var(--space-24); position: relative; }
       .section--alt { background: var(--color-surface-sunken); }
       .section__head { max-width: 42rem; margin-bottom: var(--space-12); }
+      .section__head--center { max-width: 46rem; margin-inline: auto; text-align: center; }
       .section__head h2 { margin-top: var(--space-3); }
       .section__lead { margin-top: var(--space-4); font-size: var(--text-lg); color: var(--color-text-muted); }
 
@@ -325,25 +619,331 @@ const tools = ["Claude", "Notion", "Slack", "Linear", "AWS", "Vercel", "Stripe"]
       @media (max-width: 760px) { .grid--2, .grid--3 { grid-template-columns: 1fr; } }
       .cf-card h3 { margin-bottom: var(--space-2); }
 
-      .steps { list-style: none; padding: 0; }
-      .step__n { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--color-primary); font-weight: var(--weight-bold); }
-      .step h3 { margin-top: var(--space-3); }
-
-      .video { padding: var(--space-3); }
-      .video__frame {
-        aspect-ratio: 16 / 9;
-        border-radius: var(--radius-md);
-        display: grid;
-        place-items: center;
-        background: var(--gradient-brand-soft);
+      /* ============================================================ *
+       * DEMO stage — the product showing itself
+       * ============================================================ */
+      .section--demo { padding-top: var(--space-16); }
+      .stage { padding: 0; overflow: hidden; max-width: 64rem; margin-inline: auto; }
+      .stage__bar {
+        display: flex; align-items: center; gap: var(--space-3);
+        padding: var(--space-3) var(--space-4);
+        border-bottom: 1px solid var(--color-border);
+        background: var(--color-surface-sunken);
       }
-      .demo__links { margin-top: var(--space-6); text-align: center; color: var(--color-text-muted); }
+      .stage__dots { display: inline-flex; gap: 6px; }
+      .stage__dots i { width: 11px; height: 11px; border-radius: 50%; background: var(--color-border-strong); }
+      .stage__dots i:nth-child(1) { background: #ff5f57; }
+      .stage__dots i:nth-child(2) { background: #febc2e; }
+      .stage__dots i:nth-child(3) { background: #28c840; }
+      .stage__title { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-text-muted); }
+      .stage__presence { margin-left: auto; }
+      .stage__bot { animation: botpulse 2.4s var(--ease-in-out) infinite; }
+      @keyframes botpulse { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
 
+      .stage__body { display: grid; grid-template-columns: 1.05fr 0.95fr; min-height: 21rem; }
+      @media (max-width: 760px) { .stage__body { grid-template-columns: 1fr; } }
+
+      /* Shared doc */
+      .doc { position: relative; padding: var(--space-6); border-right: 1px solid var(--color-border); }
+      @media (max-width: 760px) { .doc { border-right: none; border-bottom: 1px solid var(--color-border); } }
+      .doc__h { font-size: var(--text-lg); margin-bottom: var(--space-3); }
+      .doc__p { font-size: var(--text-sm); color: var(--color-text-muted); margin-bottom: var(--space-3); line-height: var(--leading-relaxed); }
+      .doc__p b { color: var(--color-text); }
+      .doc__skel { display: block; height: 9px; border-radius: var(--radius-full); background: var(--color-surface-sunken); margin-bottom: var(--space-3); }
+      .doc__redact {
+        display: inline-block; border-radius: var(--radius-xs);
+        padding: 0 var(--space-2);
+        color: var(--color-danger);
+        background: var(--color-danger-subtle);
+        font-size: var(--text-xs); font-weight: var(--weight-semibold);
+        letter-spacing: 0.06em;
+      }
+      .doc__cursor {
+        position: absolute; top: var(--space-6); right: var(--space-5);
+        font-size: var(--text-xs);
+        animation: cursor-move 6s var(--ease-in-out) infinite;
+      }
+      .doc__cursor::before { content: "▸"; color: var(--cf-sky-500); margin-right: 2px; }
+      .doc__cursor b {
+        background: var(--cf-sky-500); color: #fff;
+        font-size: 10px; padding: 1px 5px; border-radius: var(--radius-sm);
+        font-weight: var(--weight-bold);
+      }
+      @keyframes cursor-move {
+        0%,100% { transform: translate(0,0); }
+        50% { transform: translate(-3rem, 5.5rem); }
+      }
+
+      /* Ask panel */
+      .ask { padding: var(--space-6); display: flex; flex-direction: column; gap: var(--space-3); background: var(--color-surface); }
+      .ask__brand { font-size: var(--text-xs); font-weight: var(--weight-semibold); color: var(--color-text-muted); letter-spacing: var(--tracking-wide); text-transform: uppercase; }
+      .ask__spark { color: var(--color-accent); }
+      .ask__q {
+        background: var(--color-primary-subtle);
+        color: var(--color-primary-on-subtle);
+        border-radius: var(--radius-md) var(--radius-md) var(--radius-md) 2px;
+        padding: var(--space-3) var(--space-4);
+        font-size: var(--text-sm); font-weight: var(--weight-medium);
+        align-self: flex-start; max-width: 92%;
+      }
+      .caret { display: inline-block; width: 2px; height: 1em; background: currentColor; margin-left: 2px; vertical-align: -2px; animation: blink 1s step-end infinite; }
+      @keyframes blink { 50% { opacity: 0; } }
+      .ask__scoping { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+      .ask__scopelabel { font-family: var(--font-mono); font-size: 11px; color: var(--color-text-subtle); }
+      .ask__a { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-1); }
+      .ask__a p {
+        font-size: var(--text-sm); color: var(--color-text-muted);
+        background: var(--color-surface-sunken);
+        border-radius: 2px var(--radius-md) var(--radius-md) var(--radius-md);
+        padding: var(--space-2) var(--space-3); align-self: flex-end; max-width: 96%;
+      }
+      .ask__a p b { color: var(--color-text); }
+      .ask__verdict { background: var(--color-success-subtle) !important; color: var(--color-success) !important; font-weight: var(--weight-semibold); }
+      .ask__verdict b { color: var(--color-success) !important; }
+
+      /* Demo cue reveal (driven by JS adding .is-shown) */
+      [data-cue] { opacity: 0; transform: translateY(8px); transition: opacity 0.45s var(--ease-out), transform 0.45s var(--ease-out); }
+      [data-cue].is-shown { opacity: 1; transform: none; }
+
+      .stage__foot { display: flex; align-items: center; justify-content: space-between; padding: var(--space-3) var(--space-4); border-top: 1px solid var(--color-border); background: var(--color-surface-sunken); }
+      .stage__live { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--text-xs); color: var(--color-text-muted); }
+      .stage__livedot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-success); animation: blink 1.4s ease-in-out infinite; }
+      .stage__replay { font-size: var(--text-xs); font-weight: var(--weight-semibold); color: var(--color-primary-on-subtle); background: var(--color-primary-subtle); border: none; border-radius: var(--radius-full); padding: var(--space-1) var(--space-3); transition: background var(--duration-fast) var(--ease-out); }
+      .stage__replay:hover { background: color-mix(in srgb, var(--color-primary) 24%, transparent); }
+
+      .demo__links { margin-top: var(--space-8); text-align: center; }
+      .demo__links a { font-weight: var(--weight-semibold); }
+
+      /* ============================================================ *
+       * Stats
+       * ============================================================ */
+      .stats { padding-block: var(--space-16); border-block: 1px solid var(--color-border); }
+      .stats__grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-6); text-align: center; }
+      @media (max-width: 760px) { .stats__grid { grid-template-columns: repeat(2, 1fr); gap: var(--space-10) var(--space-6); } }
+      .stat__num { font-size: var(--text-5xl); font-weight: var(--weight-extrabold); letter-spacing: var(--tracking-tight); line-height: 1; background-image: var(--gradient-brand); -webkit-background-clip: text; background-clip: text; color: transparent; }
+      .stat__label { margin-top: var(--space-3); font-size: var(--text-sm); color: var(--color-text-muted); }
+
+      /* ============================================================ *
+       * Trust strip
+       * ============================================================ */
+      .strip { padding-block: var(--space-12); }
+      .strip__label { text-align: center; font-size: var(--text-sm); color: var(--color-text-subtle); }
+      .strip__tools { list-style: none; padding: 0; margin: var(--space-6) 0 0; display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-6); }
+      .strip__tools li { font-weight: var(--weight-semibold); color: var(--color-text-muted); font-size: var(--text-lg); }
+
+      /* ============================================================ *
+       * Capability — animated flow
+       * ============================================================ */
+      .cap { display: grid; grid-template-columns: 0.95fr 1.05fr; gap: var(--space-12); align-items: center; }
+      @media (max-width: 880px) { .cap { grid-template-columns: 1fr; } }
+      .cap__list { list-style: none; padding: 0; margin-top: var(--space-6); display: grid; gap: var(--space-3); }
+      .cap__list li { display: flex; gap: var(--space-3); font-size: var(--text-sm); color: var(--color-text-muted); }
+      .cap__chk { color: var(--color-success); font-weight: var(--weight-bold); }
+
+      .flow { display: flex; flex-direction: column; align-items: stretch; gap: 0; padding: var(--space-6); }
+      .flow__node { display: flex; flex-direction: column; gap: 2px; padding: var(--space-4) var(--space-5); border-radius: var(--radius-md); border: 1px solid var(--color-border); background: var(--color-surface); }
+      .flow__node--you { border-color: color-mix(in srgb, var(--color-primary) 40%, transparent); }
+      .flow__node--brain { border-color: color-mix(in srgb, var(--color-accent) 50%, transparent); }
+      .flow__icon { font-size: var(--text-xl); }
+      .flow__node--you .flow__icon { color: var(--color-primary); }
+      .flow__node--brain .flow__icon { color: var(--color-accent); }
+      .flow__name { font-weight: var(--weight-semibold); }
+      .flow__sub { font-family: var(--font-mono); font-size: 11px; color: var(--color-text-subtle); }
+
+      .flow__wire { position: relative; height: var(--space-8); margin-inline: auto; width: 2px; background: var(--color-border-strong); overflow: hidden; }
+      .flow__pulse { position: absolute; left: -3px; top: 0; width: 8px; height: 8px; border-radius: 50%; background: var(--color-primary); box-shadow: 0 0 10px var(--color-primary); animation: drop 2.4s var(--ease-in-out) infinite; }
+      .flow__pulse--2 { background: var(--color-accent); box-shadow: 0 0 10px var(--color-accent); animation-delay: 1.2s; }
+      @keyframes drop { 0% { top: -10px; opacity: 0; } 20% { opacity: 1; } 80% { opacity: 1; } 100% { top: 110%; opacity: 0; } }
+
+      .flow__filter { position: relative; display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; padding: var(--space-4) var(--space-5); border-radius: var(--radius-md); background: var(--color-surface-sunken); border: 1px dashed var(--color-border-strong); }
+      .flow__filterlabel { width: 100%; font-family: var(--font-mono); font-size: 11px; color: var(--color-text-subtle); margin-bottom: 2px; }
+      .flow__pass { font-size: var(--text-xs); font-weight: var(--weight-semibold); color: var(--color-success); background: var(--color-success-subtle); padding: var(--space-1) var(--space-2); border-radius: var(--radius-full); }
+      .flow__block { font-size: var(--text-xs); font-weight: var(--weight-semibold); color: var(--color-danger); background: var(--color-danger-subtle); padding: var(--space-1) var(--space-2); border-radius: var(--radius-full); text-decoration: line-through; opacity: 0.85; }
+
+      /* ============================================================ *
+       * Features
+       * ============================================================ */
+      .feature { position: relative; }
+      .feature__idx { font-family: var(--font-mono); font-size: var(--text-xs); font-weight: var(--weight-bold); color: var(--color-primary); }
+      .feature h3 { margin-top: var(--space-2); }
+
+      /* ============================================================ *
+       * How it works — timeline
+       * ============================================================ */
+      .steps { list-style: none; padding: 0; position: relative; }
+      .steps__line { display: none; }
+      @media (min-width: 761px) {
+        .steps__line { display: block; position: absolute; top: 2.5rem; left: 12%; right: 12%; height: 2px; background: var(--color-border); overflow: hidden; }
+        .steps__linefill { position: absolute; inset: 0; width: 0; background: var(--gradient-brand); transition: width 1.4s var(--ease-out); }
+        .steps.in .steps__linefill { width: 100%; }
+      }
+      .step { position: relative; }
+      .step__n {
+        display: inline-grid; place-items: center;
+        width: 2.5rem; height: 2.5rem; border-radius: var(--radius-full);
+        font-family: var(--font-mono); font-size: var(--text-sm); font-weight: var(--weight-bold);
+        color: var(--color-text-on-primary); background-image: var(--gradient-brand);
+        box-shadow: var(--shadow-ring-primary);
+      }
+      .step h3 { margin-top: var(--space-4); }
+
+      /* ============================================================ *
+       * Comparison
+       * ============================================================ */
+      .vs { display: grid; grid-template-columns: 1fr auto 1fr; gap: var(--space-6); align-items: stretch; }
+      @media (max-width: 760px) { .vs { grid-template-columns: 1fr; } .vs__div { display: none; } }
+      .vs__col { padding: var(--space-6); border-radius: var(--radius-lg); border: 1px solid var(--color-border); background: var(--color-surface); }
+      .vs__col--bad { background: color-mix(in srgb, var(--cf-red-500) 5%, var(--color-surface)); border-color: color-mix(in srgb, var(--cf-red-500) 22%, transparent); }
+      .vs__col--good { background: color-mix(in srgb, var(--cf-indigo-500) 6%, var(--color-surface)); border-color: color-mix(in srgb, var(--color-primary) 35%, transparent); box-shadow: var(--shadow-md); }
+      .vs__title { margin-bottom: var(--space-4); }
+      .vs__list { list-style: none; padding: 0; display: grid; gap: var(--space-3); }
+      .vs__list li { display: flex; gap: var(--space-3); font-size: var(--text-sm); color: var(--color-text-muted); }
+      .vs__mk { flex: none; font-weight: var(--weight-bold); }
+      .vs__mk--x { color: var(--color-danger); }
+      .vs__mk--c { color: var(--color-success); }
+      .vs__div { align-self: center; font-family: var(--font-mono); font-size: var(--text-sm); color: var(--color-text-subtle); font-weight: var(--weight-bold); }
+
+      /* ============================================================ *
+       * CTA
+       * ============================================================ */
+      .cta { padding-block: var(--space-32); text-align: center; position: relative; }
+      .cta__inner { max-width: 40rem; margin-inline: auto; }
+      .cta__title { font-size: var(--text-5xl); }
+      .cta__sub { margin-top: var(--space-5); font-size: var(--text-lg); color: var(--color-text-muted); }
+      .cta__btns { margin-top: var(--space-8); display: flex; gap: var(--space-3); justify-content: center; flex-wrap: wrap; }
+
+      /* ============================================================ *
+       * Footer
+       * ============================================================ */
       .footer { border-top: 1px solid var(--color-border); padding-block: var(--space-12); }
       .footer__inner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-4); }
       .footer__links { display: flex; gap: var(--space-5); }
       .footer__links a { color: var(--color-text-muted); font-size: var(--text-sm); }
       .footer__legal { width: 100%; font-size: var(--text-sm); }
+
+      /* ============================================================ *
+       * Reduced motion — calm everything down
+       * ============================================================ */
+      @media (prefers-reduced-motion: reduce) {
+        .bg__orb, .cf-text-gradient, .glimpse, .cf-eyebrow .pulse, .stage__bot,
+        .doc__cursor, .flow__pulse, .caret, .stage__livedot { animation: none; }
+        [data-reveal] { opacity: 1; transform: none; transition: none; }
+        [data-cue] { opacity: 1; transform: none; }
+        .bg__spot { display: none; }
+        .steps__linefill { transition: none; width: 100%; }
+      }
     </style>
+
+    <script is:inline>
+      (() => {
+        const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+        /* ---- Cursor-following spotlight ---- */
+        const bg = document.querySelector(".bg");
+        const fine = window.matchMedia("(pointer: fine)").matches;
+        if (bg && fine && !reduce) {
+          let raf = 0, x = 50, y = 24;
+          const apply = () => { raf = 0; bg.style.setProperty("--mx", x + "%"); bg.style.setProperty("--my", y + "%"); };
+          window.addEventListener("pointermove", (e) => {
+            x = (e.clientX / window.innerWidth) * 100;
+            y = (e.clientY / window.innerHeight) * 100;
+            bg.classList.add("is-tracking");
+            if (!raf) raf = requestAnimationFrame(apply);
+          }, { passive: true });
+          document.addEventListener("pointerleave", () => bg.classList.remove("is-tracking"));
+        }
+
+        /* ---- Scroll progress bar ---- */
+        const progress = document.querySelector(".progress");
+        if (progress) {
+          let praf = 0;
+          const upd = () => {
+            praf = 0;
+            const h = document.documentElement;
+            const max = h.scrollHeight - h.clientHeight;
+            progress.style.setProperty("--p", max > 0 ? (h.scrollTop / max).toFixed(4) : "0");
+          };
+          window.addEventListener("scroll", () => { if (!praf) praf = requestAnimationFrame(upd); }, { passive: true });
+          upd();
+        }
+
+        /* ---- Scroll-reveal ---- */
+        const reveals = document.querySelectorAll("[data-reveal], .steps");
+        if (reveals.length && "IntersectionObserver" in window && !reduce) {
+          const io = new IntersectionObserver((entries) => {
+            for (const e of entries) {
+              if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); }
+            }
+          }, { threshold: 0.16, rootMargin: "0px 0px -8% 0px" });
+          reveals.forEach((el) => io.observe(el));
+        } else {
+          reveals.forEach((el) => el.classList.add("in"));
+        }
+
+        /* ---- Count-up stats ---- */
+        const nums = document.querySelectorAll(".stat__num");
+        const runCount = (el) => {
+          const to = parseFloat(el.dataset.to || "0");
+          const suffix = el.dataset.suffix || "";
+          if (reduce || to === 0) { el.textContent = to + suffix; return; }
+          const dur = 1100; const start = performance.now();
+          const step = (now) => {
+            const t = Math.min(1, (now - start) / dur);
+            const eased = 1 - Math.pow(1 - t, 3);
+            el.textContent = Math.round(to * eased) + suffix;
+            if (t < 1) requestAnimationFrame(step);
+          };
+          requestAnimationFrame(step);
+        };
+        if (nums.length && "IntersectionObserver" in window) {
+          const nio = new IntersectionObserver((entries) => {
+            for (const e of entries) { if (e.isIntersecting) { runCount(e.target); nio.unobserve(e.target); } }
+          }, { threshold: 0.6 });
+          nums.forEach((n) => nio.observe(n));
+        } else {
+          nums.forEach((n) => (n.textContent = (n.dataset.to || "0") + (n.dataset.suffix || "")));
+        }
+
+        /* ---- Self-playing demo sequencer ---- */
+        const stage = document.querySelector(".stage");
+        if (stage) {
+          const cues = Array.from(stage.querySelectorAll("[data-cue]")).sort(
+            (a, b) => Number(a.dataset.cue) - Number(b.dataset.cue),
+          );
+          let timers = [];
+          const clearAll = () => { timers.forEach(clearTimeout); timers = []; };
+          const showAll = () => cues.forEach((c) => c.classList.add("is-shown"));
+          const reset = () => cues.forEach((c) => c.classList.remove("is-shown"));
+
+          const play = () => {
+            clearAll();
+            reset();
+            // staggered cue reveal, then hold, then loop
+            cues.forEach((c, i) => {
+              timers.push(setTimeout(() => c.classList.add("is-shown"), 500 + i * 850));
+            });
+            const total = 500 + cues.length * 850 + 3200;
+            timers.push(setTimeout(play, total));
+          };
+
+          if (reduce) {
+            showAll();
+          } else if ("IntersectionObserver" in window) {
+            let started = false;
+            const sio = new IntersectionObserver((entries) => {
+              for (const e of entries) {
+                if (e.isIntersecting && !started) { started = true; play(); }
+              }
+            }, { threshold: 0.35 });
+            sio.observe(stage);
+          } else {
+            play();
+          }
+
+          const replay = stage.querySelector(".stage__replay");
+          if (replay) replay.addEventListener("click", () => (reduce ? (reset(), showAll()) : play()));
+        }
+      })();
+    </script>
   </body>
 </html>
