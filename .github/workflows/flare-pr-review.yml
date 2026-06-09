@@ -1,0 +1,37 @@
+# FlareDispatch — agentic code review on every PR.
+#
+# Dispatches the `pr-review` run (Action mode, fire-and-forget). The review
+# runs in your Dispatcher Worker via Workers AI and posts back as inline
+# annotations on the PR's Files-changed tab + the `flare-dispatch/pr-review`
+# check-run. Require THAT check in branch protection, not this job.
+#
+# Dormant until the dispatcher is deployed: the job is skipped while
+# `vars.FLAREDISPATCH_ENDPOINT` is empty. See infra/flare-dispatch/README.md.
+name: flare / code-review
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  pr-review:
+    if: ${{ vars.FLAREDISPATCH_ENDPOINT != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: OpenHackersClub/flare-dispatch/actions/flare-dispatch-action@1e47a54cab3ea4bce2d2a79a3deadb0860829feb
+        with:
+          run: pr-review
+          endpoint: ${{ vars.FLAREDISPATCH_ENDPOINT }}
+          hmac-secret: ${{ secrets.FLAREDISPATCH_HMAC }}
+          installation-id: ${{ vars.FLAREDISPATCH_INSTALLATION_ID }}
+          mode: fire-and-forget
+          inputs: |
+            {
+              "repo": "${{ github.repository }}",
+              "sha": "${{ github.event.pull_request.head.sha }}",
+              "baseSha": "${{ github.event.pull_request.base.sha }}",
+              "pr": ${{ github.event.pull_request.number }}
+            }
