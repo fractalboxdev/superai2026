@@ -15,38 +15,53 @@ Two representations work together:
 
 **Each card is acl-tagged.** Because a synthesized card is free-form prose, it **cannot be column-redacted** the way a structured query can. So every Markdown card is stamped with the **maximum access requirement** (`acl_tag`) of every fact it contains, and **synthesis never mixes acl-tags within one card** — facts that need different access live in different cards. Access to a card is therefore **all-or-nothing** against its tag (see [§4](#4-retrieval-capability-filtered) and [03 §4](./03-access-control.md)). This is what keeps the salary invariant intact once memory is prose rather than columns.
 
+**Two provenance classes — private vs. world.** Memory carries a `class`:
+
+- **Company (private) memory** is synthesized from internal SaaS + document sources. It is tagged to the **maximum** acl of its facts (taint *up*; [§3](#3-index-data-model-file-based)).
+- **World memory** is synthesized from **public world knowledge** pulled via the Exa connector ([05 §2](./05-connectors-etl.md)) — pricing references, market comps, FinOps benchmarks, vendor/regulatory facts. It is tagged to the **floor**: `acl_tag = world`, dominated by every principal's token, so any agent may read it.
+
+The asymmetry is deliberate and is what makes world knowledge safe to fold in: a world fact alone never *raises* any agent's reach, and the moment world memory is **joined** with private facts to produce a grounded/benchmarked card, the join product inherits `max(private)` by the same taint rule — grounding never *lowers* a private aggregate's acl. World memory enriches; it cannot launder. The new surface world memory introduces is the **outbound** one — the Exa query itself ([§8](#8-world-memory--grounding)).
+
 ## 2. Pipeline
 
 ```mermaid
 flowchart LR
-    CON["Connectors<br/>(Stripe mock, Exa, stubs)"] --> ING["Ingest<br/>raw events + provenance + acl_tag"]
+    CON["Private connectors<br/>(Stripe mock, stubs)"] --> ING["Ingest<br/>raw events + provenance + acl_tag"]
+    WCON["Exa<br/>(world knowledge)"] --> WING["World ingest<br/>citation-bearing raw events, acl=world"]
     ING --> EXT["Extract<br/>LLM: atomic facts, entities"]
+    WING --> EXT
     EXT --> SYN["Synthesize<br/>dedupe, supersede, summarize → Markdown"]
     SYN --> IDX["Index<br/>embeddings + structured views"]
     IDX --> SRV["Serve<br/>capability-filtered retrieval"]
     SYN --> ANO["Anomaly + Learning<br/>baseline vs. period; corrections"]
+    SYN --> GRD["Ground / benchmark<br/>join world facts ⨝ private aggregates<br/>(product inherits max private acl)"]
     ANO --> SRV
+    GRD --> SRV
 ```
 
-- **Ingest** writes immutable `raw_event` rows, each carrying provenance and an `acl_tag` mapping to the resource/field model ([03 §2](./03-access-control.md)).
+- **Ingest** writes immutable `raw_event` rows, each carrying provenance and an `acl_tag` mapping to the resource/field model ([03 §2](./03-access-control.md)). **World ingest** is the same path for Exa-sourced events, except every event is tagged `acl = world` and must carry a **citation** (canonical URL + retrieved-at + content hash) and a freshness cursor ([§8](#8-world-memory--grounding)).
 - **Extract** uses the LLM to pull atomic facts and entities from raw events and document text.
-- **Synthesize** dedupes, **supersedes** stale facts (never destructive overwrite — old facts are marked superseded with a timestamp), summarizes, and writes/updates **Markdown context cards**.
+- **Synthesize** dedupes, **supersedes** stale facts (never destructive overwrite — old facts are marked superseded with a timestamp), summarizes, and writes/updates **Markdown context cards** — private cards under `brain/<topic>/`, world cards under `brain/world/<topic>/`.
 - **Index** computes embeddings (DuckDB VSS / `sqlite-vec`) and structured views for fast retrieval.
 - **Serve** answers retrieval requests, authorizing each candidate before it reaches the agent/LLM.
 - **Anomaly + Learning** compares period metrics to a rolling baseline, emits `anomaly` rows + a memory, and absorbs human corrections as `learning` rows that bias future synthesis.
+- **Ground / benchmark** joins world memory to private aggregates to produce *grounded* cards (e.g. "net-of-credit spend is 30% above the published FinOps benchmark [cite]"). The grounded card inherits `max(private inputs)` by taint propagation, so contextualizing a private number with public data never widens who can read it ([§8](#8-world-memory--grounding)).
 
 ## 3. Index data model (file-based)
 
 | Table | Purpose | Key columns |
 |---|---|---|
 | `raw_event` | immutable ingested record | `id, source_id, view, payload(json), ingested_at, acl_tag` |
-| `memory` | index row for a synthesized Markdown card | `id, kind, topic, path, acl_tag, confidence, period, supersedes, created_at` |
+| `memory` | index row for a synthesized Markdown card | `id, kind, class, topic, path, acl_tag, confidence, period, supersedes, created_at` |
+| `world_fact` | freshness/citation index for world cards | `memory_id, query, url, content_hash, retrieved_at, stale_after, corroborations` |
 | `provenance` | memory ↔ source link | `memory_id, raw_event_id` (or `doc_id` for doc-derived) |
 | `embedding` | vector for semantic search | `memory_id, vector` |
 | `anomaly` | detected deviation | `id, view, metric, period, baseline, observed, severity, acl_tag, memory_id` |
 | `learning` | correction/feedback for future synthesis | `id, topic, statement, applies_from, acl_tag, provenance_id, source` |
 
-`memory.path` points at the Markdown file; the `body` lives in that file. `acl_tag` on every raw event maps to the resource/field model; **retrieved memories inherit the access requirements of their provenance.** Every *derived* row — `memory`, `anomaly`, `learning` — carries its own `acl_tag` set to the **max** acl of the facts/sources it was computed from (**taint propagation**); it is never lower than its inputs. `learning` rows carry a `provenance_id` so a human correction that quotes a privileged value inherits that value's acl rather than becoming world-readable.
+`memory.path` points at the Markdown file; the `body` lives in that file. `memory.class` is `private` or `world` ([§1](#1-model)). `acl_tag` on every raw event maps to the resource/field model; **retrieved memories inherit the access requirements of their provenance.** Every *derived* row — `memory`, `anomaly`, `learning` — carries its own `acl_tag` set to the **max** acl of the facts/sources it was computed from (**taint propagation**); it is never lower than its inputs. `learning` rows carry a `provenance_id` so a human correction that quotes a privileged value inherits that value's acl rather than becoming world-readable.
+
+World cards are the one place taint floors rather than peaks: a `class = world` memory is stamped `acl_tag = world` regardless of which (always public) source it came from, and a `world_fact` row tracks its **freshness** — `retrieved_at` + `stale_after` drive cron re-fetch and supersession, `content_hash` + `url` key the dedupe, and `corroborations` counts how many independent sources assert the same fact (it raises `memory.confidence`). A world card whose `stale_after` has passed is marked superseded and excluded from grounding until refreshed, so the brain never benchmarks against a stale public number.
 
 ## 4. Retrieval (capability-filtered)
 
@@ -58,8 +73,9 @@ The redaction boundary lives **only in the brain query layer / MCP path** — st
 
 ## 5. Scoping
 
-Memory is scoped along two axes:
+Memory is scoped along several axes:
 
+- **Class**: `private` (company memory, tainted up) / `world` (public world knowledge from Exa, floored to `acl = world`; [§1](#1-model), [§8](#8-world-memory--grounding)). Retrieval may return both; `brain.search` can filter to one class.
 - **Principal scope** (mem0-style): `user` / `agent` / `session`.
 - **Tier** (icarus-style): `working` (per-task scratch) / `archive` (per-agent history) / `wiki` (shared synthesized source of truth).
 - **Brain scope per room**: each document declares which sources/views its sandbox may draw on. This bounds context *in addition to* the agent's own token — sharing a room never widens an agent's reach.
@@ -72,8 +88,9 @@ Memory is scoped along two axes:
   docs/
     <doc_id>.loro          # per-doc Loro snapshot + oplog                 (see 01)
   brain/
-    <topic>/*.md           # human-readable synthesized memory (source of truth)
-  brain.duckdb             # raw_event, memory, provenance, embedding, anomaly, learning
+    <topic>/*.md           # private company memory (source of truth)
+    world/<topic>/*.md     # world memory — public knowledge from Exa, acl=world  (see 05 §2, §8)
+  brain.duckdb             # raw_event, memory, world_fact, provenance, embedding, anomaly, learning
   fixtures/
     stripe/*.csv           # Kaggle-derived mock data                      (see 05)
   caps/                    # issued/attenuated token records (audit/revocation)  (see 03)
@@ -90,7 +107,27 @@ The brain spawns agents to ingest and synthesize. Inference is **trait-based and
 
 Only already-permitted content is ever sent to any backend; structured query + redaction never call an LLM.
 
-## 8. Scaffold / Status
+## 8. World memory & grounding
+
+World memory is how the brain uses **world knowledge** to enhance its memory: public facts that contextualize the private company numbers. It is fed by the Exa connector ([05 §2](./05-connectors-etl.md)) and lives in its own `brain/world/` subtree, `acl = world`.
+
+### 8.1 The egress dual (the new trust surface)
+
+Contextful's read path is capability-filtered **inbound** — the brain drops anything the caller doesn't dominate before it reaches an agent or LLM ([§4](#4-retrieval-capability-filtered)). World enrichment introduces the mirror-image concern **outbound**: an Exa query is a request leaving the host, so **the query string is itself a capability-checked egress channel.** The same trust boundary, opposite direction.
+
+- **Queries are built from non-private terms only** — public entity/product names, generic metric names, periods — **never from private field values.** No actual salary, spend figure, discount tier, or credit balance may appear in an Exa query. A benchmark is fetched by asking "published FinOps net-of-credit spend benchmark for AI tooling, 2026", *not* by sending our own number to be compared.
+- **Query construction is bounded by the authoring agent's capabilities**, exactly as `declare_acl` is for ad-hoc connectors ([05 §4](./05-connectors-etl.md)): an agent cannot embed in a query a value it could only have read under a privileged token. A query-sanitization pass (deny-list of private view/field tokens + a taint check on interpolated values) gates every outbound call; offline/local-first mode ([00 §4](./00-overview.md) Flow D) disables the Exa egress entirely.
+- World ingest writes **only world-readable raw events**, so even a buggy or adversarial query can never *return* private data into the brain — Exa sees the public web, not `~/.contextful`.
+
+### 8.2 Grounding
+
+Grounding is a synthesis step that **joins** world memory to private aggregates to produce benchmarked cards: "net-of-credit Claude spend is 1.3× the published enterprise-tier benchmark [cite]", "this discount tier trails the market reference by ~10pts [cite]". Rules:
+
+- The grounded card cites its world source (URL + retrieved-at) and inherits **`max(private inputs)`** by taint propagation ([§3](#3-index-data-model-file-based)) — joining a public number with `employee_salary` yields a CFO-only card, never a world-readable one. **The salary invariant is unaffected:** world memory adds context, never reach.
+- Grounding skips world facts whose `stale_after` has passed; a benchmark is only as trustworthy as its freshness.
+- World facts can also feed **anomaly baselines** (is a spike out of line *with the market*, not just with our own history?) and **learning** corroboration, without ever lowering an anomaly's acl below its private inputs.
+
+## 9. Scaffold / Status
 
 | Spec element | Code |
 |---|---|
@@ -101,5 +138,8 @@ Only already-permitted content is ever sent to any backend; structured query + r
 | Memory / Scope / MemoryRef types | `crates/sync/src/brain/mod.rs` ✅ built |
 | File store (Loro snapshots + DuckDB/SQLite) | `crates/sync/src/store/{docs,db}.rs` ✅ built |
 | TS types | `packages/protocol/src/brain.ts` — `MemoryRef`, `Scope`, `SearchQuery`, `SearchResult` |
+| World-memory class + `brain/world/` tree | `crates/sync/src/brain/{mod,markdown}.rs` — spec'd here |
+| World ingest (Exa, citations, freshness) | `crates/sync/src/connectors/exa.rs` (canned today; see [05 §2](./05-connectors-etl.md)) |
+| Egress query-sanitization + grounding synthesis | `crates/sync/src/brain/synthesis.rs` — spec'd, not built |
 
-**Future:** real LLM extract/synthesize, embeddings, FTS indexing, anomaly thresholds, learning suppression, compaction.
+**Future:** real LLM extract/synthesize, embeddings, FTS indexing, anomaly thresholds, learning suppression, compaction; **world memory** — `class`/`world_fact` columns, freshness-driven re-fetch + supersession, corroboration scoring, egress query-sanitization, and grounding/benchmark synthesis.

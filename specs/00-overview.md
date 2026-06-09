@@ -7,7 +7,7 @@
 A **local-first company brain** where humans and AI agents collaborate in shared documents, and every agent sees **exactly what it is permitted to** — nothing more. Three pillars:
 
 1. **Attenuated, capability-based access.** Access is delegated by [Biscuit](https://www.biscuitsec.org/) tokens that can only be *narrowed*, never widened. A person grants their agent a strict subset of their own authority. There is no company-wide "SuperAgent" that can read everything.
-2. **A brain that synthesizes context.** It ingests SaaS + document data, extracts atomic facts, synthesizes human-readable memory, detects anomalies, and learns from corrections — in the spirit of mem0 / GBrain / LLMWiki, but the memory is **human-readable Markdown**.
+2. **A brain that synthesizes context.** It ingests SaaS + document data, extracts atomic facts, synthesizes human-readable memory, detects anomalies, and learns from corrections — in the spirit of mem0 / GBrain / LLMWiki, but the memory is **human-readable Markdown**. It also pulls **world knowledge** from the web (via Exa) into a separate, world-readable **world memory** that *grounds* the private company numbers — e.g. benchmarking spend against published references — without ever widening who can read what ([02 §8](./02-brain-memory.md)).
 3. **Local-first, cloud-optional.** Everything runs on-host (on-prem) over a Tailscale tailnet. Cloud is optional: managed inference (Bedrock), agent compute (Vercel Sandbox), and web hosting (Vercel). **Raw source data and un-redacted brain content stay on-host**; only already-permitted, capability-redacted content is ever sent to cloud — and that path can be turned off entirely (Flow D).
 
 > **The one-line claim:** *"The CTO's agent can't read the CEO's salary — provably."*
@@ -148,6 +148,7 @@ flowchart LR
 - **Brain scope** — the set of sources/views a document's sandbox may draw on.
 - **Envelope** — an owner's auto-mode policy describing which requests auto-approve vs. escalate.
 - **The salary invariant** — the provable property that no non-CFO path yields `employee_salary`.
+- **World memory** — public world knowledge pulled from the web (via Exa), stored world-readable (`acl = world`) and separate from private company memory; used to *ground* and benchmark private numbers. The Exa query is a capability-checked outbound channel — private values never leave in a query ([02 §8](./02-brain-memory.md)).
 
 ## 11. Scaffold / Status
 
