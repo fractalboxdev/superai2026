@@ -4,7 +4,7 @@
 
 ## 1. Topology
 
-Local-first. The **host** (e.g. a Mac Studio) is authoritative and runs the `crates/sync` binary; **browsers** hold only what they were granted; **cloud is optional** (managed inference, agent sandboxes, web hosting).
+Local-first. The **host** (e.g. a Mac Studio) is authoritative and runs the `crates/sync` binary; **browsers** hold only what they were granted; **cloud is optional** (managed inference, agent sandboxes, web hosting). Non-technical teams install and run the host (or a member peer) via the **native macOS app** — a Tauri shell that bundles the binary, supervises it, and auto-starts it at login without a terminal ([10](./10-macos-app.md)).
 
 ```mermaid
 flowchart TD
