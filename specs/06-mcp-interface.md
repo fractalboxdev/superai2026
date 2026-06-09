@@ -38,8 +38,8 @@ The MCP server can run as its own subcommand (`sync mcp`) or be co-hosted with t
 | Spec element | Code |
 |---|---|
 | `mcp` subcommand | `crates/sync/src/main.rs` → `brain::mcp::run` |
-| `rmcp` server + `brain.*` tool definitions | `crates/sync/src/brain/mcp.rs` (stub) |
-| Per-call capability check | `crates/sync/src/access/biscuit.rs` (stub) |
+| `rmcp` server + `brain.*` tool definitions | `crates/sync/src/brain/mcp.rs` ✅ built |
+| Per-call capability check | `crates/sync/src/access/biscuit.rs` ✅ built |
 | Tool names / arg + result types (TS) | `packages/protocol/src/brain.ts` — `BrainToolName`, `SearchQuery`, `SearchResult` |
 
 **Future:** real `rmcp` tool handlers, stdio + streamable-HTTP transports, session auth binding, result redaction wiring.

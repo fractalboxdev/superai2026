@@ -1,3 +1,31 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { viewId, type Capability, type View } from "@superai2026/protocol/access";
+import { brainQuery, type BrainResult } from "@superai2026/protocol/brain";
+import {
+  approveRequest,
+  routeRequest,
+  type AccessRequest,
+  type RouteDecision,
+} from "@superai2026/protocol/requests";
+import { useRoomPresence } from "./useRoomPresence";
+import {
+  CFO,
+  CFO_ENVELOPE,
+  CTO_AGENT,
+  DATASETS,
+  ENG_AGENT,
+  FINANCE_PRIVATE,
+  FLOW_A_REQUEST,
+  FLOW_B_REQUEST,
+  PRINCIPALS,
+  SPEND_BY_TEAM,
+  cfoCapability,
+  initialCapability,
+  tag,
+} from "@superai2026/protocol/scenario";
+
 function Mark() {
   return (
     <svg viewBox="0 0 32 32" role="img" aria-label="Contextful">
@@ -14,14 +42,163 @@ function Mark() {
   );
 }
 
-const docs = [
-  { id: "finops", title: "Q3 FinOps Review", active: true },
-  { id: "evals", title: "Agent workflow evals" },
-  { id: "vendors", title: "Vendor consolidation" },
-  { id: "budget", title: "2026 budget draft" },
+const VIEWS: { view: View; label: string }[] = [
+  { view: SPEND_BY_TEAM, label: "stripe / spend_by_team" },
+  { view: FINANCE_PRIVATE, label: "stripe / finance_private" },
 ];
 
+const PRIVATE_FIELDS = new Set(["discount_tier", "credits", "employee_salary"]);
+const BASE_FIELDS = new Set(["team", "period"]);
+
+const dotColor = (id: string): string =>
+  id === CFO.id ? "var(--cf-sky-500)" : id.startsWith("agent:cto") ? "var(--cf-indigo-500)" : "var(--cf-amber-500)";
+
+type LogEntry = { id: number; kind: "ok" | "deny" | "grant" | "block" | "info"; text: string };
+
+let logSeq = 0;
+
 export default function Home() {
+  // One capability token per principal; minted grants replace the holder's token.
+  const [caps, setCaps] = useState<Record<string, Capability>>(() => ({
+    [CTO_AGENT.id]: initialCapability(CTO_AGENT.id),
+    [ENG_AGENT.id]: initialCapability(ENG_AGENT.id),
+    [CFO.id]: initialCapability(CFO.id),
+  }));
+  const [actorId, setActorId] = useState<string>(CTO_AGENT.id);
+  const [selView, setSelView] = useState<View>(FINANCE_PRIVATE);
+  const [selFields, setSelFields] = useState<string[]>(["gross", "credits", "discount_tier"]);
+  const [result, setResult] = useState<BrainResult | null>(null);
+  const [pending, setPending] = useState<{ req: AccessRequest; route: RouteDecision } | null>(null);
+  const [log, setLog] = useState<LogEntry[]>([]);
+
+  const actor = PRINCIPALS.find((p) => p.id === actorId)!;
+  const { status: syncStatus, peers: livePeers } = useRoomPresence(actor.id, actor.name);
+  const columns = useMemo(
+    () => DATASETS.find((d) => viewId(d.view) === viewId(selView))?.columns ?? [],
+    [selView],
+  );
+
+  const pushLog = (kind: LogEntry["kind"], text: string) =>
+    setLog((l) => [{ id: ++logSeq, kind, text }, ...l].slice(0, 12));
+
+  const switchActor = (id: string) => {
+    setActorId(id);
+    setResult(null);
+    setPending(null);
+  };
+
+  const switchView = (v: View) => {
+    setSelView(v);
+    setResult(null);
+    setPending(null);
+    // sensible default field selection per view
+    setSelFields(
+      viewId(v) === viewId(FINANCE_PRIVATE) ? ["gross", "credits", "discount_tier"] : ["gross", "net"],
+    );
+  };
+
+  const toggleField = (f: string) =>
+    setSelFields((fs) => (fs.includes(f) ? fs.filter((x) => x !== f) : [...fs, f]));
+
+  const runQuery = () => {
+    const res = brainQuery(caps[actorId], DATASETS, { view: selView, fields: selFields });
+    setResult(res);
+    setPending(null);
+    if (!res.ok) pushLog("deny", `${actor.name} · query ${viewId(selView)} → ${res.reason}`);
+    else if (res.redacted.length) pushLog("ok", `${actor.name} · partial: redacted ${res.redacted.join(", ")}`);
+    else pushLog("ok", `${actor.name} · query ${viewId(selView)} → ${res.rows.length} row(s)`);
+  };
+
+  // Fields the actor still needs (denied entirely, or redacted from a partial result).
+  const neededFields = useMemo(() => {
+    if (!result) return [];
+    if (!result.ok) return selFields.filter((f) => !BASE_FIELDS.has(f));
+    return result.redacted;
+  }, [result, selFields]);
+
+  const canRequest = result != null && !(result.ok && result.redacted.length === 0) && neededFields.length > 0;
+
+  const requestAccess = () => {
+    const req: AccessRequest = {
+      id: `req-${++logSeq}`,
+      requester: actorId,
+      view: selView,
+      fields: neededFields,
+      rowScope: [{ field: "team", in: ["eng", "ops", "sales", "finance"] }],
+      reason: `${actor.name} needs ${neededFields.join(", ")} to answer net-of-credits.`,
+      doc: "finops",
+      ttl: "7d",
+    };
+    const route = routeRequest(req, CFO_ENVELOPE);
+    setPending({ req, route });
+    if (route.decision === "forbidden") pushLog("block", `${actor.name} → ${req.fields.join(", ")}: ${route.reason}`);
+    else if (route.decision === "auto") {
+      applyGrant(req);
+      pushLog("grant", `auto-approved ${req.fields.join(", ")} (${route.reason})`);
+    } else pushLog("info", `access request raised → CFO decides (${req.fields.join(", ")})`);
+  };
+
+  const applyGrant = (req: AccessRequest) => {
+    try {
+      const granted = approveRequest(cfoCapability(), req);
+      setCaps((c) => ({ ...c, [req.requester]: granted }));
+      setPending(null);
+      pushLog("grant", `CFO minted scoped token → ${req.requester} (${req.fields.join(", ")}, ttl ${req.ttl})`);
+      // agent retries automatically with the new token
+      const res = brainQuery(granted, DATASETS, { view: req.view, fields: selFields });
+      setResult(res);
+      if (res.ok) pushLog("ok", `${actor.name} retried → answered`);
+    } catch (e) {
+      pushLog("block", `mint refused: ${(e as Error).message}`);
+      setPending(null);
+    }
+  };
+
+  const denyRequest = () => {
+    if (pending) pushLog("deny", `CFO denied ${pending.req.fields.join(", ")} — stays blocked`);
+    setPending(null);
+  };
+
+  // Scenario shortcuts.
+  const runFlowA = () => {
+    setActorId(CTO_AGENT.id);
+    setSelView(FINANCE_PRIVATE);
+    setSelFields([...FLOW_A_REQUEST.fields]);
+    const res = brainQuery(caps[CTO_AGENT.id] ?? initialCapability(CTO_AGENT.id), DATASETS, {
+      view: FINANCE_PRIVATE,
+      fields: FLOW_A_REQUEST.fields,
+    });
+    setResult(res);
+    const route = routeRequest(FLOW_A_REQUEST, CFO_ENVELOPE);
+    setPending({ req: FLOW_A_REQUEST, route });
+    pushLog("deny", `Flow A · CTO agent denied finance_private → request raised`);
+  };
+
+  const runFlowB = () => {
+    setActorId(ENG_AGENT.id);
+    setSelView(FINANCE_PRIVATE);
+    setSelFields([...FLOW_B_REQUEST.fields]);
+    const res = brainQuery(caps[ENG_AGENT.id] ?? initialCapability(ENG_AGENT.id), DATASETS, {
+      view: FINANCE_PRIVATE,
+      fields: FLOW_B_REQUEST.fields,
+    });
+    setResult(res);
+    const route = routeRequest(FLOW_B_REQUEST, CFO_ENVELOPE);
+    setPending({ req: FLOW_B_REQUEST, route });
+    pushLog("block", `Flow B · salary invariant — no approval path`);
+  };
+
+  const resetAll = () => {
+    setCaps({
+      [CTO_AGENT.id]: initialCapability(CTO_AGENT.id),
+      [ENG_AGENT.id]: initialCapability(ENG_AGENT.id),
+      [CFO.id]: initialCapability(CFO.id),
+    });
+    setResult(null);
+    setPending(null);
+    setLog([]);
+  };
+
   return (
     <div className="app-shell">
       <header className="app-topbar">
@@ -32,29 +209,91 @@ export default function Home() {
 
         <div className="app-doc-meta">
           <span className="app-doc-meta__title">Q3 FinOps Review</span>
-          <span className="cf-badge cf-badge--primary">capability: spend_by_team</span>
+          <span className="cf-badge cf-badge--accent">on-prem · tailnet</span>
           <span className="cf-badge cf-badge--danger">salary · redacted</span>
         </div>
 
         <div className="app-topbar__right">
-          <span className="cf-presence" aria-label="3 collaborators present">
-            <span className="cf-presence__dot" style={{ background: "var(--cf-indigo-500)" }}>CT</span>
-            <span className="cf-presence__dot" style={{ background: "var(--cf-sky-500)" }}>CF</span>
-            <span className="cf-presence__dot" style={{ background: "var(--cf-amber-500)" }}>◆</span>
+          <span
+            className={`cf-badge ${syncStatus === "live" ? "cf-badge--success" : ""}`}
+            title="Live presence from the Rust relay (set NEXT_PUBLIC_SYNC_URL)"
+          >
+            {syncStatus === "live"
+              ? `● sync live · ${livePeers.length} peer${livePeers.length === 1 ? "" : "s"}`
+              : syncStatus === "connecting"
+                ? "◌ connecting…"
+                : syncStatus === "offline"
+                  ? "○ relay offline"
+                  : "○ sync off"}
           </span>
-          <button className="cf-btn cf-btn--primary cf-btn--sm">Share</button>
+          <span className="cf-presence" aria-label="collaborators present">
+            {PRINCIPALS.map((p) => (
+              <span key={p.id} className="cf-presence__dot" style={{ background: dotColor(p.id) }}>
+                {tag(p)}
+              </span>
+            ))}
+            {livePeers.map((p) => (
+              <span
+                key={`live-${p.principal}`}
+                className="cf-presence__dot"
+                style={{ background: "var(--cf-green-500)" }}
+                title={`${p.display_name} · ${p.mode}`}
+              >
+                ◆
+              </span>
+            ))}
+          </span>
+          <button className="cf-btn cf-btn--ghost cf-btn--sm" onClick={resetAll}>
+            Reset demo
+          </button>
         </div>
       </header>
 
       <div className="app-body">
-        <aside className="app-sidebar" aria-label="Documents">
-          <p className="app-sidebar__label">Workspace</p>
-          <ul className="app-doclist">
-            {docs.map((d) => (
-              <li key={d.id} className="app-doclist__item" aria-current={d.active ? "true" : undefined}>
-                {d.title}
-              </li>
+        <aside className="app-sidebar" aria-label="Workspace">
+          <p className="app-sidebar__label">Acting as</p>
+          <div className="cf-actor-switch">
+            {PRINCIPALS.map((p) => (
+              <button
+                key={p.id}
+                className={`cf-actor${p.id === actorId ? " cf-actor--on" : ""}`}
+                onClick={() => switchActor(p.id)}
+              >
+                <span className="cf-presence__dot" style={{ background: dotColor(p.id), marginLeft: 0 }}>
+                  {tag(p)}
+                </span>
+                <span>
+                  <span className="cf-actor__name">{p.name}</span>
+                  <span className="cf-actor__sub">
+                    {p.kind === "agent" ? `owner: ${p.owner}` : p.role}
+                  </span>
+                </span>
+              </button>
             ))}
+          </div>
+
+          <p className="app-sidebar__label" style={{ marginTop: "var(--space-4)" }}>
+            Run a flow
+          </p>
+          <div className="cf-stack">
+            <button className="cf-btn cf-btn--secondary cf-btn--sm cf-block" onClick={runFlowA}>
+              Flow A · request → approve
+            </button>
+            <button className="cf-btn cf-btn--secondary cf-btn--sm cf-block" onClick={runFlowB}>
+              Flow B · salary invariant
+            </button>
+          </div>
+
+          <p className="app-sidebar__label" style={{ marginTop: "var(--space-4)" }}>
+            Documents
+          </p>
+          <ul className="app-doclist">
+            <li className="app-doclist__item" aria-current="true">
+              Q3 FinOps Review
+            </li>
+            <li className="app-doclist__item">Agent workflow evals</li>
+            <li className="app-doclist__item">Vendor consolidation</li>
+            <li className="app-doclist__item">2026 budget draft</li>
           </ul>
         </aside>
 
@@ -66,62 +305,187 @@ export default function Home() {
               <div className="app-editor__metarow">
                 <span className="cf-badge">Shared with 5 + 3 agents</span>
                 <span className="cf-badge cf-badge--success">Live</span>
-                <span className="cf-badge cf-badge--accent">on-prem · tailnet</span>
+                <span className="cf-badge cf-badge--primary">acting: {actor.name}</span>
               </div>
 
               <div className="app-editor__body">
                 <p>
                   Engineering reports Claude Code utilization is up across the platform team. The open
-                  question for this review: is the spend justified once credits and our discount tier
-                  are applied?
+                  question for this review: is the spend justified once credits and our discount tier are
+                  applied?
                 </p>
                 <p className="muted">
-                  The CTO&rsquo;s agent can read team-level spend, but the salary column stays redacted —
-                  no token in this document grants it. Below, the CFO has approved a scoped pull so the
-                  brain can answer net-of-credits.
-                </p>
-                <p>
-                  <strong>Finding.</strong> Net spend after credits is down 18% month-over-month while
-                  agent-completed workflows rose 31%. Recommendation: keep the current tier; revisit at
-                  Q4 once the Ops evals close.
+                  Each principal queries the same brain but sees only what their capability token permits.
+                  Switch &ldquo;Acting as&rdquo; and run a query — the brain redacts fields you aren&rsquo;t
+                  cleared for, and a denied view is what triggers a scoped access request.
                 </p>
               </div>
+
+              <QueryResult result={result} actorName={actor.name} />
             </div>
           </section>
 
-          <aside className="app-agentpanel" aria-label="Agents and requests">
-            <p className="app-agentpanel__label">Permission request</p>
-            <div className="cf-card">
-              <p className="app-request__title">
-                <span className="cf-presence__dot" style={{ background: "var(--cf-indigo-500)", marginLeft: 0 }}>CT</span>
-                CTO&rsquo;s agent wants access
-              </p>
-              <p className="app-request__reason">
-                &ldquo;To judge whether this month&rsquo;s Claude spend is net-justified after credits.&rdquo;
-              </p>
-              <div className="app-request__scope">
-                read view(stripe, finance_private)<br />
-                fields: [credits, discount_tier]<br />
-                rows: team in &#123;eng, ops, sales, finance&#125;<br />
-                deny: employee_salary &nbsp;·&nbsp; ttl: 7d
-              </div>
-              <div className="app-request__actions">
-                <button className="cf-btn cf-btn--primary cf-btn--sm">Approve (scoped)</button>
-                <button className="cf-btn cf-btn--ghost cf-btn--sm">Deny</button>
+          <aside className="app-agentpanel" aria-label="Query console">
+            <div>
+              <p className="app-agentpanel__label">brain.query — capability-filtered</p>
+              <div className="cf-card cf-stack">
+                <label className="cf-field-label">View</label>
+                <div className="cf-seg">
+                  {VIEWS.map((v) => (
+                    <button
+                      key={viewId(v.view)}
+                      className={`cf-seg__btn${viewId(v.view) === viewId(selView) ? " cf-seg__btn--on" : ""}`}
+                      onClick={() => switchView(v.view)}
+                    >
+                      {v.label}
+                    </button>
+                  ))}
+                </div>
+
+                <label className="cf-field-label">Fields</label>
+                <div className="cf-chips">
+                  {columns.map((c) => (
+                    <label key={c} className={`cf-chip${PRIVATE_FIELDS.has(c) ? " cf-chip--private" : ""}`}>
+                      <input
+                        type="checkbox"
+                        checked={selFields.includes(c)}
+                        onChange={() => toggleField(c)}
+                      />
+                      {c}
+                    </label>
+                  ))}
+                </div>
+
+                <button className="cf-btn cf-btn--primary cf-btn--sm cf-block" onClick={runQuery}>
+                  Run query as {actor.name}
+                </button>
+                {canRequest && (
+                  <button className="cf-btn cf-btn--secondary cf-btn--sm cf-block" onClick={requestAccess}>
+                    Request access · {neededFields.join(", ")}
+                  </button>
+                )}
               </div>
             </div>
 
-            <p className="app-agentpanel__label">Brain answer</p>
-            <div className="cf-card">
-              <p className="app-answer__by">CFO agent · via brain.query</p>
-              <p>
-                Net spend after credits: <strong>−18% MoM</strong>. Utilization <strong>+31%</strong>.
-                Discount tier applied. <span className="cf-text-muted">Salary withheld (redacted).</span>
-              </p>
+            {pending && (
+              <div>
+                <p className="app-agentpanel__label">Permission request</p>
+                <div className="cf-card">
+                  <p className="app-request__title">
+                    <span
+                      className="cf-presence__dot"
+                      style={{ background: dotColor(pending.req.requester), marginLeft: 0 }}
+                    >
+                      {tag(PRINCIPALS.find((p) => p.id === pending.req.requester)!)}
+                    </span>
+                    {PRINCIPALS.find((p) => p.id === pending.req.requester)!.name} wants access
+                  </p>
+                  <p className="app-request__reason">&ldquo;{pending.req.reason}&rdquo;</p>
+                  <div className="app-request__scope">
+                    read view({pending.req.view.source}, {pending.req.view.view})
+                    <br />
+                    fields: [{pending.req.fields.join(", ")}]<br />
+                    rows: team in {"{eng, ops, sales, finance}"}
+                    <br />
+                    deny: employee_salary &nbsp;·&nbsp; ttl: {pending.req.ttl}
+                  </div>
+
+                  {pending.route.decision === "forbidden" ? (
+                    <p className="cf-forbidden">⛔ {pending.route.reason}</p>
+                  ) : pending.route.decision === "auto" ? (
+                    <p className="cf-text-muted" style={{ marginTop: "var(--space-3)", fontSize: "var(--text-sm)" }}>
+                      Auto-approved by envelope.
+                    </p>
+                  ) : (
+                    <div className="app-request__actions">
+                      <button className="cf-btn cf-btn--primary cf-btn--sm" onClick={() => applyGrant(pending.req)}>
+                        Approve (scoped)
+                      </button>
+                      <button className="cf-btn cf-btn--ghost cf-btn--sm" onClick={denyRequest}>
+                        Deny
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div>
+              <p className="app-agentpanel__label">Audit trail</p>
+              <div className="cf-card cf-log">
+                {log.length === 0 ? (
+                  <p className="cf-text-muted" style={{ fontSize: "var(--text-sm)" }}>
+                    Run a query to populate the audit trail.
+                  </p>
+                ) : (
+                  <ul>
+                    {log.map((e) => (
+                      <li key={e.id} className={`cf-log__row cf-log__row--${e.kind}`}>
+                        <span className="cf-log__tag">{e.kind}</span>
+                        {e.text}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </div>
           </aside>
         </main>
       </div>
+    </div>
+  );
+}
+
+function QueryResult({ result, actorName }: { result: BrainResult | null; actorName: string }) {
+  if (!result) {
+    return (
+      <div className="cf-result cf-result--empty">
+        <p className="cf-text-muted">No query run yet. Use the console on the right.</p>
+      </div>
+    );
+  }
+
+  if (!result.ok) {
+    return (
+      <div className="cf-result cf-result--deny">
+        <p className="cf-result__head">⛔ Denied · {result.reason}</p>
+        <p>{result.answer}</p>
+      </div>
+    );
+  }
+
+  const cols = result.rows.length ? Object.keys(result.rows[0]) : result.fields;
+  return (
+    <div className="cf-result cf-result--ok">
+      <p className="cf-result__head">
+        ✓ {actorName} · {result.rows.length} row(s)
+        {result.redacted.length > 0 && (
+          <span className="cf-badge cf-badge--danger" style={{ marginLeft: "var(--space-2)" }}>
+            redacted: {result.redacted.join(", ")}
+          </span>
+        )}
+      </p>
+      <p className="cf-result__answer">{result.answer}</p>
+      {result.rows.length > 0 && (
+        <table className="cf-table">
+          <thead>
+            <tr>
+              {cols.map((c) => (
+                <th key={c}>{c}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {result.rows.map((r, i) => (
+              <tr key={i}>
+                {cols.map((c) => (
+                  <td key={c}>{String(r[c] ?? "—")}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }

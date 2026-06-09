@@ -110,11 +110,11 @@ flowchart LR
 
 | Spec element | Code |
 |---|---|
-| Principal / Agent identity, `agent:<owner>/<n>` | `crates/sync/src/identity.rs` (stub) |
-| Capability / Resource / Operation / Field / Row | `crates/sync/src/access/mod.rs` (stub) |
-| mint / attenuate / authorize, field/row authorizer | `crates/sync/src/access/biscuit.rs` (stub) |
-| `access_request` + grant + auto-mode envelope | `crates/sync/src/access/request.rs` (stub) |
-| Principal registry / root keys / envelopes (`ctl`) | `crates/sync/src/controlplane/` (stub) |
+| Principal / Agent identity, `agent:<owner>/<n>` | `crates/sync/src/identity.rs` ✅ built |
+| Capability / Resource / Operation / Field / Row | `crates/sync/src/access/mod.rs` ✅ built |
+| mint / attenuate / authorize, field/row authorizer | `crates/sync/src/access/biscuit.rs` ✅ built |
+| `access_request` + grant + auto-mode envelope | `crates/sync/src/access/request.rs` ✅ built |
+| Principal registry / root keys / envelopes (`ctl`) | `crates/sync/src/controlplane/` ✅ built |
 | TS types + helper signatures | `packages/protocol/src/access.ts` — `Capability`, `Action`, `Resource`, `PermissionRequest`/`Grant`, `attenuate()`/`authorize()` |
 
 **Future:** real Biscuit Datalog policies + `Authorizer`, `@biscuit-auth/biscuit-wasm` integration in the web for client-side checks, revocation, audit UI.

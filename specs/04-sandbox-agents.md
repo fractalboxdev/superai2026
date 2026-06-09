@@ -73,11 +73,11 @@ Agents improve month-over-month: the synthesis pipeline detects anomalies agains
 | Spec element | Code |
 |---|---|
 | `agent` subcommand | `crates/sync/src/main.rs` → `agent::runtime::run` |
-| Agent loop (MCP-only tool surface, request_access) | `crates/sync/src/agent/runtime.rs` (stub) |
-| Inference trait + StubInference (+ OpenAI-compatible backend feature) | `crates/sync/src/agent/inference.rs` (stub) |
-| Sandbox trait + lifecycle | `crates/sync/src/sandbox/mod.rs` (stub) |
-| Vercel Sandbox driver (Rust control) | `crates/sync/src/sandbox/vercel.rs` (stub) |
+| Agent loop (MCP-only tool surface, request_access) | `crates/sync/src/agent/runtime.rs` ✅ built (trait + stub driver) |
+| Inference trait + StubInference (+ OpenAI-compatible backend feature) | `crates/sync/src/agent/inference.rs` ✅ built (trait + stub driver) |
+| Sandbox trait + lifecycle | `crates/sync/src/sandbox/mod.rs` ✅ built (trait + stub driver) |
+| Vercel Sandbox driver (Rust control) | `crates/sync/src/sandbox/vercel.rs` ✅ built (trait + stub driver) |
 | Vercel Sandbox Node bridge (`@vercel/sandbox` wrapper) | `packages/sandbox-bridge` (Node, stub) |
-| Local constrained-process driver | `crates/sync/src/sandbox/local.rs` (stub) |
+| Local constrained-process driver | `crates/sync/src/sandbox/local.rs` ✅ built (trait + stub driver) |
 
 **Future:** real Vercel Sandbox orchestration via the `packages/sandbox-bridge` Node wrapper, recreate-on-re-entry wiring, `wasmtime` isolation, Vercel AI Gateway / LM Studio calls, agent harness adapters (Claude Code / OpenClaw).

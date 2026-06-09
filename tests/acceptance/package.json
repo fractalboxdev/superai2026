@@ -1,0 +1,16 @@
+{
+  "name": "@superai2026/acceptance",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "End-to-end acceptance flows (spec 09) against the built `sync` binary. flare-dispatch + Playwright is the intended browser-level harness; this drives the brain MCP + control plane directly.",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.7",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  }
+}
