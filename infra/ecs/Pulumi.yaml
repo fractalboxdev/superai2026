@@ -1,0 +1,14 @@
+name: contextful-ecs
+runtime:
+  name: nodejs
+  options:
+    packagemanager: pnpm
+description: >-
+  Demo deploy of the crates/sync server binary to AWS ECS Fargate (us-west-2):
+  ECR image built from the repo-root Dockerfile, NLB in front of the Loro WS
+  relay (7878) and the brain MCP streamable-HTTP endpoint (7979).
+config:
+  contextful-ecs:syncPort:
+    default: 7878
+  contextful-ecs:mcpPort:
+    default: 7979
