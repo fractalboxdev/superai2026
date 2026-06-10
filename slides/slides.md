@@ -95,9 +95,9 @@ class: text-center
 
 # Contextful
 
-## A boundary at every person
+## Local-first collaboration workspaces for your agents
 
-Your agent holds **your** context — and crosses a boundary only with approval.
+**Your data. Your rules.**
 
 <p class="mt-10 text-xl opacity-80">The brain gets <b>smarter</b> as it gets more <b>careful</b>.</p>
 
