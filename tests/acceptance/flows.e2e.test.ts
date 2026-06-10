@@ -83,7 +83,7 @@ d("Reference flows over the brain MCP", () => {
 
   // ---- Flow B: the salary invariant (negative) ----
   describe("Flow B — salary invariant", () => {
-    it("Dinesh (Lead Engineer)'s agent's salary query is denied", async () => {
+    it("Dinesh (CTO)'s agent's salary query is denied", async () => {
       const r = await callTool(flow, "agent:eng/1", "brain.query", {
         view: "stripe/finance_private",
         select: ["employee_salary"],
