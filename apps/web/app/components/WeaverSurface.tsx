@@ -89,22 +89,30 @@ const toRecord = (p: PresenceState): PresenceRecord => ({
 
 const NO_PRINCIPALS: ReadonlyArray<Principal> = [];
 
+// An ask only counts as dispatched once its text sits unchanged this long —
+// mirrors the Rust watcher's STABLE_MS gate (crates/sync agent/editor.rs),
+// which won't answer a line that is still being typed.
+const ASK_SETTLE_MS = 1_500;
+
 // An unanswered mention-ask means its tagged agent is working on a reply —
 // surface that as a "thinking" caret at the end of the ask block (and a
 // `generating` face in the facepile). Mirrors the Rust watcher's ask rules
 // (crates/sync agent/editor.rs): `@<agent name> <question>` is answered once
-// the next non-empty block starts with `A:` / `A (`.
-const thinkingCursorsOf = (
+// the next non-empty block starts with `A:` / `A (`. `raw` carries the full
+// block text so the settle gate can tell an edited ask from a stable one.
+type ThinkingAsk = { cursor: PresenceCursor; raw: string };
+
+const thinkingAsksOf = (
   editor: Editor,
   agents: ReadonlyArray<Principal>,
-): PresenceCursor[] => {
+): ThinkingAsk[] => {
   if (agents.length === 0) return [];
   const byLongest = [...agents].sort((a, b) => b.label.length - a.label.length);
   const blocks = getChildren(editor, rootId(editor)).filter(
     (id) => getBlock(editor, id)?.hasInline,
   );
   const texts = blocks.map((id) => editor.commands.text.read(id));
-  const out: PresenceCursor[] = [];
+  const out: ThinkingAsk[] = [];
   texts.forEach((text, i) => {
     const rest = text.trimStart();
     if (!rest.startsWith("@")) return;
@@ -124,11 +132,14 @@ const thinkingCursorsOf = (
       .find((t) => t.length > 0);
     if (next && (next.startsWith("A:") || next.startsWith("A ("))) return;
     out.push({
-      peerId: `thinking:${target.id}`,
-      label: `${target.label} is thinking`,
-      color: target.color ?? "var(--color-accent)",
-      blockId: blocks[i]!,
-      offset: text.length,
+      cursor: {
+        peerId: `thinking:${target.id}`,
+        label: `${target.label} is thinking`,
+        color: target.color ?? "var(--color-accent)",
+        blockId: blocks[i]!,
+        offset: text.length,
+      },
+      raw: text,
     });
   });
   return out;
@@ -166,8 +177,9 @@ export default function WeaverSurface({
   }, [onCursorChange, cursor]);
 
   // Agents currently "thinking": one synthetic caret per unanswered mention
-  // ask, recomputed on every doc change (below) so the indicator appears the
-  // moment an agent is tagged and drops when its `A (…)` reply lands.
+  // ask, recomputed on every doc change (below). The indicator appears once
+  // the ask has settled — its text unchanged for ASK_SETTLE_MS, i.e. the
+  // author stopped typing — and drops when its `A (…)` reply lands.
   const agentPrincipals = useMemo(
     () => mentionPrincipals.filter((p) => p.kind === "agent"),
     [mentionPrincipals],
@@ -265,11 +277,43 @@ export default function WeaverSurface({
           );
         }
       });
+    // Settle gate: an ask's caret shows only after its block text has been
+    // unchanged for ASK_SETTLE_MS — while the question is still being typed
+    // every keystroke resets its clock. Doc events stop when the author does,
+    // so a timer re-checks when the soonest pending ask matures.
+    const askSeen = new Map<string, { raw: string; since: number }>();
+    let settleTimer: number | null = null;
     const refreshThinking = () => {
-      const next = thinkingCursorsOf(editor, agentPrincipals);
-      if (thinkingKey(next) !== thinkingKey(thinkingRef.current)) {
-        thinkingRef.current = next;
-        setThinking(next);
+      if (settleTimer !== null) {
+        window.clearTimeout(settleTimer);
+        settleTimer = null;
+      }
+      const now = Date.now();
+      const live = new Set<string>();
+      const settled: PresenceCursor[] = [];
+      let soonest = Infinity;
+      for (const { cursor, raw } of thinkingAsksOf(editor, agentPrincipals)) {
+        const key = `${cursor.peerId}@${cursor.blockId}`;
+        live.add(key);
+        const prev = askSeen.get(key);
+        const since = prev && prev.raw === raw ? prev.since : now;
+        askSeen.set(key, { raw, since });
+        const wait = ASK_SETTLE_MS - (now - since);
+        if (wait <= 0) settled.push(cursor);
+        else soonest = Math.min(soonest, wait);
+      }
+      for (const key of askSeen.keys()) {
+        if (!live.has(key)) askSeen.delete(key);
+      }
+      if (soonest !== Infinity) {
+        settleTimer = window.setTimeout(() => {
+          refreshThinking();
+          draw();
+        }, soonest + 20);
+      }
+      if (thinkingKey(settled) !== thinkingKey(thinkingRef.current)) {
+        thinkingRef.current = settled;
+        setThinking(settled);
       }
     };
     const draw = () =>
@@ -284,6 +328,7 @@ export default function WeaverSurface({
     });
     return () => {
       unsubDoc();
+      if (settleTimer !== null) window.clearTimeout(settleTimer);
       overlayRef.current = null;
       overlay.dispose();
     };
