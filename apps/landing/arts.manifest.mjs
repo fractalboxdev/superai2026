@@ -47,12 +47,13 @@ export const arts = [
   },
   {
     id: "feature-scoped",
-    alt: "A key splitting into smaller keys, each opening a smaller door",
+    alt: "A large key handing smaller keys to friendly round white robot agents, each opening a smaller door",
     aspectRatio: "1:1",
     width: 1024,
     height: 1024,
+    refs: ["apps/landing/public/cast/agent-monica-cutout.webp", "apps/landing/public/cast/agent.webp"],
     prompt:
-      "Capability-scoped delegation: a large indigo key handing off progressively smaller keys to small friendly robot agents, each key opening a smaller door. Attenuation, not trust.",
+      "The robot agents must look exactly like the robot in the reference images — same rounded white/silver body, dark face screen with glowing dot-matrix smiley eyes, small side ear pods — rendered in the retro halftone comic style. Scene, capability-scoped delegation: a large indigo key handing off progressively smaller keys to two or three of these small friendly robot agents, each key opening a smaller door. Attenuation, not trust. No text.",
   },
   {
     id: "feature-brain",
