@@ -117,7 +117,8 @@ export function Wizard({
             <h2>What should this Mac do?</h2>
             <div className="role-grid">
               <button
-                className={`cf-card cf-card--interactive ${role === "host" ? "cf-card--raised" : ""}`}
+                className={`cf-card cf-card--interactive ${role === "host" ? "cf-card--selected" : ""}`}
+                aria-pressed={role === "host"}
                 onClick={() => setRole("host")}
               >
                 <h3>Host</h3>
@@ -127,7 +128,8 @@ export function Wizard({
                 </p>
               </button>
               <button
-                className={`cf-card cf-card--interactive ${role === "member" ? "cf-card--raised" : ""}`}
+                className={`cf-card cf-card--interactive ${role === "member" ? "cf-card--selected" : ""}`}
+                aria-pressed={role === "member"}
                 onClick={() => setRole("member")}
               >
                 <h3>Member</h3>
