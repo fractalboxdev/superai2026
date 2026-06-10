@@ -23,6 +23,7 @@ for (const entry of artManifest) {
 const art = (id: string) => artFiles.get(id) ?? null;
 const layersArt = art("layers");
 const logoArt = art("logo");
+const problemArt = art("slide-do-you");
 
 const title = "Contextful — local-first company brain";
 const description =
@@ -122,14 +123,23 @@ const compare = {
 };
 
 // Connector logos live in public/logos/<id>.svg (simple-icons / svgl).
+// Entries without a logo render as text-only chips.
 const tools = [
-  { name: "Claude", logo: "claude" },
   { name: "Notion", logo: "notion" },
   { name: "Slack", logo: "slack" },
-  { name: "Linear", logo: "linear" },
+  { name: "Stripe", logo: "stripe" },
+  { name: "Exa", logo: null },
+];
+
+// Platform strip — the agents we speak and where the stack deploys.
+const agents = [
+  { name: "Claude", logo: "claude" },
+  { name: "OpenAI", logo: "openai" },
+  { name: "Hermes", logo: null },
+];
+const deployTargets = [
   { name: "AWS", logo: "aws" },
   { name: "Vercel", logo: "vercel" },
-  { name: "Stripe", logo: "stripe" },
 ];
 
 // The Pied Piper cast (PRESENTATION.md theme rule: always "Name (Role)").
@@ -140,7 +150,7 @@ const cast = [
   { slug: "agent-monica", name: "Monica's Agent", role: "Scoped to finance" },
   { slug: "jared", name: "Jared", role: "COO" },
   { slug: "gilfoyle", name: "Gilfoyle", role: "Systems Architect" },
-  { slug: "dinesh", name: "Dinesh", role: "Lead Engineer" },
+  { slug: "dinesh", name: "Dinesh", role: "CTO" },
   { slug: "agent-dinesh", name: "Dinesh's Agent", role: "Scoped to engineering" },
 ];
 
@@ -230,6 +240,7 @@ for (const m of cast) {
           <a href="#capability">How it's safe</a>
           <a href="#how">How it works</a>
           <a href="/docs/">Docs</a>
+          <a href={slidesUrl}>Slides</a>
           <a class="cf-btn cf-btn--primary cf-btn--sm" href="#demo">See it live ↓</a>
         </nav>
       </div>
@@ -249,7 +260,7 @@ for (const m of cast) {
             </h1>
             <div class="hero__cta" data-reveal style="--d:.12s">
               <a class="cf-btn cf-btn--primary cf-btn--lg" href="#demo">▶ Watch it think</a>
-              <a class="cf-btn cf-btn--secondary cf-btn--lg" href={slidesUrl}>See the deck</a>
+              <a class="cf-btn cf-btn--secondary cf-btn--lg" href={slidesUrl}>See the slides</a>
             </div>
             <p class="hero__note" data-reveal style="--d:.18s">Runs on-prem over Tailscale · Cloud optional</p>
           </div>
@@ -270,12 +281,51 @@ for (const m of cast) {
         </div>
       </section>
 
+      <!-- Problem recap — the SuperAgent trap (PRESENTATION.md Act 1) -->
+      <section id="problem" class="section section--alt">
+        <div class="cf-container">
+          <header class="section__head section__head--center" data-reveal>
+            <span class="cf-eyebrow">The problem</span>
+            <h2>"A SuperAgent for your company's brain."<br /> <span class="cf-text-gradient">It's so wrong.</span></h2>
+            <p class="section__lead">
+              Your agents need context — too little and they're useless. But the obvious fix,
+              one all-knowing SuperAgent, is the one thing you can't allow.
+            </p>
+          </header>
+
+          <div class="problem__inner">
+            <ul class="problem__points">
+              <li class="cf-card problem__card" data-reveal>
+                <h3>No access control</h3>
+                <p>Anyone can ask anything. An engineer quietly types <em>"what's the CEO's salary?"</em> — and it answers.</p>
+              </li>
+              <li class="cf-card problem__card" data-reveal style="--d:.08s">
+                <h3>Company brain on a startup's infra</h3>
+                <p>Your most sensitive context, sitting on someone else's cloud. Their breach is your breach.</p>
+              </li>
+            </ul>
+            {problemArt && (
+              <img
+                class="cf-art problem__art cf-float"
+                data-reveal
+                style="--d:.14s"
+                src={problemArt.src}
+                alt={problemArt.alt}
+                width={problemArt.width}
+                height={problemArt.height}
+                loading="lazy"
+              />
+            )}
+          </div>
+        </div>
+      </section>
+
       <!-- DEMO — the product showing itself -->
       <section id="demo" class="section section--demo">
         <div class="cf-container">
           <header class="section__head section__head--center" data-reveal>
             <span class="cf-eyebrow">Watch it think</span>
-            <h2>Contextual, private collaboration. <span class="cf-text-gradient">Like a closed-door meeting.</span></h2>
+            <h2>Contextual, private collaboration.<br /> <span class="cf-text-gradient">Like a closed-door meeting.</span></h2>
             <p class="section__lead">
               Live below: a CFO agent asks a budget question. The brain answers from synthesized
               context — with the salary line redacted, because that's outside the agent's scope.
@@ -398,7 +448,31 @@ for (const m of cast) {
           <ul class="strip__tools">
             {tools.map((t, i) => (
               <li data-reveal style={`--d:${i * 0.04}s`}>
-                <img class="strip__logo" src={`/logos/${t.logo}.svg`} alt="" width="24" height="24" loading="lazy" />
+                {t.logo && <img class="strip__logo" src={`/logos/${t.logo}.svg`} alt="" width="24" height="24" loading="lazy" />}
+                {t.name}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      <!-- Platform strip — the agents we speak, and where it deploys -->
+      <section class="strip strip--platform">
+        <div class="cf-container">
+          <p class="strip__label" data-reveal>Supported agents</p>
+          <ul class="strip__tools">
+            {agents.map((t, i) => (
+              <li data-reveal style={`--d:${i * 0.04}s`}>
+                {t.logo && <img class="strip__logo" src={`/logos/${t.logo}.svg`} alt="" width="24" height="24" loading="lazy" />}
+                {t.name}
+              </li>
+            ))}
+          </ul>
+          <p class="strip__label strip__label--byoc" data-reveal>BYOC — your deploy environment</p>
+          <ul class="strip__tools">
+            {deployTargets.map((t, i) => (
+              <li data-reveal style={`--d:${i * 0.04}s`}>
+                {t.logo && <img class="strip__logo" src={`/logos/${t.logo}.svg`} alt="" width="24" height="24" loading="lazy" />}
                 {t.name}
               </li>
             ))}
@@ -600,7 +674,7 @@ for (const m of cast) {
         <nav class="footer__links" aria-label="Footer">
           <a href="#demo">Demo</a>
           <a href="/docs/">Docs</a>
-          <a href={slidesUrl}>Deck</a>
+          <a href={slidesUrl}>Slides</a>
           <a href="https://www.contextful.work">contextful.work</a>
         </nav>
         <p class="footer__legal cf-text-muted">© 2026 Contextful · Local-first by design</p>
@@ -740,15 +814,16 @@ for (const m of cast) {
       .hero__inner {
         display: grid;
         grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.28fr);
-        gap: var(--space-8) 0;
+        gap: var(--space-8) 2px;
         align-items: center;
       }
       .hero__copy { max-width: 34rem; }
       .hero__title { font-size: var(--text-6xl); margin-top: var(--space-4); }
       .hero__video {
         display: block;
-        width: 100%;
+        width: 90%;
         height: auto;
+        justify-self: end;
         rotate: 1.5deg;
         background: var(--cf-teal-900);
       }
@@ -931,6 +1006,26 @@ for (const m of cast) {
        * ============================================================ */
       .strip { padding-block: var(--space-12); }
       .strip__label { text-align: center; font-size: var(--text-sm); color: var(--color-text-subtle); }
+      .strip--platform { padding-block: 0 var(--space-12); }
+      .strip__label--byoc { margin-top: var(--space-10); }
+
+      /* ---- Problem recap (the SuperAgent trap) -------------------- */
+      .problem__inner {
+        display: grid;
+        grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+        gap: var(--space-10);
+        align-items: center;
+        margin-top: var(--space-10);
+      }
+      .problem__points { display: grid; gap: var(--space-6); list-style: none; padding: 0; margin: 0; }
+      .problem__card { padding: var(--space-6); }
+      .problem__card h3 { margin: 0 0 var(--space-2); font-size: var(--text-xl); }
+      .problem__card p { margin: 0; color: var(--color-text-muted); }
+      .problem__art { width: 100%; height: auto; justify-self: center; max-width: 30rem; }
+      @media (max-width: 880px) {
+        .problem__inner { grid-template-columns: 1fr; }
+        .problem__art { max-width: 22rem; }
+      }
       .strip__tools { list-style: none; padding: 0; margin: var(--space-6) 0 0; display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-6) var(--space-8); }
       .strip__tools li { display: inline-flex; align-items: center; gap: var(--space-2); font-weight: var(--weight-semibold); color: var(--color-text-muted); font-size: var(--text-lg); }
       .strip__logo { height: 1.35em; width: auto; }

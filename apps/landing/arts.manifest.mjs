@@ -74,21 +74,28 @@ export const arts = [
   },
   {
     id: "feature-collab",
-    alt: "Two human cursors and a robot cursor editing the same document together",
+    alt: "Richard and Monica editing the same document together, their agents' cursors alongside",
     aspectRatio: "1:1",
     width: 1024,
     height: 1024,
+    refs: ["apps/landing/public/cast/richard.webp", "apps/landing/public/cast/monica.webp"],
     prompt:
-      "Real-time collaboration: one shared document card edited simultaneously by two human pointer cursors and one small robot cursor, with live presence dots in indigo, sky and amber. Peers, not hierarchy.",
+      "Use exactly the two people from the reference portraits — same faces, hairstyles, and clothing — in the same retro halftone comic style. Real-time collaboration: the two of them lean over one large shared document card, each editing with a pointer cursor; beside their cursors float two smaller glowing agent cursors with presence dots in indigo, sky and amber. Peers, not hierarchy. No robots, no text.",
   },
   {
     id: "layers",
-    alt: "An isometric stack of three layers: collaborating cursors on a document on top, a key and keyhole gate filtering the flow in the middle, and a glowing memory brain of connected cards at the base, joined by a vertical flow",
+    alt: "An isometric stack of three layers: Richard and Monica collaborating on a document on top, Gilfoyle gatekeeping a keyhole filter in the middle, and a glowing memory brain of connected cards at the base",
     aspectRatio: "3:2",
     width: 1248,
     height: 832,
+    refs: [
+      "apps/landing/public/cast/richard.webp",
+      "apps/landing/public/cast/monica.webp",
+      "apps/landing/public/cast/gilfoyle.webp",
+      "assets/001.png",
+    ],
     prompt:
-      "An isometric exploded stack of three floating rounded platform layers, vertically aligned and connected by a thin glowing indigo thread passing through all three. Top layer (collaboration): a shared document card edited by two human pointer cursors and one small robot cursor with presence dots in indigo, sky and amber. Middle layer (access control): a large indigo key beside a gate with a keyhole through which only a narrow permitted slice of the flowing thread passes, one small amber padlock locked shut. Bottom layer (memory): a softly glowing brain made of small connected document cards and nodes growing from stacked source blocks, one amber node flagged. Clear vertical hierarchy, each layer distinct yet linked.",
+      "Use exactly the three people from the reference portraits — same faces, hairstyles, and clothing — in the same retro halftone comic style as the reference scene. An isometric exploded stack of three floating rounded platform layers, vertically aligned and connected by a thin glowing indigo thread passing through all three. Top layer (collaboration): the first man and the woman edit one shared document card together, pointer cursors and presence dots in indigo, sky and amber. Middle layer (access control): the bearded man stands as gatekeeper beside a gate with a keyhole through which only a narrow permitted slice of the flowing thread passes, one small amber padlock locked shut, a large indigo key in his hand. Bottom layer (memory): a softly glowing brain made of small connected document cards and nodes growing from stacked source blocks, one amber node flagged. Clear vertical hierarchy, each layer distinct yet linked. No robots, no text.",
   },
   // ---- Slide deck illustrations (slides/slides.md) -------------------
   // Generated here, then copied to slides/public/arts/. HARD RULE: every
