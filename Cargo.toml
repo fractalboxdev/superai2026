@@ -23,3 +23,5 @@ thiserror = "1"
 biscuit-auth = "6"
 hex = "0.4"
 ureq = { version = "2", features = ["json"] }
+aws-config = "1"
+aws-sdk-bedrockruntime = "1"
