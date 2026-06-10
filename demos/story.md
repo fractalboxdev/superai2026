@@ -64,32 +64,41 @@ video shows them appearing in real time. The peer tab's own recording is discard
 > The room hops onto the on-prem relay — synced over Tailscale, the company's own network. Never a third-party pool.
 
 - goto: /?sync=wss://debuggingfutures-macbook-air.tailfccfb1.ts.net
-- wait for: text=▶ Demo Q by CFO
+- wait for: text=▶ Demo Q as
 - pause: 1.5s
 
-## Scene: Dinesh (CTO)'s agent reaches for finance — denied
+## Scene: Dinesh (CTO)'s agent asks — denied
 
-> First: Dinesh (CTO)'s agent goes for the private finance view, salary included.
+> First: acting as Dinesh (CTO)'s agent, ask for the out-of-pocket spend. The watching agent checks HIS token.
 
-- click: text=Flow B · salary invariant
-- wait for: .cf-result--deny
-- expect: text=⛔ Denied
+- click: button.cf-actor:has-text("Dinesh (CTO)'s agent")
 - pause: 1s
+- click: text=▶ Demo Q as Dinesh (CTO)'s agent
+- expect: text=Typing as Dinesh
+- wait for: text=out-of-pocket expense this month
+- scroll: text=out-of-pocket expense this month
+- pause: 5s
+
+## Scene: Denied by policy, in the doc
+
+> The answer is a denial: his token holds no finance grant — the boundary bites before any data moves.
+
+- pause: 3s
+- wait for: text=A (cfo · for agent:eng/1
+- scroll: text=A (cfo · for agent:eng/1
 - caption: off
-- pause: 2.5s
-- caption: And for salary there is no approval path at all — a hard floor, not a setting.
-- scroll: .cf-forbidden
-- expect: .cf-forbidden
-- pause: 2.5s
+- pause: 3s
 
 ## Scene: Monica (CFO) asks the question
 
-> Same brain, right person: one click and Monica (CFO) tags her analyst agent in the doc.
+> Same brain, right person: acting as Monica (CFO), tag her analyst agent with the question.
 
-- click: text=▶ Demo Q by CFO
-- expect: text=Typing as CFO…
-- wait for: text=unit economics of our compression product
-- scroll: text=unit economics of our compression product
+- click: button.cf-actor:has-text("Monica (CFO)")
+- pause: 1s
+- click: text=▶ Demo Q as Monica (CFO)
+- expect: text=Typing as Monica
+- wait for: text=aggregated out of pocket cost
+- scroll: text=aggregated out of pocket cost
 - pause: 1.5s
 
 ## Scene: Her agent answers from brain memory

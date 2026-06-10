@@ -1,12 +1,4 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { type Capability } from "@superai2026/protocol/access";
-import { brainQuery, type BrainResult } from "@superai2026/protocol/brain";
-import {
-  approveRequest,
-  routeRequest,
-  type AccessRequest,
-  type RouteDecision,
-} from "@superai2026/protocol/requests";
 import { recoverStaleChunk, useWeaverRoom, type RoomNotice } from "@/lib/weaverRoom";
 import { useDemoAgent } from "@/lib/demoAgent";
 import { DOCS } from "@/lib/docs";
@@ -22,17 +14,10 @@ const WeaverSurface = lazy(() =>
 import {
   CFO,
   CFO_AGENT,
-  CFO_ENVELOPE,
   CTO_AGENT,
-  DATASETS,
   ENG_AGENT,
-  FINANCE_PRIVATE,
-  FLOW_A_REQUEST,
-  FLOW_B_REQUEST,
   PRINCIPALS,
   REGISTRY,
-  cfoCapability,
-  initialCapability,
   tag,
 } from "@superai2026/protocol/scenario";
 // Type-only — erased at build; the WASM-backed runtime import stays inside
@@ -46,17 +31,21 @@ type LogEntry = { id: number; kind: "ok" | "deny" | "grant" | "block" | "info"; 
 
 let logSeq = 0;
 
-// The scripted editor-agent demo: impersonate the CFO and tag HER analyst
-// agent in the live doc (a mention ask, spec 04 — Monica expects the reply
-// from her own agent, not an anonymous Q&A bot). The local `sync agent
-// --watch-doc <doc>` peer answers with the asker's token from brain memory
-// (~/.contextful) over the relay; the relay's authenticated `UPDATE.from`
-// stamp is what attributes the typed block to the CFO.
-const DEMO_QUESTION = "Let me share the unit economics of our compression product";
-const DEMO_ASK = `@${CFO_AGENT.name} — ${DEMO_QUESTION}`;
-// `A (cfo · for cfo · from brain memory): …` on success; the `· for cfo`
-// prefix also matches a denial/no-match reply so the demo loop always ends.
-const DEMO_ANSWER_MARK = "A (cfo · for cfo";
+// The scripted editor-agent demo: type a mention ask into the live doc as the
+// ACTING principal, tagging Monica (CFO)'s analyst agent (spec 04). The local
+// `sync agent --watch-doc <doc>` peer answers with the ASKER's token from
+// brain memory (~/.contextful) over the relay — the relay's authenticated
+// `UPDATE.from` stamp attributes the typed block to the asker, so Monica gets
+// the numbers and Dinesh gets `⛔ Denied`. One question per actor: the watcher
+// dedups asks by their raw block text, so the texts must differ.
+const DEMO_QUESTIONS: Record<string, string> = {
+  [CFO.id]: "pull up the aggregated out of pocket cost",
+  [ENG_AGENT.id]: "what's our out-of-pocket expense this month?",
+  [CTO_AGENT.id]: "how is our compression product performing this quarter?",
+};
+// Replies start `A (cfo · for <asker>` — `· from brain memory): …` when
+// answered, `): ⛔ Denied · …` when policy blocks the asker. Either ends the loop.
+const demoAnswerMark = (askerId: string) => `A (cfo · for ${askerId}`;
 
 const demoSleep = (ms: number, signal: AbortSignal) =>
   new Promise<void>((res) => {
@@ -70,15 +59,7 @@ const demoSleep = (ms: number, signal: AbortSignal) =>
 
 /** The capability console for one document room — rendered at `/` (default doc) and `/docs/:docId`. */
 export default function ConsolePage({ docId }: { docId: string }) {
-  // One capability token per principal; minted grants replace the holder's token.
-  const [caps, setCaps] = useState<Record<string, Capability>>(() => ({
-    [CTO_AGENT.id]: initialCapability(CTO_AGENT.id),
-    [ENG_AGENT.id]: initialCapability(ENG_AGENT.id),
-    [CFO.id]: initialCapability(CFO.id),
-  }));
   const [actorId, setActorId] = useState<string>(CTO_AGENT.id);
-  const [result, setResult] = useState<BrainResult | null>(null);
-  const [pending, setPending] = useState<{ req: AccessRequest; route: RouteDecision } | null>(null);
   const [log, setLog] = useState<LogEntry[]>([]);
 
   const actor = PRINCIPALS.find((p) => p.id === actorId)!;
@@ -136,78 +117,35 @@ export default function ConsolePage({ docId }: { docId: string }) {
 
   const switchActor = (id: string) => {
     setActorId(id);
-    setResult(null);
-    setPending(null);
-  };
-
-  const applyGrant = (req: AccessRequest) => {
-    try {
-      const granted = approveRequest(cfoCapability(), req);
-      setCaps((c) => ({ ...c, [req.requester]: granted }));
-      setPending(null);
-      pushLog("grant", `Monica (CFO) minted scoped token → ${req.requester} (${req.fields.join(", ")}, ttl ${req.ttl})`);
-      // agent retries automatically with the new token
-      const res = brainQuery(granted, DATASETS, { view: req.view, fields: [...req.fields] });
-      setResult(res);
-      if (res.ok) pushLog("ok", `${actor.name} retried → answered`);
-    } catch (e) {
-      pushLog("block", `mint refused: ${(e as Error).message}`);
-      setPending(null);
-    }
-  };
-
-  const denyRequest = () => {
-    if (pending) pushLog("deny", `Monica (CFO) denied ${pending.req.fields.join(", ")} — stays blocked`);
-    setPending(null);
-  };
-
-  // Scenario shortcuts.
-  const runFlowA = () => {
-    setActorId(CTO_AGENT.id);
-    const res = brainQuery(caps[CTO_AGENT.id] ?? initialCapability(CTO_AGENT.id), DATASETS, {
-      view: FINANCE_PRIVATE,
-      fields: FLOW_A_REQUEST.fields,
-    });
-    setResult(res);
-    const route = routeRequest(FLOW_A_REQUEST, CFO_ENVELOPE);
-    setPending({ req: FLOW_A_REQUEST, route });
-    pushLog("deny", `Flow A · Richard (CEO)'s agent denied finance_private → request raised`);
-  };
-
-  const runFlowB = () => {
-    setActorId(ENG_AGENT.id);
-    const res = brainQuery(caps[ENG_AGENT.id] ?? initialCapability(ENG_AGENT.id), DATASETS, {
-      view: FINANCE_PRIVATE,
-      fields: FLOW_B_REQUEST.fields,
-    });
-    setResult(res);
-    const route = routeRequest(FLOW_B_REQUEST, CFO_ENVELOPE);
-    setPending({ req: FLOW_B_REQUEST, route });
-    pushLog("block", `Flow B · salary invariant — no approval path`);
   };
 
   // ---- editor-agent demo (right panel) ----
-  const [demoAsk, setDemoAsk] = useState<string | null>(null);
-  // Monica's caret while the demo types — programmatic inserts never move the
-  // native DOM caret, so without this the typing has no visible author.
+  // The ask typed for the acting principal; `actorId` is captured so the
+  // effect targets the right editor instance if the actor switches mid-demo.
+  const [demo, setDemo] = useState<{ actorId: string; ask: string; question: string } | null>(null);
+  // The asker's caret while the demo types — programmatic inserts never move
+  // the native DOM caret, so without this the typing has no visible author.
   const [demoCursor, setDemoCursor] = useState<{ blockId: string; offset: number } | null>(null);
   const demoBusyRef = useRef(false);
 
   const runEditorDemo = () => {
-    if (demoAsk) return;
-    switchActor(CFO.id);
-    setDemoAsk(DEMO_ASK);
-    pushLog("info", `Demo · acting as ${CFO.name} — tagging ${CFO_AGENT.name} in the doc`);
+    if (demo) return;
+    const question = DEMO_QUESTIONS[actorId] ?? DEMO_QUESTIONS[CFO.id];
+    // `insertMention` writes `@<label> ` then the question is typed after it.
+    setDemo({ actorId, ask: `@${CFO_AGENT.name} ${question}`, question });
+    pushLog("info", `Demo · ${actor.name} tags ${CFO_AGENT.name} in the doc`);
   };
 
-  // Type the question into the CFO's Weaver editor once its room is ready,
-  // then watch the block tree for the agent's `A (…)` paragraph. The editor
-  // remounts when the actor switches, so this waits for that new instance.
+  // Type the question into the asker's Weaver editor once its room is ready,
+  // then watch the block tree for the agent's `A (…)` reply — answer or
+  // denial, per the asker's token. The editor remounts when the actor
+  // switches, so this waits for that instance.
   const ed = room.editor;
   useEffect(() => {
-    if (!demoAsk || actorId !== CFO.id || !ed || demoBusyRef.current) return;
+    if (!demo || actorId !== demo.actorId || !ed || demoBusyRef.current) return;
     demoBusyRef.current = true;
     const ctrl = new AbortController();
+    const asker = PRINCIPALS.find((p) => p.id === demo.actorId)!;
 
     const run = async () => {
       const { rootId, getChildren, getBlock } = await import("@weaver/core");
@@ -217,14 +155,23 @@ export default function ConsolePage({ docId }: { docId: string }) {
       await demoSleep(800, ctrl.signal);
       if (ctrl.signal.aborted) return;
 
-      const question = demoAsk;
-      if (!paragraphs().some((id) => ed.commands.text.read(id).startsWith(question))) {
+      if (!paragraphs().some((id) => ed.commands.text.read(id).startsWith(demo.ask))) {
         const blockId = ed.commands.block.insert({
           parentId: rootId(ed),
           index: getChildren(ed, rootId(ed)).length,
           kind: "paragraph",
         });
-        for (const ch of question) {
+        // A real mention chip — same `mention` mark the @-picker writes, so
+        // the agent is genuinely tagged (and the watcher reads the same text).
+        const marked = ed.commands.text.insertMention({
+          blockId,
+          range: { start: 0, end: 0 },
+          principal: { id: CFO_AGENT.id, label: CFO_AGENT.name, kind: "agent" },
+        });
+        room.setCursor({ blockId, offset: marked.end + 1 });
+        setDemoCursor({ blockId, offset: marked.end + 1 });
+        await demoSleep(300, ctrl.signal);
+        for (const ch of demo.question) {
           if (ctrl.signal.aborted) return;
           const offset = ed.commands.text.length(blockId);
           ed.commands.text.insert({ blockId, offset, value: ch });
@@ -234,20 +181,22 @@ export default function ConsolePage({ docId }: { docId: string }) {
           await demoSleep(35, ctrl.signal);
         }
       }
-      pushLog("ok", `${CFO.name} asked her analyst agent “${DEMO_QUESTION}” — it is reading`);
+      pushLog("ok", `${asker.name} asked ${CFO_AGENT.name} “${demo.question}” — it is reading`);
 
+      const mark = demoAnswerMark(demo.actorId);
       const deadline = Date.now() + 30_000;
       while (!ctrl.signal.aborted && Date.now() < deadline) {
-        const answered = paragraphs().some((id) =>
-          ed.commands.text.read(id).startsWith(DEMO_ANSWER_MARK),
-        );
-        if (answered) {
-          pushLog("ok", "her analyst agent replied from brain memory (~/.contextful)");
+        const reply = paragraphs()
+          .map((id) => ed.commands.text.read(id))
+          .find((t) => t.startsWith(mark));
+        if (reply) {
+          if (reply.includes("⛔")) pushLog("deny", `${asker.name}'s ask was denied by policy`);
+          else pushLog("ok", "answered from brain memory (~/.contextful)");
           break;
         }
         await demoSleep(500, ctrl.signal);
       }
-      if (!ctrl.signal.aborted) setDemoAsk(null);
+      if (!ctrl.signal.aborted) setDemo(null);
       setDemoCursor(null);
       demoBusyRef.current = false;
     };
@@ -259,16 +208,9 @@ export default function ConsolePage({ docId }: { docId: string }) {
       demoBusyRef.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- pushLog/setCursor are stable enough for the scripted demo
-  }, [demoAsk, actorId, ed]);
+  }, [demo, actorId, ed]);
 
   const resetAll = () => {
-    setCaps({
-      [CTO_AGENT.id]: initialCapability(CTO_AGENT.id),
-      [ENG_AGENT.id]: initialCapability(ENG_AGENT.id),
-      [CFO.id]: initialCapability(CFO.id),
-    });
-    setResult(null);
-    setPending(null);
     setLog([]);
   };
 
@@ -370,7 +312,6 @@ export default function ConsolePage({ docId }: { docId: string }) {
               )}
             </div>
 
-            <QueryResult result={result} actorName={actor.name} />
           </div>
         </section>
 
@@ -379,16 +320,16 @@ export default function ConsolePage({ docId }: { docId: string }) {
             <p className="app-agentpanel__label">Editor agent — live demo</p>
             <div className="cf-card cf-stack">
               <p className="cf-text-muted" style={{ fontSize: "var(--text-sm)", margin: 0 }}>
-                Impersonates {CFO.name} and types a question into the doc. The local{" "}
-                <code>sync agent --watch-doc {docId}</code> peer answers it from brain
-                memory — capability-filtered, over the relay.
+                Types a question into the doc as the acting principal below. The local{" "}
+                <code>sync agent --watch-doc {docId}</code> peer answers — or denies —
+                from brain memory, per the asker&rsquo;s capability token, over the relay.
               </p>
               <button
                 className="cf-btn cf-btn--primary cf-btn--sm cf-block"
                 onClick={runEditorDemo}
-                disabled={demoAsk != null}
+                disabled={demo != null}
               >
-                {demoAsk ? "Typing as CFO…" : "▶ Demo Q by CFO"}
+                {demo ? `Typing as ${actor.name}…` : `▶ Demo Q as ${actor.name}`}
               </button>
             </div>
           </div>
@@ -412,64 +353,14 @@ export default function ConsolePage({ docId }: { docId: string }) {
                 </button>
               ))}
             </div>
-            <div className="cf-stack" style={{ marginTop: "var(--space-3)" }}>
-              <button className="cf-btn cf-btn--secondary cf-btn--sm cf-block" onClick={runFlowA}>
-                Flow A · request → approve
-              </button>
-              <button className="cf-btn cf-btn--secondary cf-btn--sm cf-block" onClick={runFlowB}>
-                Flow B · salary invariant
-              </button>
-            </div>
           </div>
-
-          {pending && (
-            <div>
-              <p className="app-agentpanel__label">Permission request</p>
-              <div className="cf-card">
-                <p className="app-request__title">
-                  <AvatarDot
-                    id={pending.req.requester}
-                    fallback={tag(PRINCIPALS.find((p) => p.id === pending.req.requester)!)}
-                    color={dotColor(pending.req.requester)}
-                  />
-                  {PRINCIPALS.find((p) => p.id === pending.req.requester)!.name} wants access
-                </p>
-                <p className="app-request__reason">&ldquo;{pending.req.reason}&rdquo;</p>
-                <div className="app-request__scope">
-                  read view({pending.req.view.source}, {pending.req.view.view})
-                  <br />
-                  fields: [{pending.req.fields.join(", ")}]<br />
-                  rows: team in {"{eng, ops, sales, finance}"}
-                  <br />
-                  deny: employee_salary &nbsp;·&nbsp; ttl: {pending.req.ttl}
-                </div>
-
-                {pending.route.decision === "forbidden" ? (
-                  <p className="cf-forbidden">⛔ {pending.route.reason}</p>
-                ) : pending.route.decision === "auto" ? (
-                  <p className="cf-text-muted" style={{ marginTop: "var(--space-3)", fontSize: "var(--text-sm)" }}>
-                    Auto-approved by envelope.
-                  </p>
-                ) : (
-                  <div className="app-request__actions">
-                    <button className="cf-btn cf-btn--primary cf-btn--sm" onClick={() => applyGrant(pending.req)}>
-                      Approve (scoped)
-                    </button>
-                    <button className="cf-btn cf-btn--ghost cf-btn--sm" onClick={denyRequest}>
-                      Deny
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
 
           <div>
             <p className="app-agentpanel__label">Audit trail</p>
             <div className="cf-card cf-log">
               {log.length === 0 ? (
                 <p className="cf-text-muted" style={{ fontSize: "var(--text-sm)" }}>
-                  Run a flow to populate the audit trail.
+                  Run the demo to populate the audit trail.
                 </p>
               ) : (
                 <ul>
@@ -497,56 +388,3 @@ export default function ConsolePage({ docId }: { docId: string }) {
   );
 }
 
-function QueryResult({ result, actorName }: { result: BrainResult | null; actorName: string }) {
-  if (!result) {
-    return (
-      <div className="cf-result cf-result--empty">
-        <p className="cf-text-muted">No query run yet. Run a flow from the panel on the right.</p>
-      </div>
-    );
-  }
-
-  if (!result.ok) {
-    return (
-      <div className="cf-result cf-result--deny">
-        <p className="cf-result__head">⛔ Denied · {result.reason}</p>
-        <p>{result.answer}</p>
-      </div>
-    );
-  }
-
-  const cols = result.rows.length ? Object.keys(result.rows[0]) : result.fields;
-  return (
-    <div className="cf-result cf-result--ok">
-      <p className="cf-result__head">
-        ✓ {actorName} · {result.rows.length} row(s)
-        {result.redacted.length > 0 && (
-          <span className="cf-badge cf-badge--danger" style={{ marginLeft: "var(--space-2)" }}>
-            redacted: {result.redacted.join(", ")}
-          </span>
-        )}
-      </p>
-      <p className="cf-result__answer">{result.answer}</p>
-      {result.rows.length > 0 && (
-        <table className="cf-table">
-          <thead>
-            <tr>
-              {cols.map((c) => (
-                <th key={c}>{c}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {result.rows.map((r, i) => (
-              <tr key={i}>
-                {cols.map((c) => (
-                  <td key={c}>{String(r[c] ?? "—")}</td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
-  );
-}

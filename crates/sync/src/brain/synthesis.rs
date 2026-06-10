@@ -89,9 +89,9 @@ pub fn synthesize(store: &Store, index: &mut BrainIndex) -> anyhow::Result<usize
     let fin = aggregate_metric(index, "stripe/finance_private");
     for (period, agg) in &fin {
         let net_of_credits = agg.gross - agg.credits;
-        let title = format!("Net-of-credits · {period}");
+        let title = format!("Out-of-pocket cost (net of credits) · {period}");
         let body = format!(
-            "Gross **${}**, credits **${}** → net-of-credits **${}** at tier *{}*.\n",
+            "Gross **${}**, credits **${}** → aggregated out-of-pocket **${}** at tier *{}*.\n",
             fmt(agg.gross),
             fmt(agg.credits),
             fmt(net_of_credits),
@@ -108,7 +108,7 @@ pub fn synthesize(store: &Store, index: &mut BrainIndex) -> anyhow::Result<usize
             confidence: 0.92,
             acl_tag: &acl,
         };
-        let slug_name = slug(&format!("net-of-credits-{period}"));
+        let slug_name = slug(&format!("out-of-pocket-cost-net-of-credits-{period}"));
         let path = store.write_card("finance", &slug_name, &render_card(&meta, &title, &body))?;
         cards_written += 1;
         index.memories.push(Memory {
