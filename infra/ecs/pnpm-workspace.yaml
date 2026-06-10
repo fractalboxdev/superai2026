@@ -2,3 +2,9 @@
 # into the repo workspace (this package is deliberately outside it).
 packages:
   - "."
+# Install scripts stay off: the pulumi CLI downloads provider plugins itself,
+# and protobufjs's postinstall codegen is unused here.
+allowBuilds:
+  '@pulumi/docker': false
+  '@pulumi/docker-build': false
+  protobufjs: false
