@@ -182,6 +182,14 @@
   color: var(--color-text-on-primary);
 }
 .cf-presence__dot:first-child { margin-left: 0; }
+/* Cast avatar fill (SV comic art); the tag/initials text is the fallback. */
+.cf-presence__dot img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
 /* Session is live (heartbeating presence) — success ring + gentle pulse. */
 .cf-presence__dot--live {
   box-shadow: 0 0 0 2px var(--color-success);
