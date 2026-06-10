@@ -116,8 +116,9 @@ const agents = [
   { name: "OpenAI", logo: "openai" },
   { name: "Hermes", logo: null },
 ];
+// logoOnly: the logo is already the wordmark — skip the text label.
 const deployTargets = [
-  { name: "AWS", logo: "aws" },
+  { name: "AWS", logo: "aws", logoOnly: true },
   { name: "Vercel", logo: "vercel" },
 ];
 
@@ -316,9 +317,9 @@ for (const m of cast) {
               <span class="stage__dots" aria-hidden="true"><i></i><i></i><i></i></span>
               <span class="stage__title">contextful · Q3 AI Spend Review</span>
               <span class="stage__presence cf-presence" aria-hidden="true">
-                <span class="cf-presence__dot" style="background:var(--cf-indigo-500)">CT</span>
-                <span class="cf-presence__dot" style="background:var(--cf-sky-500)">CF</span>
-                <span class="cf-presence__dot stage__bot" style="background:var(--cf-amber-500)">◆</span>
+                <span class="cf-presence__dot" style="background:var(--cf-indigo-500)" title="Dinesh (CTO)"><img src="/cast/dinesh.webp" alt="" width="28" height="28" loading="lazy" /></span>
+                <span class="cf-presence__dot" style="background:var(--cf-sky-500)" title="Monica (CFO)"><img src="/cast/monica.webp" alt="" width="28" height="28" loading="lazy" /></span>
+                <span class="cf-presence__dot stage__bot" style="background:var(--cf-amber-500)" title="Monica (CFO)'s agent"><img src="/cast/agent-monica-cutout.webp" alt="" width="28" height="28" loading="lazy" /></span>
               </span>
             </div>
 
@@ -451,8 +452,8 @@ for (const m of cast) {
           <ul class="strip__tools">
             {deployTargets.map((t, i) => (
               <li data-reveal style={`--d:${i * 0.04}s`}>
-                {t.logo && <img class="strip__logo" src={`/logos/${t.logo}.svg`} alt="" width="24" height="24" loading="lazy" />}
-                {t.name}
+                {t.logo && <img class="strip__logo" src={`/logos/${t.logo}.svg`} alt={t.logoOnly ? t.name : ""} width="24" height="24" loading="lazy" />}
+                {!t.logoOnly && t.name}
               </li>
             ))}
           </ul>
@@ -847,6 +848,13 @@ for (const m of cast) {
       .stage__dots i:nth-child(3) { background: #28c840; }
       .stage__title { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-text-muted); }
       .stage__presence { margin-left: auto; }
+      .stage__presence .cf-presence__dot { overflow: hidden; }
+      .stage__presence .cf-presence__dot img {
+        width: 100%; height: 100%;
+        border-radius: inherit;
+        object-fit: cover;
+        display: block;
+      }
       .stage__bot { animation: botpulse 2.4s var(--ease-in-out) infinite; }
       @keyframes botpulse { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
 
