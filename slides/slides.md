@@ -4,6 +4,8 @@ title: Contextful — workspace with your agents. Your data. Your rules.
 class: text-center
 transition: slide-left
 mdc: true
+# hash routing so deep links survive refresh on static hosting (/slides/ on Vercel)
+routerMode: hash
 ---
 
 # Contextful
