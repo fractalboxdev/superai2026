@@ -198,6 +198,7 @@ pub fn build_args(s: &AppSettings) -> Vec<String> {
             "--addr".into(),
             s.relay_addr.clone(),
             "--with-mcp".into(),
+            "--with-cron".into(),
         ],
         Role::Member => vec![
             "client".into(),
@@ -342,6 +343,16 @@ async fn run_loop(inner: Arc<Inner>) {
             .stderr(std::process::Stdio::piped())
             .kill_on_drop(true);
         cmd.envs(settings.sidecar_envs());
+        // connector secrets (Stripe/Exa/Slack) live in the Keychain, never in
+        // config.json — the co-hosted cron scheduler needs them to ingest
+        let secrets = crate::keychain::connector_envs();
+        if !secrets.is_empty() {
+            inner.log_line(format!(
+                "[supervisor] injecting {} connector secret(s) from the Keychain",
+                secrets.len()
+            ));
+        }
+        cmd.envs(secrets);
 
         let mut child = match cmd.spawn() {
             Ok(c) => c,
@@ -470,9 +481,12 @@ mod tests {
     }
 
     #[test]
-    fn host_args_serve_with_mcp() {
+    fn host_args_serve_with_mcp_and_cron() {
         let args = build_args(&settings(Role::Host));
-        assert_eq!(args, ["serve", "--addr", "0.0.0.0:7878", "--with-mcp"]);
+        assert_eq!(
+            args,
+            ["serve", "--addr", "0.0.0.0:7878", "--with-mcp", "--with-cron"]
+        );
     }
 
     #[test]
