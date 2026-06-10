@@ -5,6 +5,11 @@
 //! run): connector ingests on their own cadence and the nightly daydream
 //! cycle off-peak (spec 02 §9). The loop ticks every 30s and fires each job
 //! at most once per matching minute.
+//!
+//! A `CONTEXTFUL_CRON_<JOB>` env var (e.g. `CONTEXTFUL_CRON_DAYDREAM`)
+//! overrides that job's cron expression for the current process only —
+//! the persisted `schedules.json` is never rewritten. This is how demos
+//! speed the daydream cycle up to every minute without touching state.
 
 use std::collections::HashMap;
 
@@ -42,18 +47,28 @@ fn default_schedules() -> Vec<Schedule> {
 }
 
 /// Load schedules, writing the defaults on first run so they're editable.
+/// `CONTEXTFUL_CRON_<JOB>` env overrides are applied after the read and are
+/// never persisted — schedules.json stays the durable source of truth.
 pub fn load_schedules(config: &Config) -> Result<Vec<Schedule>> {
     let path = config.control_dir().join("schedules.json");
-    match std::fs::read_to_string(&path) {
-        Ok(text) => Ok(serde_json::from_str(&text)?),
+    let mut schedules = match std::fs::read_to_string(&path) {
+        Ok(text) => serde_json::from_str(&text)?,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
             let defaults = default_schedules();
             config.ensure_dirs()?;
             std::fs::write(&path, serde_json::to_string_pretty(&defaults)?)?;
-            Ok(defaults)
+            defaults
         }
-        Err(e) => Err(e.into()),
+        Err(e) => return Err(e.into()),
+    };
+    for s in &mut schedules {
+        let key = format!("CONTEXTFUL_CRON_{}", s.job.to_uppercase());
+        if let Some(cron) = crate::config::nonempty_env(&key) {
+            tracing::info!(job = %s.job, %cron, "cron override from {key}");
+            s.cron = cron;
+        }
     }
+    Ok(schedules)
 }
 
 fn run_job(job: &str) -> Result<()> {
@@ -187,5 +202,30 @@ mod tests {
         // second load reads the persisted file
         let second = load_schedules(&config).unwrap();
         assert_eq!(second.len(), 3);
+    }
+
+    /// `CONTEXTFUL_CRON_<JOB>` overrides a job's cadence for this process
+    /// only — the persisted schedules.json keeps the durable default.
+    #[test]
+    fn env_override_speeds_up_a_job_without_persisting() {
+        let root = std::env::temp_dir().join(format!("cron-test-{}", uuid::Uuid::new_v4()));
+        let config = Config {
+            root,
+            inference: crate::config::InferenceBackend::Stub,
+        };
+        std::env::set_var("CONTEXTFUL_CRON_DAYDREAM", "* * * * *");
+        let schedules = load_schedules(&config).unwrap();
+        std::env::remove_var("CONTEXTFUL_CRON_DAYDREAM");
+
+        let daydream = schedules.iter().find(|s| s.job == "daydream").unwrap();
+        assert_eq!(daydream.cron, "* * * * *");
+        // other jobs keep their defaults
+        let stripe = schedules.iter().find(|s| s.job == "stripe").unwrap();
+        assert_eq!(stripe.cron, "0 * * * *");
+        // the persisted file still holds the nightly default
+        let text = std::fs::read_to_string(config.control_dir().join("schedules.json")).unwrap();
+        let persisted: Vec<Schedule> = serde_json::from_str(&text).unwrap();
+        let persisted_dd = persisted.iter().find(|s| s.job == "daydream").unwrap();
+        assert_eq!(persisted_dd.cron, "0 3 * * *");
     }
 }
