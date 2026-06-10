@@ -182,7 +182,14 @@ console.log(`▶ ${story.title}`);
 console.log(`  story: ${storyPath}`);
 console.log(`  target: ${baseUrl} · ${vw}x${vh} · ${story.scenes.length} scenes`);
 
-const browser = await chromium.launch({ headless: !headed, slowMo });
+const browser = await chromium.launch({
+  headless: !headed,
+  slowMo,
+  // Allow the `?sync=ws://127.0.0.1:7878` local-relay path: Chrome's Local
+  // Network Access checks block loopback WebSockets from public https origins,
+  // and headless has no permission prompt to grant them.
+  args: ["--disable-features=LocalNetworkAccessChecks"],
+});
 const context = await browser.newContext({
   viewport: { width: vw, height: vh },
   recordVideo: { dir: outDir, size: { width: vw, height: vh } },
