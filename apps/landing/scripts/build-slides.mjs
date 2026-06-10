@@ -4,7 +4,7 @@
 // The slides workspace is standalone (own pnpm-workspace.yaml), so it is
 // installed here — the root monorepo install does not cover it.
 import { execSync } from "node:child_process";
-import { existsSync, rmSync } from "node:fs";
+import { cpSync, existsSync, rmSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
@@ -30,3 +30,14 @@ run("pnpm install --frozen-lockfile");
 rmSync(outDir, { recursive: true, force: true });
 run(`pnpm exec slidev build slides.md --base /slides/ --out ${JSON.stringify(outDir)}`);
 console.log(`[build-slides] deck built to ${outDir}`);
+
+// The deck references its images with dynamic Vue bindings (:src="'/assets/…'"),
+// which Vite cannot base-prefix — at runtime they resolve against the SITE root,
+// not /slides/. Copy the deck's public/ into the landing's dist root so those
+// URLs always work; existing landing files win (force: false).
+cpSync(path.join(slidesDir, "public"), path.join(landingDir, "dist"), {
+  recursive: true,
+  force: false,
+  errorOnExist: false,
+});
+console.log("[build-slides] deck public/ merged into dist root (existing files kept)");
