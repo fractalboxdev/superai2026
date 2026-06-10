@@ -870,7 +870,10 @@ mod tests {
         )
         .unwrap();
         assert_eq!(target, "agent:cfo/1");
-        assert_eq!(q, "Let me share the unit economics of our compression product");
+        assert_eq!(
+            q,
+            "Let me share the unit economics of our compression product"
+        );
     }
 
     #[test]
