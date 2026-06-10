@@ -12,13 +12,15 @@
  * Keep in sync with the design system if the palette or direction changes.
  */
 export const stylePrompt = [
-  "Minimal flat vector illustration, editorial tech style.",
-  "Palette strictly limited to: indigo #4f46e5 and #6366f1 as the dominant color,",
-  "sky blue #0ea5e9 as secondary, amber #f59e0b as a small accent,",
-  "on a near-white #f8fafc background with slate #0f172a line details.",
-  "Soft rounded geometry, the subject large and filling most of the frame, no text, no letters,",
-  "no logos, no watermarks, no photorealism, no gradients except subtle indigo-to-sky.",
-  "Calm, trustworthy, precise — the brand pillars are Trust, Clarity, Security, Collaboration.",
+  "Retro comic-book illustration, bold black ink outlines, halftone dot shading,",
+  "1990s graphic-novel print texture — the halftone-teal comic theme.",
+  "Palette strictly limited to: deep teal green #14534a and #2f9e77 as the dominant color,",
+  "indigo #4f46e5 as secondary, warm amber #f59e0b as a small accent,",
+  "on a plain near-white #f8fafc background (the background must stay near-white and empty",
+  "so it can be knocked out — halftone texture belongs on the subject, never the background).",
+  "The subject large and filling most of the frame, no text, no letters,",
+  "no logos, no watermarks, no photorealism.",
+  "Witty, confident, precise — a satirical tech-startup comic, drawn seriously.",
 ].join(" ");
 
 /** Default model, routed through the Vercel AI Gateway. Override per-entry with `model`. */
