@@ -89,7 +89,7 @@ rest of the talk pays off.
 
 <div class="screenshot-slot mt-6">
   <img :src="'/assets/context-matters.png'" alt="The shared doc — Richard (CEO)'s 2026 Q3 ask and Jared (COO)'s $/KB nuance" onerror="this.parentElement.classList.add('empty'); this.remove()" />
-  <p class="screenshot-slot__hint">screenshot — the shared doc thread<br/><span class="opacity-60">Richard (CEO): "Let's improve AI optimization spending for 2026 Q3." · Jared (COO): "unit economics — cost per compression ($/KB) at the client"</span></p>
+  <p class="screenshot-slot__hint">screenshot — the shared doc thread<br/><span class="opacity-60">Richard (CEO): "Let's improve AI optimization spending for 2026 Q3." · Jared (COO): "We can't just cut cost — we're growing. We need to check unit economics: cost per compression ($/KB) at the client."</span></p>
 </div>
 
 <div class="cast mt-4">
