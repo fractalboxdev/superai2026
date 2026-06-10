@@ -6,13 +6,15 @@
 //! and issued tokens under `~/.contextful/caps/`.
 
 pub mod envelope;
+pub mod keys;
 pub mod registry;
 
 use std::path::PathBuf;
 
 use anyhow::Result;
 
-use crate::access::Capability;
+use crate::access::token::{verify_capability, VerifiedScope};
+use crate::access::{AuthorityBlock, Block, Capability};
 use crate::config::Config;
 
 /// Filesystem-safe key for a principal id (e.g. `agent:cto/1` → `agent_cto_1`).
@@ -29,11 +31,90 @@ fn cap_path(config: &Config, principal: &str) -> PathBuf {
         .join(format!("{}.json", principal_key(principal)))
 }
 
-/// Load a principal's issued capability token from `caps/`, if present.
+/// Load a principal's issued capability token from `caps/` and VERIFY it:
+/// the embedded Biscuit's signature is checked against the root's registered
+/// public key and the effective scope is re-derived from the token alone
+/// (per-field Datalog runs). The returned capability is clamped to that
+/// verified scope — editing the JSON mirror can never widen access.
 pub fn load_capability(config: &Config, principal: &str) -> Option<Capability> {
     let path = cap_path(config, principal);
     let text = std::fs::read_to_string(path).ok()?;
-    serde_json::from_str(&text).ok()
+    let stored: Capability = serde_json::from_str(&text).ok()?;
+    match verify_stored(config, &stored, principal) {
+        Ok(cap) => Some(cap),
+        Err(e) => {
+            tracing::warn!(%principal, error = %e, "capability failed verification");
+            #[cfg(test)]
+            eprintln!("capability verification failed for {principal}: {e:#}");
+            None
+        }
+    }
+}
+
+/// Verify a stored capability and clamp it to its token-derived scope.
+fn verify_stored(config: &Config, stored: &Capability, principal: &str) -> Result<Capability> {
+    let root_id = match stored.blocks.first() {
+        Some(Block::Authority(a)) => a.root.clone(),
+        _ => anyhow::bail!("no authority block"),
+    };
+    let reg = registry::Registry::load(config)?;
+    let root = reg
+        .roots
+        .iter()
+        .find(|r| r.id == root_id)
+        .ok_or_else(|| anyhow::anyhow!("unknown root '{root_id}'"))?;
+    let pub_hex = root
+        .public_key
+        .as_deref()
+        .ok_or_else(|| anyhow::anyhow!("root '{root_id}' has no registered public key"))?;
+    let root_pub = keys::public_key_from_hex(pub_hex)?;
+    let scope = verify_capability(stored, &root_pub, principal).map_err(anyhow::Error::from)?;
+    Ok(clamp_to_scope(stored, scope))
+}
+
+/// Rebuild a capability whose JSON mirror is exactly the verified scope.
+/// The signed token (full chain) is preserved for further attenuation.
+fn clamp_to_scope(stored: &Capability, scope: VerifiedScope) -> Capability {
+    Capability {
+        holder: scope.holder.clone(),
+        blocks: vec![Block::Authority(AuthorityBlock {
+            root: scope.root,
+            ops: scope.ops,
+            view: scope.view,
+            fields: scope.fields.into_iter().collect(),
+            rows: scope.rows,
+            docs: scope
+                .docs
+                .into_iter()
+                .map(|(pat, _)| pat)
+                .collect::<std::collections::BTreeSet<_>>()
+                .into_iter()
+                .collect(),
+        })],
+        token: stored.token.clone(),
+    }
+}
+
+/// Load + verify a capability, returning the token-derived scope (for callers
+/// that need doc rights or revocation ids, e.g. the sync relay).
+pub fn load_verified_scope(config: &Config, principal: &str) -> Option<VerifiedScope> {
+    let path = cap_path(config, principal);
+    let text = std::fs::read_to_string(path).ok()?;
+    let stored: Capability = serde_json::from_str(&text).ok()?;
+    let root_id = match stored.blocks.first() {
+        Some(Block::Authority(a)) => a.root.clone(),
+        _ => return None,
+    };
+    let reg = registry::Registry::load(config).ok()?;
+    let root = reg.roots.iter().find(|r| r.id == root_id)?;
+    let root_pub = keys::public_key_from_hex(root.public_key.as_deref()?).ok()?;
+    match verify_capability(&stored, &root_pub, principal) {
+        Ok(scope) => Some(scope),
+        Err(e) => {
+            tracing::warn!(%principal, error = %e, "capability failed verification");
+            None
+        }
+    }
 }
 
 /// Persist a principal's capability token under `caps/` (audit/revocation).
@@ -45,7 +126,9 @@ pub fn save_capability(config: &Config, cap: &Capability) -> Result<()> {
 }
 
 /// Record a revoked token holder in the revocation list (checked on every
-/// session and tool call by the relay/MCP auth path, spec 07 §3).
+/// session and tool call by the relay/MCP auth path, spec 07 §3). If the
+/// principal has an issued Biscuit, its cryptographic revocation identifiers
+/// are recorded too (`caps/revoked_ids.json`).
 pub fn revoke(config: &Config, principal: &str) -> Result<()> {
     config.ensure_dirs()?;
     let path = config.caps_dir().join("revoked.json");
@@ -57,7 +140,40 @@ pub fn revoke(config: &Config, principal: &str) -> Result<()> {
         list.push(principal.to_string());
     }
     std::fs::write(path, serde_json::to_string_pretty(&list)?)?;
+
+    // biscuit revocation ids (one per block) — token-level revocation
+    let stored: Option<Capability> = std::fs::read_to_string(cap_path(config, principal))
+        .ok()
+        .and_then(|t| serde_json::from_str(&t).ok());
+    if let Some(token) = stored.and_then(|c| c.token) {
+        if let Ok(ub) = biscuit_auth::UnverifiedBiscuit::from_base64(&token) {
+            let ids_path = config.caps_dir().join("revoked_ids.json");
+            let mut ids: Vec<String> = std::fs::read_to_string(&ids_path)
+                .ok()
+                .and_then(|t| serde_json::from_str(&t).ok())
+                .unwrap_or_default();
+            for id in ub.revocation_identifiers() {
+                let id = hex::encode(id);
+                if !ids.contains(&id) {
+                    ids.push(id);
+                }
+            }
+            std::fs::write(ids_path, serde_json::to_string_pretty(&ids)?)?;
+        }
+    }
     Ok(())
+}
+
+/// Is any of a verified token's revocation ids on the revocation list?
+pub fn is_token_revoked(config: &Config, revocation_ids: &[String]) -> bool {
+    let path = config.caps_dir().join("revoked_ids.json");
+    let Some(ids) = std::fs::read_to_string(path)
+        .ok()
+        .and_then(|t| serde_json::from_str::<Vec<String>>(&t).ok())
+    else {
+        return false;
+    };
+    revocation_ids.iter().any(|id| ids.contains(id))
 }
 
 pub fn is_revoked(config: &Config, principal: &str) -> bool {
@@ -69,18 +185,27 @@ pub fn is_revoked(config: &Config, principal: &str) -> bool {
         .unwrap_or(false)
 }
 
-/// Seed the demo control plane: principals, root catalog, envelopes, and each
-/// principal's initial capability token (spec 07 §3).
+/// Seed the demo control plane: principals, root catalog (with real ed25519
+/// keypairs), envelopes, and each principal's initial capability — signed as
+/// a real Biscuit by its resource root's private key (spec 07 §3).
 pub fn seed(config: &Config) -> Result<()> {
+    use crate::access::token::sign;
     use crate::scenario;
     config.ensure_dirs()?;
+
+    let cfo_keys = keys::ensure_root_key(config, "cfo")?;
+    let cp_keys = keys::ensure_root_key(config, "control-plane")?;
 
     let mut registry = registry::Registry::default();
     for p in scenario::principals() {
         registry.register_principal(p);
     }
-    registry.register_root(scenario::cfo_root());
-    registry.register_root(scenario::control_plane_root());
+    let mut cfo_root = scenario::cfo_root();
+    cfo_root.public_key = Some(cfo_keys.public().to_bytes_hex());
+    let mut cp_root = scenario::control_plane_root();
+    cp_root.public_key = Some(cp_keys.public().to_bytes_hex());
+    registry.register_root(cfo_root);
+    registry.register_root(cp_root);
     registry.save(config)?;
 
     let mut envelopes = envelope::EnvelopeStore::default();
@@ -89,12 +214,13 @@ pub fn seed(config: &Config) -> Result<()> {
 
     for p in scenario::principals() {
         if let Some(cap) = scenario::initial_capability(p.id()) {
-            save_capability(config, &cap)?;
+            let signed = sign(&cap, &cfo_keys).map_err(anyhow::Error::from)?;
+            save_capability(config, &signed)?;
         }
     }
 
     println!(
-        "seeded {} → principals, roots, envelopes, initial tokens",
+        "seeded {} → principals, roots (ed25519), envelopes, signed biscuit tokens",
         config.root.display()
     );
     Ok(())
@@ -146,7 +272,9 @@ pub fn grant(config: &Config, to: &str, view_id: &str, fields: &[String], ttl: &
         .ok_or_else(|| anyhow::anyhow!("view must be 'source/view', got '{view_id}'"))?;
     let view = View::new(source, name);
 
-    let owner = load_capability(config, RESOURCE_OWNER).unwrap_or_else(scenario::cfo_capability);
+    let owner = load_capability(config, RESOURCE_OWNER).ok_or_else(|| {
+        anyhow::anyhow!("no verified token for '{RESOURCE_OWNER}' — run `ctl seed` first")
+    })?;
     // The approver must actually hold the requested view, else the grant would
     // misreport (approve_request delegates the owner's authority block as-is).
     let owner_view = effective_capability(&owner).map(|e| e.view.id());

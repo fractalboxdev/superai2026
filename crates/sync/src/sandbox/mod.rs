@@ -20,6 +20,8 @@ pub enum Egress {
 pub struct SandboxHandle {
     pub kind: String,
     pub room: String,
+    /// the provider's sandbox id (None for the modeled/offline lifecycle).
+    pub sandbox_id: Option<String>,
     /// soft cap; the runtime recreates the sandbox on room re-entry.
     pub max_lifetime_secs: u64,
 }

@@ -15,7 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Two toolchains share the repo root: a **pnpm + Turborepo** workspace for JS (`apps/*`, `packages/*`, `tests/*`) and a **Cargo** workspace for Rust (`crates/*`).
 
-> The backend is implemented and tested (capability engine, brain, MCP, relay, control plane). Cloud-integration edges the spec marks "Future" — real Biscuit-WASM, AWS Bedrock / LM Studio inference, Exa HTTP, Vercel Sandbox SDK, Weaver transport, Pulumi `apply` — are interface-complete and feature-gated off, so the default build is offline-capable with no external creds. Grep for `Future` / `feature` before assuming a cloud path is live.
+> The backend is implemented and tested end to end: real Biscuit tokens (`biscuit-auth` signed + Datalog-verified), SQLite+FTS5 brain index, live Exa world memory behind the egress firewall, live Stripe test-mode ingest, real inference (Vercel AI Gateway / AWS Bedrock / LM Studio — runtime-selected by creds), Vercel Sandbox provisioning via `packages/sandbox-bridge`, MCP over stdio + streamable HTTP with per-call auth, cron-expression scheduling, self-wiring links, and the daydream loop. Cloud paths are compiled in and selected at RUNTIME by env/creds (`EXA_API_KEY`, `STRIPE_SECRET_KEY`, `AWS_*`, `AI_GATEWAY_API_KEY`, `VERCEL_TOKEN`); with no creds everything degrades to the on-host cache / deterministic offline floor (Flow D), never to fakes. The web app embeds the real Weaver editor (vendored `@weaver/*`) synced through the relay.
 
 ## Commands
 

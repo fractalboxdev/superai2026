@@ -28,9 +28,12 @@ enum Command {
     Serve {
         #[arg(long, default_value = "127.0.0.1:7878")]
         addr: String,
-        /// Also co-host the brain MCP server (spec 06 §4).
+        /// Also co-host the brain MCP server over streamable HTTP (spec 06 §4).
         #[arg(long)]
         with_mcp: bool,
+        /// Bind address for the co-hosted MCP HTTP endpoint.
+        #[arg(long, default_value = "127.0.0.1:7979")]
+        mcp_addr: String,
     },
     /// Run a headless file-sync client peer.
     Client {
@@ -109,7 +112,21 @@ async fn main() -> Result<()> {
 
     let cli = Cli::parse();
     match cli.command {
-        Command::Serve { addr, with_mcp } => rooms::server::run(&addr, with_mcp).await,
+        Command::Serve {
+            addr,
+            with_mcp,
+            mcp_addr,
+        } => {
+            if with_mcp {
+                let mcp_addr = mcp_addr.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = brain::mcp::serve_http(&mcp_addr).await {
+                        tracing::error!(error = %e, "mcp http server failed");
+                    }
+                });
+            }
+            rooms::server::run(&addr, with_mcp).await
+        }
         Command::Client {
             addr,
             doc,
@@ -130,8 +147,12 @@ fn run_ctl(cmd: CtlCommand) -> Result<()> {
         CtlCommand::Mint { principal } => {
             let cap = scenario::initial_capability(&principal)
                 .ok_or_else(|| anyhow::anyhow!("unknown principal '{principal}'"))?;
-            controlplane::save_capability(&config, &cap)?;
-            println!("minted initial token for {principal}");
+            // sign with the resource root's key — an unsigned mirror would
+            // fail verification at load (run `ctl seed` to create the key)
+            let keys = controlplane::keys::ensure_root_key(&config, "cfo")?;
+            let signed = sync::access::token::sign(&cap, &keys).map_err(anyhow::Error::from)?;
+            controlplane::save_capability(&config, &signed)?;
+            println!("minted + signed initial token for {principal}");
             Ok(())
         }
         CtlCommand::Revoke { principal } => {

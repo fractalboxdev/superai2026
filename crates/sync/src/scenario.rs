@@ -3,8 +3,8 @@
 //! and initial tokens, shared by tests, `ctl seed`, and the brain.
 
 use crate::access::{
-    biscuit::mint, request::AutoApprove, request::Envelope, Capability, Operation, RootKey,
-    RowScope, View,
+    biscuit::mint_with_docs, request::AutoApprove, request::Envelope, Capability, Operation,
+    RootKey, RowScope, View,
 };
 use crate::identity::Principal;
 
@@ -50,6 +50,7 @@ pub fn cfo_root() -> RootKey {
         id: "cfo".into(),
         owner: "cfo".into(),
         views: vec![finance_private(), spend_by_team()],
+        public_key: None,
     }
 }
 
@@ -59,6 +60,7 @@ pub fn control_plane_root() -> RootKey {
         id: "control-plane".into(),
         owner: "control-plane".into(),
         views: vec![],
+        public_key: None,
     }
 }
 
@@ -66,9 +68,15 @@ fn s(xs: &[&str]) -> Vec<String> {
     xs.iter().map(|x| x.to_string()).collect()
 }
 
+/// Every seeded principal may read/write any room through the relay; the
+/// relay re-verifies this from the signed token per message (spec 01 §4).
+fn all_docs() -> Vec<String> {
+    vec!["*".into()]
+}
+
 /// The CFO holds the full finance root token (sole salary authority).
 pub fn cfo_capability() -> Capability {
-    mint(
+    mint_with_docs(
         &cfo_root(),
         "cfo",
         vec![Operation::Query, Operation::Read],
@@ -83,26 +91,28 @@ pub fn cfo_capability() -> Capability {
             "employee_salary",
         ]),
         vec![],
+        all_docs(),
     )
     .expect("cfo root covers finance_private")
 }
 
 /// CTO's agent: team-level spend only (no finance_private) until Flow A grants it.
 pub fn cto_agent_capability() -> Capability {
-    mint(
+    mint_with_docs(
         &cfo_root(),
         "agent:cto/1",
         vec![Operation::Query, Operation::Read],
         spend_by_team(),
         s(&["team", "period", "gross", "net"]),
         vec![],
+        all_docs(),
     )
     .expect("cfo root covers spend_by_team")
 }
 
 /// Engineering agent: usage view, own team rows only. Never any salary path.
 pub fn eng_agent_capability() -> Capability {
-    mint(
+    mint_with_docs(
         &cfo_root(),
         "agent:eng/1",
         vec![Operation::Query, Operation::Read],
@@ -112,6 +122,7 @@ pub fn eng_agent_capability() -> Capability {
             field: "team".into(),
             values: s(&["eng"]),
         }],
+        all_docs(),
     )
     .expect("cfo root covers spend_by_team")
 }

@@ -94,6 +94,83 @@
 .app-editor__body p { color: var(--color-text); }
 .app-editor__body .muted { color: var(--color-text-muted); }
 
+/* ---- Weaver editing surface (spec 01 §2) --------------------------
+   @weaver/dom renders the LoroDoc block tree imperatively into the
+   contenteditable host (.weaver-surface); these rules give its block +
+   mark vocabulary the Contextful design language. */
+.weaver-loading { color: var(--color-text-muted); font-size: var(--text-sm); }
+.weaver-surface {
+  outline: none;
+  min-height: 13rem;
+  caret-color: var(--color-accent);
+  cursor: text;
+}
+.weaver-surface:focus-visible { outline: none; }
+.weaver-surface ::selection { background: var(--color-primary-subtle); }
+
+.weaver-block { margin: 0 0 var(--space-3); }
+.weaver-paragraph { color: var(--color-text); line-height: var(--leading-relaxed, 1.7); }
+.weaver-heading { color: var(--color-text); font-weight: var(--weight-bold, 700); margin-top: var(--space-6); }
+h1.weaver-heading { font-size: var(--text-2xl); }
+h2.weaver-heading { font-size: var(--text-xl); }
+h3.weaver-heading { font-size: var(--text-lg); }
+h4.weaver-heading, h5.weaver-heading, h6.weaver-heading { font-size: var(--text-base); }
+.weaver-quote {
+  border-left: 3px solid var(--color-accent);
+  padding-left: var(--space-4);
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+li.weaver-block { margin-left: var(--space-6); }
+.weaver-bullet-list-item { list-style: disc; }
+.weaver-numbered-list-item { list-style: decimal; }
+.weaver-to-do { list-style: none; margin-left: var(--space-2); display: flex; gap: var(--space-2); }
+.weaver-to-do [data-todo-check] {
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.3rem;
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.weaver-to-do [data-todo-check].weaver-todo-checked {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+.weaver-to-do .weaver-todo-content { flex: 1; }
+pre.weaver-code {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  white-space: pre-wrap;
+}
+hr.weaver-divider { border: none; border-top: 1px solid var(--color-divider); margin: var(--space-5) 0; }
+.weaver-surface code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-sm);
+  padding: 0 0.25em;
+}
+.weaver-surface a { color: var(--color-link); text-decoration: underline; }
+.weaver-surface mark { background: var(--color-warning-subtle); color: inherit; border-radius: var(--radius-sm); }
+.weaver-mention {
+  color: var(--color-primary);
+  background: var(--color-primary-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0 0.2em;
+  font-weight: var(--weight-medium, 500);
+}
+/* Amber = collaboration/presence accent: an agent's in-flight insertion. */
+.weaver-agent-pending {
+  background: var(--cf-amber-100);
+  border-bottom: 2px solid var(--cf-amber-400);
+}
+
 .app-agentpanel {
   border-left: 1px solid var(--color-border);
   background: var(--color-bg);

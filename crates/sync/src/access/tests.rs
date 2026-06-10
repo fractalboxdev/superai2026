@@ -245,6 +245,158 @@ fn route_request_auto_approves_inside_envelope() {
     ));
 }
 
+// --- real Biscuit token tests (signed proof, not just block algebra) ---
+
+mod real_biscuit {
+    use super::*;
+    use crate::access::token::{
+        append_attenuation, scope_allows_doc, sign, verify_capability, verify_token, TokenError,
+    };
+    use biscuit_auth::KeyPair;
+
+    #[test]
+    fn sign_then_verify_roundtrip_preserves_scope() {
+        let keys = KeyPair::new();
+        let signed = sign(&scenario::cfo_capability(), &keys).unwrap();
+        let scope = verify_token(signed.token.as_deref().unwrap(), &keys.public()).unwrap();
+        assert_eq!(scope.holder, "cfo");
+        assert_eq!(scope.view.id(), "stripe/finance_private");
+        assert!(scope.fields.contains("employee_salary"));
+        assert!(scope.ops.contains(&Operation::Query));
+        assert!(scope_allows_doc(&scope, "finops", Operation::Write));
+    }
+
+    #[test]
+    fn forged_token_fails_signature_verification() {
+        let real_keys = KeyPair::new();
+        let attacker_keys = KeyPair::new();
+        // attacker signs a full-authority token with their own key
+        let forged = sign(&scenario::cfo_capability(), &attacker_keys).unwrap();
+        let err = verify_token(forged.token.as_deref().unwrap(), &real_keys.public());
+        assert!(
+            err.is_err(),
+            "a token signed by the wrong key must not verify"
+        );
+    }
+
+    #[test]
+    fn delegated_token_denies_salary_via_datalog() {
+        // Flow A through the REAL token: CFO delegates a salary-free grant;
+        // the per-field Datalog authorizer is what rejects employee_salary.
+        let keys = KeyPair::new();
+        let cfo = sign(&scenario::cfo_capability(), &keys).unwrap();
+        let req = crate::access::request::AccessRequest {
+            id: "req".into(),
+            requester: "agent:cto/1".into(),
+            view: scenario::finance_private(),
+            fields: vec!["gross".into(), "credits".into()],
+            row_scope: None,
+            reason: "net-of-credits".into(),
+            doc: "finops".into(),
+            ttl: "7d".into(),
+        };
+        let granted = approve_request(&cfo, &req).unwrap();
+        let scope = verify_capability(&granted, &keys.public(), "agent:cto/1").unwrap();
+        assert!(scope.fields.contains("credits"));
+        assert!(scope.fields.contains("gross"));
+        assert!(
+            !scope.fields.contains("employee_salary"),
+            "salary must not survive the attenuation checks"
+        );
+    }
+
+    #[test]
+    fn tampered_json_mirror_cannot_widen_scope() {
+        // simulate an attacker editing caps/<p>.json to claim salary access:
+        // the verified scope comes from the signed token, so the widened JSON
+        // mirror is ignored.
+        let keys = KeyPair::new();
+        let cfo = sign(&scenario::cfo_capability(), &keys).unwrap();
+        let req = crate::access::request::AccessRequest {
+            id: "req".into(),
+            requester: "agent:cto/1".into(),
+            view: scenario::finance_private(),
+            fields: vec!["credits".into()],
+            row_scope: None,
+            reason: "r".into(),
+            doc: "finops".into(),
+            ttl: "7d".into(),
+        };
+        let granted = approve_request(&cfo, &req).unwrap();
+
+        let mut tampered = granted.clone();
+        tampered.blocks = scenario::cfo_capability().blocks; // claim full authority
+        let scope = verify_capability(&tampered, &keys.public(), "agent:cto/1").unwrap();
+        assert!(!scope.fields.contains("employee_salary"));
+    }
+
+    #[test]
+    fn expired_ttl_invalidates_the_whole_token() {
+        let keys = KeyPair::new();
+        let cfo = sign(&scenario::cfo_capability(), &keys).unwrap();
+        let expired = append_attenuation(
+            cfo.token.as_deref().unwrap(),
+            &AttenuationBlock {
+                by: "cfo".into(),
+                ttl: Some("0s".into()),
+                ..Default::default()
+            },
+            None,
+        )
+        .unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(1100));
+        let err = verify_token(&expired, &keys.public()).unwrap_err();
+        assert!(matches!(err, TokenError::Invalid(_)));
+    }
+
+    #[test]
+    fn delegation_changes_verified_holder() {
+        let keys = KeyPair::new();
+        let cfo = sign(&scenario::cfo_capability(), &keys).unwrap();
+        let delegated = delegate_to(
+            &cfo,
+            "agent:cto/1",
+            AttenuationBlock {
+                by: "cfo".into(),
+                deny_fields: vec!["employee_salary".into()],
+                ..Default::default()
+            },
+        );
+        let scope = verify_token(delegated.token.as_deref().unwrap(), &keys.public()).unwrap();
+        assert_eq!(scope.holder, "agent:cto/1");
+        // and verifying against the wrong expected holder fails
+        assert!(matches!(
+            verify_capability(&delegated, &keys.public(), "cfo"),
+            Err(TokenError::HolderMismatch { .. })
+        ));
+    }
+
+    #[test]
+    fn row_narrowing_survives_in_verified_scope() {
+        let keys = KeyPair::new();
+        let eng = sign(&scenario::eng_agent_capability(), &keys).unwrap();
+        let scope = verify_token(eng.token.as_deref().unwrap(), &keys.public()).unwrap();
+        let team = scope.rows.iter().find(|r| r.field == "team").unwrap();
+        assert_eq!(team.values, vec!["eng".to_string()]);
+
+        // attenuating rows further intersects, never widens
+        let narrowed = attenuate(
+            &eng,
+            AttenuationBlock {
+                by: "agent:eng/1".into(),
+                rows: Some(vec![RowScope {
+                    field: "team".into(),
+                    values: vec!["eng".into(), "ops".into()],
+                }]),
+                ..Default::default()
+            },
+        );
+        let scope2 = verify_token(narrowed.token.as_deref().unwrap(), &keys.public()).unwrap();
+        let team2 = scope2.rows.iter().find(|r| r.field == "team").unwrap();
+        assert_eq!(team2.values, vec!["eng".to_string()]);
+    }
+}
+
 #[test]
 fn engineering_agent_has_no_path_to_salary() {
     let cap = scenario::eng_agent_capability();

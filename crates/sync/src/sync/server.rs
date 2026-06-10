@@ -19,8 +19,10 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{broadcast, Mutex};
 use tokio_tungstenite::tungstenite::Message;
 
+use crate::access::token::scope_allows_doc;
+use crate::access::Operation;
 use crate::config::Config;
-use crate::controlplane::is_revoked;
+use crate::controlplane::{is_revoked, is_token_revoked, load_verified_scope};
 use crate::store::docs::{is_safe_doc_id, DocStore};
 use crate::sync::protocol::SyncMessage;
 
@@ -34,9 +36,7 @@ pub async fn run(addr: &str, with_mcp: bool) -> Result<()> {
     let config = Config::load();
     config.ensure_dirs()?;
     if with_mcp {
-        tracing::warn!(
-            "--with-mcp co-hosting is declared but the demo uses `sync mcp` (spec 06 §4)"
-        );
+        tracing::info!("co-hosting the brain MCP over streamable HTTP (spec 06 §4)");
     }
 
     let listener = TcpListener::bind(addr).await?;
@@ -83,14 +83,43 @@ async fn handle_conn(stream: TcpStream, rooms: Rooms, config: Arc<Config>) -> Re
         return Ok(());
     }
 
+    // Real Biscuit verification at session start: the principal's persisted
+    // token is signature-checked against the root's registered public key and
+    // its doc rights derived from the Datalog facts (spec 01 §4). The browser
+    // does not yet send its token in HELLO, so the relay uses the control
+    // plane's copy — the proof is the same signed Biscuit either way.
+    let scope = match load_verified_scope(&config, &principal) {
+        Some(s) => s,
+        None => {
+            send(
+                &write,
+                &err(
+                    "no_capability",
+                    &format!(
+                        "no verified capability token for {principal} — run `ctl seed`/`ctl grant`"
+                    ),
+                ),
+            )
+            .await?;
+            return Ok(());
+        }
+    };
+    if is_token_revoked(&config, &scope.revocation_ids) {
+        send(
+            &write,
+            &err("revoked", &format!("token for {principal} is revoked")),
+        )
+        .await?;
+        return Ok(());
+    }
+
     // --- message loop ---
     while let Some(msg) = next_message(&mut read).await? {
         // Per-message authorization: re-check revocation on every data message
-        // (a principal revoked mid-session must stop being served), and reject
-        // unsafe doc ids before they touch the filesystem. NOTE: full per-message
-        // Biscuit `read`/`write(document)` verification is future work (real
-        // Biscuit-WASM) — today the relay enforces revocation + doc-id safety and
-        // ships opaque Loro bytes; structured data is gated by the brain MCP path.
+        // (a principal revoked mid-session must stop being served), enforce the
+        // token's doc-level read/write rights, and reject unsafe doc ids before
+        // they touch the filesystem. CRDT payloads stay opaque Loro bytes;
+        // structured data is gated by the brain MCP path.
         if is_revoked(&config, &principal) {
             send(
                 &write,
@@ -103,6 +132,18 @@ async fn handle_conn(stream: TcpStream, rooms: Rooms, config: Arc<Config>) -> Re
             SyncMessage::Subscribe { doc_id, .. } => {
                 if !is_safe_doc_id(&doc_id) {
                     send(&write, &err("bad_doc_id", "unsafe doc_id")).await?;
+                    continue;
+                }
+                // subscribe = read(document), proven by the verified token
+                if !scope_allows_doc(&scope, &doc_id, Operation::Read) {
+                    send(
+                        &write,
+                        &err(
+                            "forbidden",
+                            &format!("token does not grant read on {doc_id}"),
+                        ),
+                    )
+                    .await?;
                     continue;
                 }
                 // Subscribe to the room FIRST so updates that arrive while we load
@@ -157,7 +198,19 @@ async fn handle_conn(stream: TcpStream, rooms: Rooms, config: Arc<Config>) -> Re
                     send(&write, &err("bad_doc_id", "unsafe doc_id")).await?;
                     continue;
                 }
-                // send requires write(document); revocation re-checked above.
+                // update = write(document), proven by the verified token;
+                // revocation re-checked above.
+                if !scope_allows_doc(&scope, &doc_id, Operation::Write) {
+                    send(
+                        &write,
+                        &err(
+                            "forbidden",
+                            &format!("token does not grant write on {doc_id}"),
+                        ),
+                    )
+                    .await?;
+                    continue;
+                }
                 if let Some(tx) = rooms.lock().await.get(&doc_id) {
                     let _ = tx.send((
                         peer_id,
@@ -174,6 +227,18 @@ async fn handle_conn(stream: TcpStream, rooms: Rooms, config: Arc<Config>) -> Re
             SyncMessage::Snapshot { doc_id, bytes } => {
                 if !is_safe_doc_id(&doc_id) {
                     send(&write, &err("bad_doc_id", "unsafe doc_id")).await?;
+                    continue;
+                }
+                // persisting a snapshot = write(document)
+                if !scope_allows_doc(&scope, &doc_id, Operation::Write) {
+                    send(
+                        &write,
+                        &err(
+                            "forbidden",
+                            &format!("token does not grant write on {doc_id}"),
+                        ),
+                    )
+                    .await?;
                     continue;
                 }
                 DocStore::new((*config).clone()).save_snapshot(&doc_id, &bytes)?;

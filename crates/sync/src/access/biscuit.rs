@@ -1,8 +1,11 @@
 //! The capability engine: mint / attenuate / authorize + field/row authorizer
 //! (spec 03 §3–4).
 //!
-//! Named `biscuit` to mark where `biscuit-auth` signed blocks + a Datalog
-//! authorizer will replace this block algebra. The properties are identical.
+//! This block algebra computes scopes (and powers the property tests); the
+//! cryptographic proof is the real `biscuit-auth` token managed by
+//! [`super::token`]: [`attenuate`]/[`delegate_to`] append a real signed
+//! Biscuit block whenever the capability carries a token, and production
+//! loads re-derive the effective scope from the verified token alone.
 
 use std::collections::BTreeSet;
 
@@ -17,7 +20,9 @@ pub enum AccessError {
     NoRootAuthority { root: String, view: String },
 }
 
-/// Mint a fresh first-party token from a resource root.
+/// Mint a fresh first-party token from a resource root (unsigned — see
+/// [`super::token::sign`] for the signing step, done where the root's private
+/// key lives).
 pub fn mint(
     root: &RootKey,
     holder: &str,
@@ -25,6 +30,20 @@ pub fn mint(
     view: View,
     fields: Vec<String>,
     rows: Vec<RowScope>,
+) -> Result<Capability, AccessError> {
+    mint_with_docs(root, holder, ops, view, fields, rows, Vec::new())
+}
+
+/// [`mint`], plus document grants for the sync relay ("*" = any doc).
+#[allow(clippy::too_many_arguments)]
+pub fn mint_with_docs(
+    root: &RootKey,
+    holder: &str,
+    ops: Vec<Operation>,
+    view: View,
+    fields: Vec<String>,
+    rows: Vec<RowScope>,
+    docs: Vec<String>,
 ) -> Result<Capability, AccessError> {
     if !root.views.iter().any(|v| v.id() == view.id()) {
         return Err(AccessError::NoRootAuthority {
@@ -40,25 +59,37 @@ pub fn mint(
             view,
             fields,
             rows,
+            docs,
         })],
+        token: None,
     })
 }
 
-/// Append an attenuation block, keeping the same holder.
+/// Append an attenuation block, keeping the same holder. If the capability
+/// carries a signed token, a real Biscuit block is appended too (offline,
+/// keyless — Biscuit's defining property), so the proof narrows with the
+/// mirror.
 pub fn attenuate(cap: &Capability, block: AttenuationBlock) -> Capability {
-    let mut blocks = cap.blocks.clone();
-    blocks.push(Block::Attenuation(block));
-    Capability {
-        holder: cap.holder.clone(),
-        blocks,
-    }
+    attenuate_as(cap, &cap.holder.clone(), block)
 }
 
 /// Append an attenuation block AND hand the token to a new holder (delegation).
 pub fn delegate_to(cap: &Capability, holder: &str, block: AttenuationBlock) -> Capability {
-    let mut out = attenuate(cap, block);
-    out.holder = holder.to_string();
-    out
+    attenuate_as(cap, holder, block)
+}
+
+fn attenuate_as(cap: &Capability, holder: &str, block: AttenuationBlock) -> Capability {
+    let token = cap.token.as_deref().map(|t| {
+        super::token::append_attenuation(t, &block, Some(holder))
+            .expect("appending an attenuation block to a well-formed token cannot fail")
+    });
+    let mut blocks = cap.blocks.clone();
+    blocks.push(Block::Attenuation(block));
+    Capability {
+        holder: holder.to_string(),
+        blocks,
+        token,
+    }
 }
 
 #[derive(Debug, Clone)]

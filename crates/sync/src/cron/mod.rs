@@ -21,7 +21,19 @@ pub fn ingest_once(source: &str) -> Result<()> {
 
     let events = match source {
         "stripe" => StripeConnector::new(config.fixtures_dir()).pull(&Cursor::default())?,
-        "exa" => ExaConnector::new("AI tooling spend benchmarks").pull(&Cursor::default())?,
+        "exa" => {
+            // proactive enrichment query — taint-checked through the egress
+            // firewall like every outbound Exa call (spec 03 §4)
+            let query = "AI tooling spend benchmarks";
+            let terms = crate::brain::world::taint_terms(&index, query);
+            let allowed =
+                crate::access::egress::firewall(&terms).map_err(|e| anyhow::anyhow!("{e}"))?;
+            ExaConnector::with_cache(
+                allowed.join(" "),
+                config.fixtures_dir().join("exa-cache.json"),
+            )
+            .pull(&Cursor::default())?
+        }
         other => bail!("unknown source '{other}' (known: stripe, exa)"),
     };
 
@@ -30,9 +42,14 @@ pub fn ingest_once(source: &str) -> Result<()> {
     index.raw_events.extend(events);
 
     let cards = synthesize(&store, &mut index)?;
+    // GBrain-style self-wiring: extract [[wikilinks]] / rel:: markers from the
+    // refreshed cards into typed link rows (zero LLM calls, spec 02 §1)
+    let wired = crate::brain::links::self_wire(&store, &mut index);
     store.save_index(&index)?;
 
-    println!("ingested {n} events from '{source}'; synthesized {cards} card(s)");
+    println!(
+        "ingested {n} events from '{source}'; synthesized {cards} card(s); wired {wired} link(s)"
+    );
     if !index.anomalies.is_empty() {
         println!("⚠ {} anomaly(ies) flagged", index.anomalies.len());
     }
