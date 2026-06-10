@@ -216,7 +216,7 @@ live product, not on the slide.
 </div>
 
 <div v-click class="overlay-line">
-  <span>Agents need context but <b>only what is necessary</b></span>
+  <span>❌ Agents need context but <b>only what is necessary</b></span>
 </div>
 
 <!--
@@ -261,7 +261,7 @@ cards. The local model on this box is what's answering — say so.
 </div>
 
 <div v-click class="overlay-line">
-  <span>Her machine, her token — <b>her agent answers in full</b></span>
+  <span>✅ Her machine, her token — <b>her agent answers in full</b></span>
 </div>
 
 <!--
