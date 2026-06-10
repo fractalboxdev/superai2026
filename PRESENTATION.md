@@ -2,8 +2,8 @@
 
 > **Logline:** Every company wants one AI that knows everything. That's exactly the
 > thing you must never build. **Contextful** is the company brain that gets *smarter*
-> as it gets *more careful* — scoped per person, approved at the boundary, run on your
-> own machines.
+> as it gets *more careful* — scoped per person, approved at the boundary, run in your
+> trusted environment: on-prem or your own cloud.
 
 This document is the **story spine** for the talk + demo. Slides and the AI-generated
 video are derived from it. Read top to bottom: it's written as a narrative arc, then
@@ -36,14 +36,28 @@ SuperAgent: *"What's the CEO's salary?"* — and it answers.
 
 ### Beat 2: Things go south
 
-### Beat 3: 
+### Beat 3: The three bad options
 
-- **Insufficient context** → the agent is useless: it can't answer the real question.
-- **No privacy awareness** → the agent is dangerous: CTO querying the CEO's salary, a
+Today every company picks one of three bad options — ask the room: **do you…**
+
+- **Give AI all your context?** → dangerous: a CTO querying the CEO's salary, a
   compromised cloud provider leaking the lot, a single point of failure taking
-  everything down.
+  everything down. (And starving it instead → useless: it can't answer the real
+  question.)
+- **Block AI usage?** → safety by amputation — you lose every bit of the upside.
+- **Hand your company brain to some startup?** → your most sensitive context sitting
+  on someone else's infra.
 
-- **Someone else's infra** -> company brain sitting on some other startups
+### Beat 4: Why me — "I'm Vincent"
+
+Step out of the gag and address the room directly — the earned-insight beat:
+
+> "I'm **Vincent** — **fractional CTO / CISO to startups**. I've seen this in many
+> companies: the all-knowing agent, the blanket ban, the company brain on someone
+> else's cloud. **In order to address this**, I built Contextful."
+
+One sentence of lived credibility before the solution reveal — this isn't a
+hypothetical problem borrowed from a TV show; it's the one I get hired to fix.
 
 ---
 
@@ -52,8 +66,11 @@ SuperAgent: *"What's the CEO's salary?"* — and it answers.
 Keep this to **one beat on stage** — set the question, name the trap, and jump into the
 live demo. The demo *shows* the rest of the scenario; don't tell it on slides.
 
-**Richard (CEO) asks:** *"We're burning a lot every month on AI tokens and cloud.
-Review the spend — is it worth it? By next standup."*
+**Richard (CEO) writes in the shared doc:** *"Let's improve AI optimization spending
+for 2026 Q3."* **Jared (COO) adds the nuance:** *"There are nuances as we're growing —
+we want to track unit economics: cost per compression ($/KB) at the client."* The real
+question underneath: we're burning a lot on AI tokens and cloud to run the compression
+SaaS — is it worth it, per KB we compress?
 
 Simple question, and **nobody can answer it alone** — not even Richard: his own agent
 knows whether the agents are *worth it* but not what they cost; Jared (COO) runs the
@@ -78,7 +95,7 @@ exist.
 > | **Jared (COO)** | Outcome evals — which workflows clear the bar | Any cost or pricing |
 > | **Monica (CFO)** | Credit offsets, discount tier, team budgets, **Stripe** revenue/cashflow | — (won't expose it all) |
 > | **Gilfoyle (Systems Architect)** | *How* to join Stripe revenue with the internal warehouse into per-product cost/margin/ROI | Holds **no** standing access; works only released slices |
-> | **Dinesh (Lead Engineer)** | His own code context | Salaries, finance — and that's the point |
+> | **Dinesh (CTO)** | His own code context | Salaries, finance — and that's the point |
 >
 > Why existing tools don't close the gap (one line if asked): per-service tools (AWS
 > Budgets + IAM) fragment across Vercel/Stripe/Claude; aggregators lack the connectors;
@@ -95,7 +112,9 @@ cloud?** That's what every "company brain" on the market asks you to do.
 data, your rules — with a **boundary at every person.** Each member's agent holds only
 *their* context. When an answer needs something across a boundary, the request is
 **routed to the owner's agent, approved, and scoped** — the data crosses the line for
-*that question only*. Everything runs **on the company's own machines.**
+*that question only*. Everything runs **in a trusted environment the company chooses**
+— fully on-prem (an office Mac Studio) or **BYOC** in the company's own cloud accounts
+(AWS, or Vercel) — never in someone else's pool.
 
 > The whole demo happens inside **one shared Contextful document** — think a meeting
 > room where each person has an agent at the table. **Every document is paired with its
@@ -110,25 +129,56 @@ data, your rules — with a **boundary at every person.** Each member's agent ho
 > **designed scenarios** below. Anyone can open the URL during the talk and watch the
 > same room. The narration explains *why* it matters; the screen proves *that* it works.
 
-### Demo beat 1 — We built the company, not a dataset
+### Demo beat 1 — The brain lives on the on-prem machine
 
-Before any query runs, show that the demo isn't canned numbers — **we created a living
-simulation of the whole company.** Pan across it for a few seconds:
+Open on the **on-prem machine itself** (the office Mac Studio running the Contextful
+host). Monica (CFO) **has been ingesting Stripe data into the company brain** — revenue
+events, credits, the discount tier — as part of normal operation, not staged for the
+demo.
 
-- **Slack** — the team is actually *talking*: standups, a thread arguing about agent
-  costs, Richard (CEO) dropping the question.
-- **Stripe** — real revenue events flowing in per product (mock data seeded from a
-  Kaggle dataset).
-- **PostHog** — product analytics: usage, retention, the funnels Jared (COO)'s evals
-  read.
+Prove it with nothing but the **filesystem**: open `~/.contextful` and browse the
+**memory files** — human-readable **Markdown cards** you can read with `ls` and `cat`,
+not an opaque vector dump in someone's cloud. The audience sees the actual artifacts
+the agents will draw on: synthesized Stripe memory, tagged `finance_private`, sitting
+on a machine the company owns.
 
-The agents draw from the same messy, live surfaces a real company has. Everything that
-follows is answered from *this world*, not a spreadsheet we prepared.
+Quick context pan while the files are on screen: the brain feeds from the same messy,
+live surfaces a real company has — **Slack** (standups, the cost-argument thread,
+Richard (CEO) dropping the question), **Stripe** (revenue events seeded from a Kaggle
+dataset), **PostHog** (the analytics Jared (COO)'s evals read). Everything that follows
+is answered from *this world*, not a spreadsheet we prepared.
 
-### Demo beat 2 — The killer shot: one query, four different answers
+### Demo beat 2 — The question is in the doc; Monica (CFO) queries it live
 
-Richard (CEO)'s question lands in the shared doc, and **the same query is put to every
-agent at the table.** Each one answers *differently* — not because they're different
+Switch from the filesystem to **demo.contextful.work**. The shared doc already carries
+the thread, written by the cast:
+
+> **Richard (CEO):** "Let's improve AI optimization spending for 2026 Q3."
+>
+> **Jared (COO):** "There are nuances as we're growing — we want to track unit
+> economics: cost per compression ($/KB) at the client."
+
+Then the presenter, **typing live on behalf of Monica (CFO)** — no canned playback —
+queries her agent: **"What's our out-of-pocket expense for the compression SaaS this
+month?"** Her agent answers **from the exact Markdown cards the audience just saw on
+disk** — gross spend, credits, discount tier → the net number. That's the link to
+land: what you `cat`-ed ten seconds ago is what answers in the browser — same brain,
+same machine, two views.
+
+### Demo beat 3 — Same question from Dinesh (CTO)'s laptop — denied
+
+Physically **switch machines**: Dinesh (CTO)'s laptop, same room, same shared doc.
+The presenter types the **same out-of-pocket query on his behalf** — and the policy
+engine **blocks it**: his token carries no grant for `finance_private`, so the query
+is denied *before* any data leaves the host. Deterministic policy, not a model's good
+manners. Two laptops, one question, opposite outcomes — **the boundary is per-person,
+and it's real.** (It also plants the money shot: Dinesh is blind to finance — and to
+salaries, as beat 4 will make cheeky use of.)
+
+### Demo beat 4 — The killer shot: one query, four different answers
+
+With Richard (CEO)'s 2026 Q3 question already in the doc, **the same query is put to
+every agent at the table.** Each one answers *differently* — not because they're different
 models, but because **each holds only its owner's slice, and the access-control policy
 decides what each may say:**
 
@@ -139,7 +189,7 @@ decides what each may say:**
 - **Monica (CFO)'s agent** → the *money*: effective rate after discounts, credit
   offsets, Stripe revenue per product — and it volunteers nothing beyond what policy
   allows.
-- **Dinesh (Lead Engineer)'s agent** → asked the same question (and, cheekily, *"what's
+- **Dinesh (CTO)'s agent** → asked the same question (and, cheekily, *"what's
   Richard's salary?"*) → **denied by policy.** A hard-coded rule, not a model's good
   manners.
 
@@ -150,7 +200,7 @@ the whole company, but every answer abides by the boundary.
 > the *public* market rate of the models and clouds in use. Open-internet benchmark, no
 > boundary crossing; every figure lands with its **source link inline.**
 
-### Demo beat 3 — A request crosses the boundary (the key mechanism)
+### Demo beat 5 — A request crosses the boundary (the key mechanism)
 
 Instead of failing or over-reaching, Richard (CEO)'s agent **raises a scoped request**:
 
@@ -178,7 +228,7 @@ sequenceDiagram
 > themselves and **only raise to a human when something exceeds the guardrails.** That's
 > how you avoid the click-yes-to-everything fatigue that kills permission systems.
 
-### Demo beat 4 — A specialist works the released slices (on request)
+### Demo beat 6 — A specialist works the released slices (on request)
 
 Monica (CFO) and Jared (COO) want the view nobody has produced yet: *spend per product
 vs. the revenue it drives.* They **request Gilfoyle (Systems Architect)'s agent** —
@@ -188,7 +238,7 @@ else), and Gilfoyle's agent joins them into per-product revenue, cost, and margi
 boundaries crossed, **never pooled** — the slices existed for this question only. A
 specialist invoked **on request**, not a standing all-seeing analyst.
 
-### Demo beat 5 — The answer assembles — and the boundary holds
+### Demo beat 7 — The answer assembles — and the boundary holds
 
 The shared doc now contains a **synthesized, sourced answer**: every claim attributed
 to the agent that vouched for it (value ← Richard (CEO), rate ← Monica (CFO), revenue
@@ -202,14 +252,15 @@ During synthesis, a regular **web-research pass (Exa)** re-checks the external
 benchmarks and **cites each source next to the claim it backs** — only the *query*
 leaves the network, never private context.
 
-And the closing callback to beat 2: **Dinesh (Lead Engineer), in the same document,
-still cannot see salaries.** The scoping held the whole time. *That's the proof.*
+And the closing callback to beats 3–4: **Dinesh (CTO), in the same document,
+still cannot see salaries** — the same boundary that denied his out-of-pocket query
+on his own laptop. The scoping held the whole time. *That's the proof.*
 
 ### What just happened (architecture)
 
 ```mermaid
 flowchart TD
-    subgraph OnPrem["On the company's own machines · over Tailscale"]
+    subgraph OnPrem["Your trusted environment — on-prem or BYOC (your AWS / Vercel) · over Tailscale"]
         direction TB
         Doc["Shared Contextful document<br/>(the meeting room)"]
         Policy["Policy engine — Biscuit tokens<br/>verifies every query · redacts fields/rows<br/>BEFORE anything leaves the machine"]
@@ -254,7 +305,11 @@ The pillars to land on screen:
 - **Mission Control** — steer with a high-level prompt *and* pin down
   **deterministic guardrails** (not vibes).
 - **Learns over time** — baselines from past months → anomaly detection this month.
-- **On-prem, over Tailscale** — data never leaves your machines; the network is yours.
+- **Your trusted environment** — data never leaves infrastructure you control: fully
+  **on-prem** (e.g. a Mac Studio, over Tailscale — the network is yours) or **BYOC** in
+  your own AWS / Vercel accounts. Inference follows the same rule: local (LM Studio +
+  Gemma) on-prem, or your own Bedrock / AI Gateway credentials in BYOC — never a
+  third-party pool. Say on stage which one is answering.
 - **Configured via our Control Plane** — policy and topology set once, centrally.
 - **[TBC] Ad-hoc connectors** — an agent writes a one-off integration connector using
   our primitives when a source isn't wired yet.
@@ -313,9 +368,38 @@ because the brain spent the month **reading, checking, and thinking**.
 ### Beat 4: The local stack is ready
 
 The local/on-prem stack is **more powerful than ever** — capable local inference
-(LM Studio + Gemma, OpenAI-compatible) means real work runs on your own machines.
-**Workloads are going hybrid**: sensitive context stays local, burst goes out under
-policy. Contextful is built for that world.
+(LM Studio + Gemma, OpenAI-compatible) means real work runs on your own machines —
+**that's what the stage demo runs: local inference on the Mac Studio you're looking
+at.** And when you want more horsepower, **BYOC keeps the same trust boundary**: the
+inference call goes to *your* AWS Bedrock account or *your* Vercel AI Gateway key —
+your cloud, your contract, never our pool. **Workloads are going hybrid**: sensitive
+context stays local, burst goes out under policy. Contextful is built for that world.
+
+### Beat 5: BYOC — bring your own cloud (and connectors)
+
+You're not locked to our infrastructure — **you choose where the brain runs**:
+
+- **AWS** — your VPC, your account; the host runs as just another box you already audit.
+- **Vercel** — the web surfaces (console, landing) deploy to your own Vercel projects;
+  sandboxes provision there under your token.
+- **Local** — an office Mac Studio or a laptop; the demo you just watched ran here.
+
+Same binary, same policy engine, same Markdown memory — the deployment is a choice,
+not an architecture change. And the connectors are yours too: your agent writes the
+connector once, it runs on your machines — not $200 × N per connector, every month,
+to reach your own data.
+
+### Beat 6: The close — Contextful
+
+End on the name and the three things it stands for, one line each:
+
+> **Contextful.**
+>
+> - **Data stays in a trusted environment** — your machines, your network.
+> - **Access control** — every answer abides by the boundary.
+> - **Agents work with context** — scoped, approved, and growing.
+>
+> **Contextful — powering the command center.**
 
 ### The two things to prove on stage
 
@@ -342,13 +426,16 @@ sync from this table by the **`slidev-deck`** skill → `slides/slides.md`.
 | 1 | **Hook** | "Workspace with your agents. Your data. Your rules." Cold open: CEO brags → an intern asks the CEO's salary → it answers → *slap*: "why'd you give it all the access?" | Act 1 (one continuous ~12s gag; drop the Nucleus bit) | No |
 | 2 | **The problem** | Too little context → useless. Too much access → dangerous. Today you're forced to pick one. | Act 1 · Beat 4 | No |
 | 3 | **The scenario (30s) & the trap** | Richard (CEO): *"Review the AI spend — is it worth it?"* Nobody can answer alone, and the obvious fix (one all-knowing AI) is the one you can't allow. One slide, then demo. | Act 2 | No |
-| 4 | **Contextful** | Local-first collaboration workspaces for your agents. **Your data. Your rules.** The brain gets smarter as it gets more careful. (Spoken open: "do you trust ingesting all your company data into someone's cloud?") | Act 3 intro | No |
-| 5 | **Live demo** | **Live at demo.contextful.work — the product speaks for itself**: agents visibly collaborating in real time in the shared doc. **A simulated company** (Slack chatter, Stripe revenue, PostHog analytics) → **one query, four different answers** — each agent answers per its owner's access policy (the killer shot) → a scoped request approved at the boundary → a sourced answer assembles. **And Dinesh (Lead Engineer) still can't see salaries** — the money shot. | Act 3 · Beats 1–5 (anomaly demoted to a one-line flourish) | No |
-| 6 | **How it works** 🔧 | **Each document is paired with its own isolated sandbox** — the room's agents run there with no ambient authority, holding only their owner's scoped token; a **deterministic policy engine** verifies and redacts every query *before* data enters the sandbox (the agent only *drafts* requests); auto-mode escalates to a human only on a policy breach. | Act 3 architecture | **Technical 1/3** |
-| 7 | **Where it runs** 🔧 | On-prem over Tailscale; Mission Control + guardrails; control plane; the brain grows (learns baselines, flags anomalies); agents research the open web (Exa) — outbound, policy-gated, cited. Footer: **full tech docs on the landing page** (local-first & ingestion · sandbox & capability tokens · collaboration & CRDT). | Act 3 architecture + landing docs | **Technical 2/3** |
-| 8 | **Why now** | Most companies just *blocked* AI (safety by amputation). Other brains are one shared cloud pool; Contextful is boundaried + local-first — and the memory *works on its own*: ingest → research the web (Exa, cited) → **daydream new connections overnight**, with the boundary holding the whole time. Workloads are going hybrid. | Act 4 (de-named — no "Gbrain") | No |
-| 9 | **BYOC** | Bring your own connectors — not paying **$200 × N per connector, every month**, to reach your own data. Your agent writes the connector once; it runs on your machines. Sample setup on screen: 2 server nodes (AWS box + office Mac Studio) and 3–4 client nodes on employee laptops. | Act 3 ad-hoc connectors + "why today's tools fail" | No |
-| 10 | **The ask** | What we want — design partners (companies that already blocked AI and want the upside back). *Replace with the real ask once decided.* | Act 4 close | No |
+| 4 | **Do you…** | Ask the room — today you pick one of three bad options: **Give AI all your context?** (one careless query spills everything) · **Block AI usage?** (safety by amputation — you lose the upside) · **Hand your company brain to some startup?** (your context on someone else's infra). All three are bad. That's the point. | Act 1 · Beat 3 + Act 4 · Beat 1 | No |
+| 5 | **Why me** | "I'm **Vincent** — fractional CTO / CISO to startups. **I've seen this in many companies.** In order to address this, I built Contextful." On screen: Vincent's avatar (LinkedIn photo, exported to `assets/avatars/vincent.png`), linked to <https://www.linkedin.com/in/vincentlaucy>. | Act 1 · Beat 4 | No |
+| 6 | **Contextful** | Local-first collaboration workspaces for your agents. **Your data. Your rules.** The brain gets smarter as it gets more careful. (Spoken open: "do you trust ingesting all your company data into someone's cloud?") | Act 3 intro | No |
+| 7 | **Live demo** | **Live at demo.contextful.work — the product speaks for itself.** Open on the **on-prem machine**: Monica (CFO) has been ingesting Stripe into the company brain — browse the **memory files right on the filesystem** (readable Markdown, your machine, not a cloud) → the doc carries the thread (Richard (CEO): "improve AI optimization spending for 2026 Q3"; Jared (COO): "track unit economics — cost per compression, $/KB at client") → Monica (CFO) **types the query live** ("out-of-pocket expense for the compression SaaS this month?") and gets the answer from those same cards → **switch laptops**: the same query on behalf of Dinesh (CTO) is **denied by policy** → **one query, four different answers** — each agent answers per its owner's access policy (the killer shot) → a scoped request approved at the boundary → a sourced answer assembles. **And Dinesh (CTO) still can't see salaries** — the money shot. | Act 3 · Beats 1–7 (anomaly demoted to a one-line flourish) | No |
+| 8 | **How it works** 🔧 | **Each document is paired with its own isolated sandbox** — the room's agents run there with no ambient authority, holding only their owner's scoped token; a **deterministic policy engine** verifies and redacts every query *before* data enters the sandbox (the agent only *drafts* requests); auto-mode escalates to a human only on a policy breach. | Act 3 architecture | **Technical 1/3** |
+| 9 | **Where it runs** 🔧 | **Your trusted environment, your choice:** fully **on-prem** (this Mac Studio, over Tailscale — inference included: LM Studio + Gemma, which is what's answering on stage) or **BYOC** in your own AWS / Vercel accounts (inference via *your* Bedrock / AI Gateway credentials — your cloud, never our pool). Mission Control + guardrails; control plane; the brain grows (learns baselines, flags anomalies); agents research the open web (Exa) — outbound, policy-gated, cited. Footer: **full tech docs on the landing page** (local-first & ingestion · sandbox & capability tokens · collaboration & CRDT). | Act 3 architecture + landing docs | **Technical 2/3** |
+| 10 | **Why now** | Most companies just *blocked* AI (safety by amputation). Other brains are one shared cloud pool; Contextful is boundaried + local-first — and the memory *works on its own*: ingest → research the web (Exa, cited) → **daydream new connections overnight**, with the boundary holding the whole time. Workloads are going hybrid. | Act 4 (de-named — no "Gbrain") | No |
+| 11 | **BYOC** | Bring your own cloud *and* connectors. **Deployment options: AWS · Vercel · Local** — same binary, same policy engine; the deployment is a choice, not an architecture change. Connectors: your agent writes them once, they run on your machines — not **$200 × N per connector, every month**. Sample setup on screen: 2 server nodes (AWS box + office Mac Studio) and 3–4 client nodes on employee laptops. | Act 4 · Beat 5 + Act 3 ad-hoc connectors | No |
+| 12 | **The ask** | What we want — design partners (companies that already blocked AI and want the upside back). *Replace with the real ask once decided.* | Act 4 close | No |
+| 13 | **Close** | **Contextful.** Data stays in a trusted environment · access control · agents work with context. **Contextful — powering the command center.** | Act 4 · Beat 6 | No |
 
 > **Cold-open storyboard:** the comic frames in `assets/` are inserted into the deck as
 > full-bleed image slides right after slide 1, in story order: the brag (001) → the
@@ -362,7 +449,7 @@ sync from this table by the **`slidev-deck`** skill → `slides/slides.md`.
 > **Cut from the long narrative for the spoken talk** (kept here as source material / for
 > the investor & appendix version): the separate CEO / Batman / Nucleus slides (now one
 > hook), the persona-cast slide, the "why today's tools fail" slide (one line on slide 3
-> is enough), and the named competitor. Money shot (slide 5 salary denial) should be a
+> is enough), and the named competitor. Money shot (slide 7 salary denial) should be a
 > **hard-coded policy rule**, never a live model call — see `.tmp/presentation-review.md`.
 
 ---
@@ -373,11 +460,21 @@ sync from this table by the **`slidev-deck`** skill → `slides/slides.md`.
 - **Theme:** HBO *Silicon Valley* — used **consistently across every surface**: slides,
   the live demo fixtures, the web app's demo docs, and video stings. The cast is always
   the **Pied Piper team**, displayed **"Name (Role)"** — Richard (CEO), Monica (CFO),
-  Jared (COO), Gilfoyle (Systems Architect), Dinesh (Lead Engineer) — and the **same
+  Jared (COO), Gilfoyle (Systems Architect), Dinesh (CTO) — and the **same
   convention applies to agents: "Richard (CEO)'s agent", never "Richard's agent"**
   (principal ids like `cto`/`agent:cto/1` stay stable on the wire; only display names
   carry the theme). Musical sting + visual language; the **Nucleus phone leak** is the
   explicit analogy for "one careless moment spills everything."
+- **Cast avatars — from `assets/`:** persona avatars reuse the comic art in `assets/`
+  (the cold-open frames are the visual language: Richard + Jared in `001.png`, Gilfoyle
+  in `002.png`). Crop/export headshots to `assets/avatars/<name>.png` and use them
+  **consistently everywhere a persona appears**: slide cast mentions, the demo doc
+  facepile/roster in the web app, and the four-answers beat. Portraits missing from the
+  existing frames (Monica, Dinesh) are generated in the same comic style via the
+  `/generate-arts` skill. **Vincent's avatar** (slide 5) is the real LinkedIn photo —
+  export it manually to `assets/avatars/vincent.png` (LinkedIn photos can't be
+  hotlinked) and link the slide image to
+  <https://www.linkedin.com/in/vincentlaucy>.
 - **Memes:** Batman-slapping-Robin for the access punchline.
 - **Demo data — the simulated company:** the demo world is a full company simulation,
   not seeded tables. **Slack** carries generated team conversation (standups, the
@@ -392,9 +489,15 @@ sync from this table by the **`slidev-deck`** skill → `slides/slides.md`.
 - **Web research:** the agent's open-web lookups use **Exa** (landing in a separate PR).
   For a reliable stage run, **cache/replay** the research results so it's deterministic;
   show the inline source citations either way.
-- **Demo staging:** run the whole thing inside **one shared Contextful document** so the
-  "meeting room of agents" reads instantly. Open with the **same query put to every
-  agent** — four scoped answers side by side is the killer shot. Show the engineer's
+- **Demo staging:** open on the **on-prem machine's filesystem** (`~/.contextful` —
+  Stripe memory cards readable as Markdown) to ground the local-first claim, then run
+  everything else inside **one shared Contextful document** so the "meeting room of
+  agents" reads instantly. **Two physical machines on stage:** Monica (CFO) types her
+  query live in the web app and is answered from the cards just shown on disk; then
+  switch to Dinesh (CTO)'s laptop where the same typed query is denied
+  by policy — rehearse the machine hand-off, it's the first visceral proof. Then put
+  the **same query to every agent** — four scoped answers side by side is the killer
+  shot. Show the engineer's
   blocked salary query live in the same pass — the denial closes the loop.
 - **The product speaks for itself:** the demo runs **live at demo.contextful.work** —
   agents actively collaborating in real time (presence roster, live cursors, answers
@@ -414,7 +517,7 @@ sync from this table by the **`slidev-deck`** skill → `slides/slides.md`.
 The landing page (`apps/landing`) is extended with a **"How it works" documentation
 section** — for the technical visitor who lands after the talk and wants the mechanism,
 not the pitch. The talk stays jargon-light; the depth lives here, one URL away. Slides
-6–7 and the demo footer link to it.
+8–9 and the demo footer link to it.
 
 Three doc pages, each derived from the corresponding spec (the spec is the source of
 truth — the doc page is the readable narrative over it, kept in sync, not hand-forked):

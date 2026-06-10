@@ -40,7 +40,7 @@ pub fn cto_agent() -> Principal {
 pub fn eng_agent() -> Principal {
     Principal::Agent {
         id: "agent:eng/1".into(),
-        name: "Dinesh (Lead Engineer)'s agent".into(),
+        name: "Dinesh (CTO)'s agent".into(),
         owner: "eng".into(),
     }
 }
@@ -115,7 +115,7 @@ pub fn cto_agent_capability() -> Capability {
     .expect("cfo root covers spend_by_team")
 }
 
-/// Dinesh (Lead Engineer)'s agent: usage view, own team rows only. Never any salary path.
+/// Dinesh (CTO)'s agent: usage view, own team rows only. Never any salary path.
 pub fn eng_agent_capability() -> Capability {
     mint_with_docs(
         &cfo_root(),
