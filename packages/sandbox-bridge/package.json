@@ -1,0 +1,19 @@
+{
+  "name": "@superai2026/sandbox-bridge",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Thin Node bridge the Rust sandbox driver shells out to: wraps @vercel/sandbox create/extend/stop. Hands-and-feet only — no policy, no Biscuit minting (spec 04 §2).",
+  "bin": {
+    "sandbox-bridge": "./src/cli.mjs"
+  },
+  "exports": {
+    ".": "./src/cli.mjs"
+  },
+  "scripts": {
+    "test": "node --test \"test/**/*.test.mjs\""
+  },
+  "dependencies": {
+    "@vercel/sandbox": "^1.0.0"
+  }
+}

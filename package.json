@@ -4,12 +4,13 @@
   "version": "0.0.0",
   "packageManager": "pnpm@11.5.0",
   "engines": {
-    "node": ">=20"
+    "node": ">=22.13"
   },
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
     "lint": "turbo run lint",
+    "test": "turbo run test",
     "typecheck": "turbo run typecheck",
     "clean": "turbo run clean",
     "dev:landing": "pnpm --filter landing dev",
@@ -17,6 +18,7 @@
     "sync": "cargo run -p sync --"
   },
   "devDependencies": {
+    "@dotenvx/dotenvx": "^1.71.0",
     "turbo": "^2.3.3",
     "typescript": "^5.7.3"
   }

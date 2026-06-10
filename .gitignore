@@ -10,6 +10,7 @@ out/
 .astro/
 .turbo/
 .vercel/
+*.tsbuildinfo
 
 # Rust
 target/
@@ -19,7 +20,7 @@ target/
 .env
 .env.local
 .env.*.local
-# dotenvx private decryption keys — never commit (.env.production is encrypted and safe to commit)
+# dotenvx private decryption keys — NEVER commit. The encrypted .env.production IS safe to commit.
 .env.keys
 
 # Logs

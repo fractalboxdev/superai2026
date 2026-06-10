@@ -1,12 +1,17 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "plugins": [{ "name": "next" }],
-    "paths": { "@/*": ["./src/*"] },
-    "noEmit": true,
-    "incremental": true,
-    "allowJs": true
+    "jsx": "react-jsx",
+    "types": ["@react-router/node", "vite/client"],
+    "baseUrl": ".",
+    "rootDirs": [".", "./.react-router/types"],
+    "paths": { "@/*": ["./app/*"] },
+    "noEmit": true
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".react-router/types/**/*"
+  ],
+  "exclude": ["node_modules", "build"]
 }

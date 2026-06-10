@@ -1,0 +1,33 @@
+# Contextful Slack app manifest (spec 05 §2 — slack/channel_messages view).
+#
+# Read-only, poll-based: Contextful pulls conversations.list +
+# conversations.history on `sync ingest --source slack` / `sync cron`.
+# No Event Subscriptions, no interactivity, no public request URL — the
+# binary stays local-first and nothing inbound is required.
+#
+# Create the app at https://api.slack.com/apps → "Create New App" →
+# "From a manifest" → paste this file. Full steps: ./README.md
+display_information:
+  name: Contextful
+  description: Local-first company brain — ingests channel context into Contextful.
+  background_color: "#1a1a2e"
+features:
+  bot_user:
+    display_name: contextful
+    always_online: false
+oauth_config:
+  scopes:
+    bot:
+      # list public channels (+ which ones the bot is a member of)
+      - channels:read
+      # read message history of public channels the bot is invited to
+      - channels:history
+      # same pair for private channels the bot is explicitly invited to
+      - groups:read
+      - groups:history
+      # resolve user ids to display names (future enrichment)
+      - users:read
+settings:
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false

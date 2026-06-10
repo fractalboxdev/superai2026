@@ -1,0 +1,42 @@
+# FlareDispatch — deploy the dispatcher Worker into your Cloudflare account.
+#
+# Operator-overlay deploy: checks out OpenHackersClub/flare-dispatch at the SHA
+# pinned in infra/flare-dispatch/UPSTREAM_SHA, overwrites its wrangler.jsonc
+# with our overlay, applies D1 migrations, and `wrangler deploy`s. The upstream
+# sandbox image already bakes the `demo-agent` binary, so product-demo works
+# with no custom Dockerfile.
+#
+# Prerequisites (see infra/flare-dispatch/README.md):
+#   * Run infra/flare-dispatch/provision.sh once to create R2/D1/KV + fill
+#     wrangler.jsonc.
+#   * Repo secrets: CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID.
+#   * Worker secrets (HMAC_SECRET, GITHUB_APP_*) set out of band.
+#
+# Manual only — bumping the dispatcher is a deliberate act, not a push trigger.
+name: flare / deploy dispatcher
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # only used if you pull CF creds via OIDC / Pulumi ESC
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: pin
+        run: echo "sha=$(tr -d '[:space:]' < infra/flare-dispatch/UPSTREAM_SHA)" >> "$GITHUB_OUTPUT"
+
+      - uses: OpenHackersClub/flare-dispatch/actions/deploy-dispatcher-action@1e47a54cab3ea4bce2d2a79a3deadb0860829feb
+        with:
+          upstream-ref: ${{ steps.pin.outputs.sha }}
+          wrangler-config: infra/flare-dispatch/wrangler.jsonc
+          cloudflare-api-token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          cloudflare-account-id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # Empty on the first deploy (no DNS yet); set the repo variable
+          # FLAREDISPATCH_ENDPOINT after the first deploy to enable the check.
+          health-check-url: ${{ vars.FLAREDISPATCH_ENDPOINT != '' && format('{0}/health', vars.FLAREDISPATCH_ENDPOINT) || '' }}

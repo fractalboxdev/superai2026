@@ -2,7 +2,7 @@
 
 **Anchors:** `packages/design-system` (`@superai2026/design-system`) — spec'd here; portable from `../superai2026/packages/design-system`. Spec-only build this pass.
 
-**Direction:** *Trust Indigo* — light-first with a full dark theme. Tokens are plain **CSS custom properties** (framework-agnostic, no build step, no Tailwind). One design system shared by the marketing site (Astro) and the product (Next.js).
+**Direction:** *Trust Indigo* — light-first with a full dark theme. Tokens are plain **CSS custom properties** (framework-agnostic, no build step, no Tailwind). One design system shared by the marketing site (Astro) and the product app `apps/web` (React Router 7 / React).
 
 ## 1. Brand pillars
 

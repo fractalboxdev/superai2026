@@ -18,6 +18,8 @@ The editor is [Weaver](https://github.com/OpenHackersClub/weaver): headless Type
 
 **Integration decision:** keep Weaver's editor + CRDT client; **replace its sync backend** with `crates/sync serve` over Tailscale (WSS). A Weaver transport plugin speaks the Contextful WS protocol (§4) instead of the default Cloudflare backend.
 
+**Host framework:** `apps/web` is **React Router 7** (framework mode, Vite), not Next.js — this is the concrete reason for the migration. Weaver is a client-side, WASM-backed (Loro), Effect-TS editor; the App Router's RSC-first model forced it behind `dynamic(ssr:false)` plus bespoke webpack/Turbopack WASM config. On Vite the editor is an ordinary client mount and Rolldown bundles `loro-crdt`'s WASM as a lazy async asset. The transport uses the browser `WebSocket` (relay) with Effect `Schema` validating inbound frames; when no relay is configured, a **`BroadcastChannel`** transport syncs the same Loro updates across browser tabs, so live CRDT editing is demonstrable without a host (e.g. the public Vercel demo). A `@effect/platform` `Socket` transport is the planned deepening.
+
 **Document model:** one `LoroDoc` per document.
 
 - a rich-text **tree** container (paragraphs, headings, formatting),
@@ -29,7 +31,7 @@ The editor is [Weaver](https://github.com/OpenHackersClub/weaver): headless Type
 
 - **Centralized & authoritative — not P2P.** The host's `serve` instance is the single source of truth; all peers (browsers, headless `client`s, sandbox agents) sync through it.
 - **Transport:** WSS over **Tailscale** (WireGuard mesh + TLS). Tailscale is set up externally on the host (see [07](./07-deployment-iac.md)); this system assumes the tailnet exists.
-- **Local client peer:** `sync client` is a headless peer that syncs documents to **local files** for editing outside the browser (e.g. a CLI or, in future, a native Mac app). It uses the same protocol and reflects local file edits as Loro updates.
+- **Local client peer:** `sync client` is a headless peer that syncs documents to **local files** for editing outside the browser (e.g. a CLI or the native Mac app, [10](./10-macos-app.md)). It uses the same protocol and reflects local file edits as Loro updates.
 
 ## 4. Wire protocol (`serve` ↔ peer)
 
@@ -64,7 +66,7 @@ Message types (mirrored in `packages/protocol/src/sync.ts`):
 **Technical choices:**
 
 - **CRDT payloads are native Loro bytes.** Sync handshake uses Loro version vectors: a peer exports `doc.export(updates(peer_vv))`, the other `import`s, replies with its own delta. Snapshots use `export(snapshot)` for catch-up.
-- **Authorization is per-message.** The Biscuit token arrives in `HELLO` and is re-checked on each `SUBSCRIBE`/`UPDATE`. Capabilities are on `document(<doc_id>)` (see [03](./03-access-control.md)).
+- **Authorization is per-message.** The Biscuit token arrives in `HELLO`; **today the relay re-checks revocation on every message** (a principal revoked mid-session is dropped) and validates `doc_id` against path traversal. Full per-message Biscuit `read`/`write(document)` *capability* verification on `document(<doc_id>)` (see [03](./03-access-control.md)) lands with real Biscuit-WASM and is **Future** — the relay ships opaque Loro bytes; structured data is gated on the fully capability-checked brain MCP path.
 - **Persistence:** per-doc Loro **snapshot + oplog** in the file store (`~/.contextful/docs/<doc_id>.loro`), periodically compacted (see [02 §6](./02-brain-memory.md)).
 
 ## 5. Presence / awareness ("who is here")
@@ -80,10 +82,11 @@ The room shows **who is actively reading vs. writing**. Presence rides Loro's **
 | Spec element | Code |
 |---|---|
 | `serve` / `client` subcommands | `crates/sync/src/main.rs` (dispatch) |
-| WS relay (authoritative) | `crates/sync/src/sync/server.rs` — `run(addr)` (stub) |
-| Headless file-sync peer | `crates/sync/src/sync/client.rs` — `run(addr)` (stub) |
-| Wire messages + version-vector framing | `crates/sync/src/sync/protocol.rs` — `SyncMessage` enum (stub) |
-| Presence / awareness | `crates/sync/src/sync/presence.rs` — `PresenceState` (stub) |
-| TS protocol mirror | `packages/protocol/src/sync.ts` — `SyncMessage`, `PresenceState`, `RoomId`, `PeerId` |
+| WS relay (authoritative) | `crates/sync/src/sync/server.rs` — `run(addr)` ✅ built |
+| Headless file-sync peer | `crates/sync/src/sync/client.rs` — `run(addr)` ✅ built |
+| Wire messages + version-vector framing | `crates/sync/src/sync/protocol.rs` — `SyncMessage` enum ✅ built |
+| Presence / awareness | `crates/sync/src/sync/presence.rs` — `PresenceState` ✅ built |
+| TS protocol mirror | `packages/protocol/src/sync.ts` — `SyncMessage`, `PresenceState`, `RoomId`, `PeerId` (+ `update`/`snapshot` constructors) |
+| Web Loro editor + transport | `apps/web/app/lib/loroRoom.ts`, `app/components/DocEditor.tsx` — ✅ built (`loro-crdt`; BroadcastChannel cross-tab + relay; Effect `Schema` wire decode in `app/lib/wire.ts`) |
 
-**Future:** real Loro export/import handshake, OPFS↔serve reconciliation, compaction, Weaver transport plugin in `apps/web`, native client file watcher.
+**Future:** per-message Biscuit `read`/`write(document)` capability verification (today: revocation + `doc_id` safety only), real version-vector Loro export/import handshake (today the web client ships the full update log; the relay overwrite-persists), OPFS↔serve reconciliation, compaction, the **full Weaver editor** in `apps/web` (rich-text tree, Effect-TS plugins, OPFS — today a plaintext `loro-crdt` editor + transport is built), native client file watcher.

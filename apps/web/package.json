@@ -2,26 +2,44 @@
   "name": "web",
   "version": "0.0.0",
   "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint",
-    "typecheck": "tsc --noEmit",
-    "clean": "rm -rf .next out"
+    "dev": "react-router dev",
+    "build": "react-router build",
+    "start": "react-router-serve ./build/server/index.js",
+    "typecheck": "react-router typegen && tsc --noEmit",
+    "clean": "rm -rf build .react-router"
   },
   "dependencies": {
+    "@hyperdx/browser": "^0.24.0",
+    "@hyperdx/node-opentelemetry": "^0.11.0",
+    "@react-router/node": "^7.17.0",
+    "@react-router/serve": "^7.17.0",
     "@superai2026/design-system": "workspace:*",
-    "next": "^15.1.6",
+    "@superai2026/protocol": "workspace:*",
+    "@weaver/core": "workspace:*",
+    "@weaver/dom": "workspace:*",
+    "@weaver/react": "workspace:*",
+    "effect": "^3.21.3",
+    "isbot": "^5.1.41",
+    "loro-crdt": "^1.13.1",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "react-router": "^7.17.0"
   },
   "devDependencies": {
+    "@react-router/dev": "^7.17.0",
     "@types/node": "^22.10.7",
     "@types/react": "^19.0.7",
     "@types/react-dom": "^19.0.3",
-    "eslint": "^8.57.1",
-    "eslint-config-next": "^15.1.6",
-    "typescript": "^5.7.3"
+    "@vercel/react-router": "^1.3.1",
+    "typescript": "^5.7.3",
+    "vite": "^8.0.16",
+    "vite-plugin-top-level-await": "^1.6.0",
+    "vite-plugin-wasm": "^3.6.0",
+    "vite-tsconfig-paths": "^6.1.1"
   }
 }

@@ -1,0 +1,2 @@
+# Staged sidecar binaries (built from crates/sync by scripts/prepare-sidecar.sh)
+sync-*

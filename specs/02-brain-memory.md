@@ -8,7 +8,7 @@ The brain turns raw SaaS + document data into **synthesized, capability-tagged m
 
 Two representations work together:
 
-1. **Human-readable Markdown** is the source of truth for *synthesized* memory — in the spirit of LLMWiki / GBrain / mem0, the LLM organizes knowledge as a tree of Markdown files a human can read, edit, and `git diff`. Files live under `~/.contextful/brain/`.
+1. **Human-readable Markdown** is the source of truth for *synthesized* memory — in the spirit of LLMWiki / GBrain / mem0, the LLM organizes knowledge as a tree of Markdown files a human can read, edit, and `git diff`. Files live under `~/.contextful/brain/`. Cards **self-wire**: typed wikilinks in the prose (`[[entity]]`, `relates_to::`, `supersedes::`) are extracted into graph edges on write with **zero LLM calls** (GBrain-style), so the brain is a navigable knowledge graph, not a file pile — and the daydream loop ([§9](#9-daydreaming)) traverses those edges to find cards worth connecting.
 2. **A file-based index** (SQLite + DuckDB) holds the structured/queryable layer: immutable raw events, embeddings, anomalies, learnings, and provenance pointing back at the Markdown.
 
 > **Divergence from reference:** the reference (original `superai2026/specs/SPEC.md` draft) stored synthesized memory in a relational `memory.body` column. Here the synthesized memory is **Markdown files** (per the LLMWiki/GBrain requirement); the relational tables become the *index over* those files plus the raw/derived data.
@@ -41,12 +41,13 @@ flowchart LR
 |---|---|---|
 | `raw_event` | immutable ingested record | `id, source_id, view, payload(json), ingested_at, acl_tag` |
 | `memory` | index row for a synthesized Markdown card | `id, kind, topic, path, acl_tag, confidence, period, supersedes, created_at` |
-| `provenance` | memory ↔ source link | `memory_id, raw_event_id` (or `doc_id` for doc-derived) |
+| `provenance` | memory ↔ source link | `memory_id, raw_event_id` (or `doc_id`; `external_url`, `retrieved_at` for world cards) |
 | `embedding` | vector for semantic search | `memory_id, vector` |
+| `link` | self-wired typed edge between cards (GBrain-style) | `src_memory_id, dst_memory_id, rel, created_at` |
 | `anomaly` | detected deviation | `id, view, metric, period, baseline, observed, severity, acl_tag, memory_id` |
 | `learning` | correction/feedback for future synthesis | `id, topic, statement, applies_from, acl_tag, provenance_id, source` |
 
-`memory.path` points at the Markdown file; the `body` lives in that file. `acl_tag` on every raw event maps to the resource/field model; **retrieved memories inherit the access requirements of their provenance.** Every *derived* row — `memory`, `anomaly`, `learning` — carries its own `acl_tag` set to the **max** acl of the facts/sources it was computed from (**taint propagation**); it is never lower than its inputs. `learning` rows carry a `provenance_id` so a human correction that quotes a privileged value inherits that value's acl rather than becoming world-readable.
+`memory.path` points at the Markdown file; the `body` lives in that file. `memory.kind ∈ {fact, summary, context_card, world_fact, daydream}`. `acl_tag` on every raw event maps to the resource/field model; **retrieved memories inherit the access requirements of their provenance.** Every *derived* row — `memory`, `anomaly`, `learning`, and daydreamed insights ([§9](#9-daydreaming)) — carries its own `acl_tag` set to the **max** acl of the facts/sources it was computed from (**taint propagation**); it is never lower than its inputs. `learning` rows carry a `provenance_id` so a human correction that quotes a privileged value inherits that value's acl rather than becoming world-readable. World cards ([§8](#8-world-memory-exa)) carry `acl_tag = world` (public) and store `external_url` + `retrieved_at` provenance; a `link` of rel `grounds` ties a world card to the private card it contextualizes.
 
 ## 4. Retrieval (capability-filtered)
 
@@ -85,21 +86,58 @@ Prefer **DuckDB** for columnar FinOps aggregates, **SQLite** for transactional K
 
 The brain spawns agents to ingest and synthesize. Inference is **trait-based and swappable by config** (see [04 §3](./04-sandbox-agents.md)):
 
-- **Default:** AWS **Bedrock + Claude** via the Converse API. On Bedrock the model ids are inference-profile ids with a region prefix — `us.anthropic.claude-opus-4-8` (high-stakes synthesis), `us.anthropic.claude-sonnet-4-6` (routine extraction), `us.anthropic.claude-haiku-4-5` (cheap classification); the bare `claude-*` ids are first-party-API only.
+- **Default:** the **Vercel AI Gateway** — a single OpenAI-compatible endpoint (`https://ai-gateway.vercel.sh/v1`, auth via `AI_GATEWAY_API_KEY`) that fronts Claude with cross-provider failover and unified usage/billing. Models are addressed by provider-prefixed slug — `anthropic/claude-opus-4-8` (high-stakes synthesis), `anthropic/claude-sonnet-4-6` (routine extraction), `anthropic/claude-haiku-4-5` (cheap classification). The Rust brain reaches the Gateway with `async-openai`; TypeScript surfaces use the **Vercel AI SDK** (`@ai-sdk/gateway` provider) — see [04 §3](./04-sandbox-agents.md).
 - **On-prem / offline:** **LM Studio** via OpenAI-compatible endpoint (`http://localhost:1234/v1`) on the host (e.g. Mac Studio).
 
 Only already-permitted content is ever sent to any backend; structured query + redaction never call an LLM.
 
-## 8. Scaffold / Status
+## 8. World memory (Exa)
+
+Company memory answers *"what is true inside the company."* **World memory** grounds it in *public* knowledge from the web — list prices, vendor changelogs, benchmarks, dates — fetched via the **Exa** connector ([05 §2](./05-connectors-etl.md)). The grounding is the point: *"team token spend is up 40%"* becomes a judgement once paired with *"Claude Opus list price was flat and the 1M-context premium was removed 2026-03-13."*
+
+- **Public tier.** World cards are tagged `acl_tag = world` (public) — the one source the control plane default-grants to every principal ([03 §2](./03-access-control.md)). Being public they are never redacted on retrieval and are freely cited (`external_url` + `retrieved_at`, [§3](#3-index-data-model-file-based)).
+- **Never authority.** World memory is **data, not authority**: it can mint no capability, never overrides a `learning`, and is weighted *below* first-party facts in synthesis. Fetched web text is context to **cite**, never instructions to **obey** — a poisoned page can't escalate access (the sandbox has zero ambient authority, [04](./04-sandbox-agents.md)).
+- **Grounding edge.** A world card links to the private card it contextualizes via a `link` of rel `grounds` ([§3](#3-index-data-model-file-based)); `brain.ground` ([06 §1](./06-mcp-interface.md)) returns the private card (capability-filtered) **plus** its public grounding (always visible), each cited.
+- **Two trigger points.** **(1) Reactive** — a user types a question in a room; the room's agent researches via `brain.world_search` / `brain.ground` and writes a cited answer back into the doc ([09](./09-testing-acceptance.md) Flow F). **(2) Proactive** — the cron context layer ([05 §3](./05-connectors-etl.md)) and synthesis enrich and ground memory unprompted ([09](./09-testing-acceptance.md) Flow E), and the daydream loop ([§9](#9-daydreaming)) pulls world facts to extend connections.
+- **Egress is outbound — firewalled.** Because Exa is a web call, a world query *leaves the host*. The **egress firewall** ([03 §4](./03-access-control.md)) lets only public-tainted terms out, so enriching context can never carry a private value off-box. Offline ([09](./09-testing-acceptance.md) Flow D), already-fetched world cards serve from cache; only fresh lookups pause.
+
+## 9. Daydreaming
+
+> **Addition over reference:** the daydream loop is source-of-truth here; it did not exist in the reference draft.
+
+Borrowed from **GBrain's nightly "dream cycle"** and **[Gwern's LLM daydreaming loop](https://gwern.net/ai-daydreaming)**: a background process — the brain's *default-mode network* — that improves the brain while no one is asking. It runs as a **cron job** ([05 §3](./05-connectors-etl.md), [07 §3](./07-deployment-iac.md)), off the request path.
+
+```mermaid
+flowchart LR
+    SAMP["Sample<br/>acl-admissible pairs/sets of cards<br/>(salience · recency · graph-adjacency)"] --> GEN["Generate<br/>LLM proposes a non-obvious link<br/>(may world_search to ground)"]
+    GEN --> CRIT["Critic<br/>novelty · usefulness · non-redundancy · acl-consistency"]
+    CRIT -- keep --> WRITE["Write insight card<br/>kind=daydream · hypothesis · taint=max(parents)"]
+    CRIT -- drop --> BIN["discard (daydreaming tax)"]
+    WRITE --> WIRE["self-wire + grounds edges → seeds future cycles"]
+```
+
+1. **Sample.** Pick pairs (or small sets) of cards, biased by salience, recency, and graph-adjacency (the self-wired `link` edges, [§1](#1-model)). Sampling is **acl-admissible only**: a pair is eligible **only if a single principal could hold caps for both** cards. A `finance_private` salary card and an `eng_usage` card are **never** combined — which is precisely what keeps the salary invariant intact under daydreaming ([03 §4](./03-access-control.md), [03 §6](./03-access-control.md)).
+2. **Generate.** The inference backend ([§7](#7-inference)) proposes a non-obvious connection or hypothesis across the sampled cards. It may call `brain.world_search` ([06 §1](./06-mcp-interface.md)) to **ground** the idea in world knowledge — egress-firewalled, so no private value leaves.
+3. **Critic.** A second pass scores **novelty** (vs. existing cards via embeddings/FTS), **usefulness**, **non-redundancy**, and **acl-consistency**. Most candidates are dropped — Gwern's "daydreaming tax": a low hit-rate is expected and is the price of insights *no one would know to ask for*.
+4. **Write back.** Survivors become new Markdown **insight cards** (`kind = daydream`), stamped **hypothesis** (low confidence, human-reviewable until corroborated) and **taint = max(parents)** ([§3](#3-index-data-model-file-based)) — daydreaming can **never lower an acl_tag**. If an insight's union taint is held by *no single principal*, the card is **quarantined**: visible to no one until an owner who could grant that union reviews it (or it routes through `request_access`, [03 §5](./03-access-control.md)). It is never silently readable.
+5. **Maintenance (same cycle).** GBrain-style housekeeping rides along: dedup / supersede, regenerate self-wired backlinks, **detect contradictions** (surfaced as `learning` candidates), score salience, fix citations. *"The brain improves while you sleep."*
+6. **Surface.** A kept insight is retrievable like any card ([06 §1](./06-mcp-interface.md)) — authorized against its tag — and may be surfaced into a room ("the brain noticed `[[Claude usage]]` relates to `[[discount-tier expiry]]`") **only** to principals cleared for the insight's tag ([09](./09-testing-acceptance.md) Flow G).
+
+**Cost & control.** The daydream tax is real, so the loop is **budgeted** (max cards/cycle, model tier, world-query cap, [07 §3](./07-deployment-iac.md)) and **scheduled off-peak** via cron; offline it runs on local LM Studio ([09](./09-testing-acceptance.md) Flow D) or pauses.
+
+## 10. Scaffold / Status
 
 | Spec element | Code |
 |---|---|
 | `ingest` one-shot pipeline | `crates/sync/src/main.rs` → `connectors` + `brain` |
-| Markdown brain read/write/supersede | `crates/sync/src/brain/markdown.rs` (stub) |
-| Extract → synthesize → anomaly/learning | `crates/sync/src/brain/synthesis.rs` (stub) |
-| Capability-filtered retrieval | `crates/sync/src/brain/retrieval.rs` (stub) |
-| Memory / Scope / MemoryRef types | `crates/sync/src/brain/mod.rs` (stub) |
-| File store (Loro snapshots + DuckDB/SQLite) | `crates/sync/src/store/{docs,db}.rs` (stub) |
+| Markdown brain read/write/supersede | `crates/sync/src/brain/markdown.rs` ✅ built |
+| Self-wiring link extraction (typed wikilinks → edges) | `crates/sync/src/brain/links.rs` (stub) |
+| Extract → synthesize → anomaly/learning | `crates/sync/src/brain/synthesis.rs` ✅ built |
+| World memory / `grounds` edges / `brain.ground` | `crates/sync/src/brain/world.rs` (stub) |
+| Daydream loop (sample → generate → critic → write) | `crates/sync/src/brain/daydream.rs` (stub) |
+| Capability-filtered retrieval | `crates/sync/src/brain/retrieval.rs` ✅ built |
+| Memory / Scope / MemoryRef types | `crates/sync/src/brain/mod.rs` ✅ built |
+| File store (Loro snapshots + JSON index) | `crates/sync/src/store/{mod,docs}.rs` ✅ built (JSON index stand-in) |
 | TS types | `packages/protocol/src/brain.ts` — `MemoryRef`, `Scope`, `SearchQuery`, `SearchResult` |
 
-**Future:** real LLM extract/synthesize, embeddings, FTS indexing, anomaly thresholds, learning suppression, compaction.
+**Future:** the columnar/FTS/vector index (**DuckDB / SQLite FTS5 / sqlite-vec** — today the index is a single `brain.index.json`, not `brain.duckdb`), real LLM extract/synthesize, embeddings, non-destructive supersede (the current pass recomputes derived rows; `Memory.supersedes` is modeled but unused), `brain.remember` per-turn read-set taint, compaction; live Exa calls + world-card grounding; the daydream loop (generator + critic + budget) and contradiction detection.
