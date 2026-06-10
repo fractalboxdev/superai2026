@@ -196,7 +196,9 @@ export default function ConsolePage({ docId }: { docId: string }) {
           await demoSleep(35, ctrl.signal);
         }
       }
-      pushLog("ok", `${asker.name} asked ${CFO_AGENT.name} “${demo.question}” — it is reading`);
+      // Interim status, not an outcome — "info" so a later denial isn't
+      // preceded by a misleading green "ok" row.
+      pushLog("info", `${asker.name} asked ${CFO_AGENT.name} “${demo.question}” — it is reading`);
 
       const mark = demoAnswerMark(demo.actorId);
       const deadline = Date.now() + 30_000;
@@ -225,8 +227,41 @@ export default function ConsolePage({ docId }: { docId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- pushLog/setCursor are stable enough for the scripted demo
   }, [demo, actorId, ed]);
 
-  const resetAll = () => {
+  // Reset demo: clear console state AND restore the document to its seed via
+  // CRDT ops (new blocks in, old blocks out), so the reset propagates to every
+  // tab and the relay instead of only touching this tab's UI.
+  const resetAll = async () => {
     setLog([]);
+    setNotice(null);
+    setDemo(null);
+    setDemoCursor(null);
+    const ed = room.editor;
+    if (!ed) return;
+    const [{ rootId, getChildren }, { parseSeedParagraph }] = await Promise.all([
+      import("@weaver/core"),
+      import("@/lib/weaverTransport"),
+    ]);
+    const root = rootId(ed);
+    const old = getChildren(ed, root);
+    const paragraphs = activeDoc.seed.split("\n\n").filter((p) => p.length > 0);
+    paragraphs.forEach((para, i) => {
+      const { text, mentions } = parseSeedParagraph(para);
+      const blockId = ed.commands.block.insert({
+        parentId: root,
+        index: old.length + i,
+        kind: "paragraph",
+      });
+      if (text.length > 0) ed.commands.text.insert({ blockId, offset: 0, value: text });
+      for (const m of mentions) {
+        ed.commands.text.mark.update({
+          blockId,
+          range: { start: m.start, end: m.end },
+          mark: "mention",
+          value: m.value,
+        });
+      }
+    });
+    for (const id of old) ed.commands.block.delete({ blockId: id });
   };
 
   return (

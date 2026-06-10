@@ -140,13 +140,14 @@ const seedPeerId = (docId: string): bigint => fnv1a64(seedTextOf(docId)) | 1n;
 // tagged chips, not prose.
 const SEED_MENTION = /@\[([^\]]+)\]\(([^)]+)\)/g;
 
-type SeedMention = {
+export type SeedMention = {
   start: number;
   end: number;
   value: { userId: string; label: string; kind: "user" | "agent" };
 };
 
-function parseSeedParagraph(para: string): { text: string; mentions: SeedMention[] } {
+/** Exported for the console's "Reset demo" — it rebuilds the seed via editor commands. */
+export function parseSeedParagraph(para: string): { text: string; mentions: SeedMention[] } {
   let text = "";
   let last = 0;
   const mentions: SeedMention[] = [];
