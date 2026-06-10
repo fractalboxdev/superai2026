@@ -22,16 +22,10 @@ permitted to** — capability-scoped, attenuable, field/row-enforced. The one-li
 
 ## Why not a SuperAgent?
 
-A 100-person SaaS company runs on Claude, Notion, Slack, Linear, AWS, Vercel, and Stripe —
-and nobody can answer *"is this spend worth it?"*, because the context needed to answer
-is split across people who each hold one piece. The obvious fix — dump it all into one
-all-knowing agent — is the one thing that gets you breached. Today's agents fail in one
-of two ways:
-
-- **Insufficient context** — the agent can't see what it needs, so it's useless:
-  confidently wrong, or "I don't know".
-- **Insecure access** — the agent can see everything, so it's dangerous: one prompt
-  injection, one leaked key, one careless query spills the whole company.
+Company context is split across people who each hold one piece — and the obvious fix,
+one all-knowing agent, is the thing that gets you breached. Today you pick a failure
+mode: **insufficient context** (the agent can't see what it needs — useless) or
+**insecure access** (it sees everything — one prompt injection spills the company).
 
 Contextful refuses the trade-off. **Omniscience is the vulnerability:**
 
