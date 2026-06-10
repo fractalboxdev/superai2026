@@ -103,10 +103,11 @@ Your agent holds **your** context — and crosses a boundary only with approval.
 
 <!--
 🎤 SAY (placeholder — edit me):
-"So here's the reframe. Contextful is not one pool everyone queries — it's a boundary
-at every person. Your agent holds your context, and nothing crosses a boundary without
-the owner's approval, scoped to that one question. The brain gets smarter precisely
-because it gets more careful."
+"Take a step back. Do you trust ingesting all your company data into someone's cloud?
+That's what every 'company brain' on the market asks you to do. Contextful is the
+reframe: not one pool everyone queries — a boundary at every person. Your agent holds
+your context, and nothing crosses a boundary without the owner's approval, scoped to
+that one question. The brain gets smarter precisely because it gets more careful."
 
 This is the reframe: not one pool everyone queries, but a boundary at every person.
 Cross-boundary answers are requested, approved, and scoped — for that one question only.
