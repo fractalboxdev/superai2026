@@ -67,7 +67,7 @@ class: text-center
 
 <v-clicks>
 
-💥 &nbsp; Give AI **all your context**? <span class="opacity-60">— one careless query spills everything</span>
+💥 &nbsp; Give AI **all your context**? <span class="opacity-60">— anyone in the company can query everything</span>
 
 🚫 &nbsp; **Block AI usage**? <span class="opacity-60">— safety by amputation</span>
 
@@ -82,7 +82,7 @@ class: text-center
 <!--
 🎤 SAY (placeholder — edit me):
 "So ask yourself — what does your company actually do today? Do you give AI all your
-context, and accept that one careless query spills everything? Do you block AI entirely —
+context, and accept that anyone in the company can query everything? Do you block AI entirely —
 safety by amputation, you lose every bit of the upside? Or do you hand your company brain
 to some startup, and your most sensitive context now lives on someone else's
 infrastructure? Those are the three options on the table today. All of them are bad.
@@ -105,7 +105,7 @@ class: text-center
 **Your data. Your rules.**
 
 
-<img :src="'/arts/slide-contextful.png?v=2'" alt="The Pied Piper team around a glowing brain of document cards, each branch passing through a personal gate" class="slide-art mx-auto mt-4 w-70" />
+<img :src="'/arts/slide-contextful.png?v=4'" alt="The Pied Piper team and their robot agents in their own office around a glowing brain of document cards rising from their own desktop machine, each branch passing through a personal gate, the cloud shut out beyond the window" class="slide-art mx-auto mt-4 w-70" />
 
 <!--
 🎤 SAY (placeholder — edit me):
@@ -139,11 +139,8 @@ a **living simulation run by agents**:
 
 <div class="flex gap-4 mt-4 items-start">
   <div class="screenshot-slot flex-1">
-    <img :src="'/assets/mock-company-stripe.png?v=2'" alt="Stripe sandbox dashboard for the Pied Pipers mock company — gross volume, balance, and payment charts from the simulated revenue events" onerror="this.parentElement.classList.add('empty'); this.remove()" />
+    <img :src="'/assets/mock-company-stripe.png?v=2'" alt="Stripe sandbox dashboard for the Pied Pipers mock company — gross volume, balance, and payment charts from the simulated revenue events" style="max-height: 11rem" onerror="this.parentElement.classList.add('empty'); this.remove()" />
     <p class="screenshot-slot__hint">screenshot — Stripe sandbox, "Pied Pipers" test mode<br/><span class="opacity-60">gross volume + balances from the simulated revenue events</span></p>
-  </div>
-  <div class="screenshot-slot flex-1">
-    <img :src="'/assets/mock-company-extra.png?v=2'" alt="The Pied Pipers mock company — agents keeping the simulation alive" onerror="this.parentElement.classList.add('empty'); this.remove()" />
   </div>
 </div>
 
@@ -293,13 +290,14 @@ Brings your stack into one capability-scoped brain.
   <figure><img :src="'/logos/notion.svg?v=2'" alt="Notion" /><span class="label">Notion</span></figure>
   <figure><img :src="'/logos/slack.svg?v=2'" alt="Slack" /><span class="label">Slack</span></figure>
   <figure><img :src="'/logos/stripe.svg?v=2'" alt="Stripe" /><span class="label">Stripe</span></figure>
+  <figure><img :src="'/logos/posthog.svg?v=2'" alt="PostHog" /><span class="label">PostHog</span></figure>
   <figure><img :src="'/logos/exa.svg?v=2'" alt="Exa" /><span class="label">web research</span></figure>
 </div>
 
 <!--
 🎤 SAY (placeholder — edit me):
 "Where does the brain come from? Connectors, ingesting from the services you already
-run — Notion, Slack, Stripe — plus policy-gated web research through Exa. Every ingest
+run — Notion, Slack, Stripe, PostHog — plus policy-gated web research through Exa. Every ingest
 synthesizes new cards into the brain you're about to see."
 
 Source: landing trust strip ("Brings your stack into one capability-scoped brain" —
@@ -397,13 +395,29 @@ class: text-center
 
 # Document paired with Sandbox
 
-<div class="deploy-logos justify-center mt-8">
+<div class="deploy-logos justify-center mt-4">
   <figure><logos-vercel-icon /><span class="label">Vercel Sandbox</span></figure>
 </div>
 
-<p v-click class="mt-8 font-bold text-2xl">Capability access control takes place <em>before</em> data can leak.</p>
+```mermaid {scale: 0.55}
+sequenceDiagram
+    autonumber
+    participant DOC as 📄 Shared doc (client)
+    participant AGT as 🤖 Agent · 📦 sandbox
+    participant CAP as 🛂 Capability filter
+    participant BRAIN as 🧠 Brain
+    DOC->>AGT: question
+    AGT->>CAP: query + 🎫 token (scoped grant)
+    Note over CAP: verify token per field —<br/>view + granted fields
+    CAP->>BRAIN: granted scope only
+    BRAIN-->>CAP: cards
+    CAP-->>AGT: granted fields only · rest never enters (⛔ no_grant)
+    AGT-->>DOC: answer arrives — already scoped
+```
 
-<img :src="'/arts/slide-how.png?v=2'" alt="Gilfoyle as gatekeeper handing one small key through a gate to Richard" class="slide-art absolute bottom-6 right-8 w-36" />
+<p v-click class="mt-4 font-bold text-2xl">Capability access control takes place <em>before</em> data can leak.</p>
+
+<img :src="'/arts/slide-how.png?v=2'" alt="Gilfoyle as gatekeeper handing one small key through a gate to Richard" class="slide-art absolute bottom-2 right-4 w-24" />
 
 <!--
 🎤 SAY (placeholder — edit me):
@@ -418,6 +432,15 @@ Vercel Sandbox (cloud) or Docker/OrbStack (local) — the BYOC slide covers the 
 The load-bearing claim: enforcement is BEFORE the agent/sandbox boundary (deterministic
 policy engine, not an LLM being polite), so a compromised or careless agent has nothing
 out-of-scope to exfiltrate.
+
+SEQUENCE (walk the numbers): (1) the question lands in the shared doc; (2) the doc's
+agent — sandboxed, no ambient authority — queries the brain carrying only its scoped
+Biscuit token, attenuated from its owner's grant; (3) the capability filter verifies the
+signed token per field (view + granted fields, Datalog — deterministic, not a prompt);
+(4–5) only the granted scope is read from the brain; (6) granted fields cross into the
+sandbox — redacted fields are signalled, never sent; no grant at all → ⛔ no_grant;
+(7) the answer syncs back into the doc. The client only ever receives step 7 — data
+that already passed the filter. Nothing out-of-scope ever existed inside the sandbox.
 -->
 
 ---

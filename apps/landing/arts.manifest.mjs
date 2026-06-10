@@ -156,13 +156,13 @@ export const arts = [
   },
   {
     id: "slide-contextful",
-    alt: "The Pied Piper team around a glowing brain of document cards, each branch passing through a small personal gate",
+    alt: "The Pied Piper team and their small robot agents in their own office around a glowing brain of document cards rising from their own desktop machine, each branch passing through a small personal gate, the cloud shut out beyond the window",
     aspectRatio: "3:2",
     width: 1248,
     height: 832,
-    refs: ["slides/public/cast/richard.webp", "slides/public/cast/monica.webp", "slides/public/cast/gilfoyle.webp", "slides/public/cast/dinesh.webp"],
+    refs: ["slides/public/cast/richard.webp", "slides/public/cast/monica.webp", "slides/public/cast/gilfoyle.webp", "slides/public/cast/dinesh.webp", "apps/landing/public/cast/agent.webp"],
     prompt:
-      "Use exactly the four people from the reference portraits — same faces, hairstyles, and clothing — in the same retro halftone comic style. They stand around a large softly glowing brain made of connected document cards in the center; from the brain, one branch reaches each person, and every branch passes through that person's own small gate/keyhole that visibly filters the flow to a narrow permitted slice. One amber node locked. Scoped access, one brain. No robots, no text.",
+      "Use exactly the four people from the reference portraits — same faces, hairstyles, and clothing — in the same retro halftone comic style. Inside their own cozy office room — walls clearly enclosing everything, their home turf — the four work together around a shared desk; on the desk a compact desktop computer hosts a large softly glowing brain made of connected document cards rising from it. Beside each person stands their own small friendly robot agent that must look exactly like the robot in the reference image — same rounded white/silver body, dark face screen with glowing dot-matrix smiley eyes, small side ear pods. From the brain, one branch reaches each person's robot, and every branch passes through that person's own small gate/keyhole that visibly filters the flow to a narrow permitted slice the robot carries to its human. One amber node locked. Outside the window, a tiny distant cloud is shut out. Local-first, privacy-aware, one company brain. No text.",
   },
   {
     id: "slide-how",
