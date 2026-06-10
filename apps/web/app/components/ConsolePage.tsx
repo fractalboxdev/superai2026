@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { viewId, type Capability, type View } from "@superai2026/protocol/access";
 import { brainQuery, type BrainResult } from "@superai2026/protocol/brain";
 import {
@@ -7,7 +7,7 @@ import {
   type AccessRequest,
   type RouteDecision,
 } from "@superai2026/protocol/requests";
-import { recoverStaleChunk, useWeaverRoom } from "@/lib/weaverRoom";
+import { recoverStaleChunk, useWeaverRoom, type RoomNotice } from "@/lib/weaverRoom";
 import { useDemoAgent } from "@/lib/demoAgent";
 import { DOCS } from "@/lib/docs";
 import { avatarOf, initialsOf, isScenarioPrincipal, peerColor, peerKey } from "@/lib/presence";
@@ -87,7 +87,22 @@ export default function ConsolePage({ docId }: { docId: string }) {
 
   const actor = PRINCIPALS.find((p) => p.id === actorId)!;
   const activeDoc = DOCS.find((d) => d.id === docId)!;
-  const room = useWeaverRoom(actor.id, actor.name, docId);
+  // Active access-decision notifications (NOTIFY frames addressed to the
+  // acting principal — e.g. a mention-ask denied with no_grant): toast + audit log.
+  const [notice, setNotice] = useState<RoomNotice | null>(null);
+  const onNotice = useCallback((n: RoomNotice) => {
+    setNotice(n);
+    setLog((l) => [
+      { id: ++logSeq, kind: "deny" as const, text: `⛔ Denied · ${n.reason} — ${n.message}` },
+      ...l,
+    ].slice(0, 12));
+  }, []);
+  useEffect(() => {
+    if (!notice) return;
+    const t = setTimeout(() => setNotice(null), 8000);
+    return () => clearTimeout(t);
+  }, [notice]);
+  const room = useWeaverRoom(actor.id, actor.name, docId, onNotice);
   // Simulated agent peer — keeps the room visibly live for solo visitors.
   useDemoAgent(docId);
   const { status: syncStatus, peers: livePeers } = room;
@@ -573,6 +588,14 @@ export default function ConsolePage({ docId }: { docId: string }) {
           </div>
         </aside>
       </main>
+
+      {notice && (
+        <div className="cf-toast cf-toast--deny" role="alert">
+          <p className="cf-toast__head">⛔ Denied · {notice.reason}</p>
+          <p className="cf-toast__body">{notice.message}</p>
+          <p className="cf-toast__from">— {notice.from || "relay"}</p>
+        </div>
+      )}
     </div>
   );
 }

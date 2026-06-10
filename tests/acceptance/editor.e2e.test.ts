@@ -146,4 +146,49 @@ d("editor agent answers Q: blocks from brain memory", () => {
     expect(answer).not.toContain("$50/unit");
     web.close();
   });
+
+  // Dinesh's agent types a mention ask addressed to Monica's analyst agent.
+  // The CFO-side watcher answers under the ASKER's token — salary is
+  // finance_private and never granted to agent:eng/1 — so the asking peer
+  // receives an active ⛔ Denied · no_grant NOTIFY frame, and the doc gets a
+  // denial paragraph that never leaks the salary numbers.
+  it("a salary mention-ask from dinesh's agent → ⛔ Denied · no_grant NOTIFY at the asking peer", async () => {
+    const web = new Peer(PORT);
+    await web.open();
+    web.send(hello("agent:eng/1"));
+    web.send(subscribe("finops-ask"));
+    await web.next((m) => m.type === "SNAPSHOT");
+
+    watchers.push(await startWatcher(env, "cfo", "finops-ask", web));
+
+    const ask = "@Monica (CFO)'s analyst agent What's CEO's Salary";
+    const doc = new LoroDoc();
+    appendParagraph(doc, ask);
+    doc.commit();
+    web.send(update("finops-ask", Array.from(doc.export({ mode: "update" }))));
+
+    // the active notification, addressed to the asker
+    const note: any = await web.next(
+      (m) => m.type === "NOTIFY" && m.to === "agent:eng/1",
+      15_000,
+    );
+    expect(note.from).toBe("cfo");
+    expect(note.reason).toBe("no_grant");
+    expect(note.message).toContain("employee_salary");
+    expect(note.message).toContain("stripe/finance_private");
+    // decision metadata only — never the card's salary figures
+    expect(note.message).not.toMatch(/\$\d/);
+
+    // and the doc carries the denial paragraph below the ask
+    const blocks = await waitForBlocks(web, doc, "finops-ask", (b) =>
+      b.some((t) => t.includes("⛔ Denied · no_grant")),
+    );
+    const qi = blocks.findIndex((t) => t === ask);
+    expect(qi).toBeGreaterThanOrEqual(0);
+    const reply = blocks[qi + 1];
+    expect(reply).toContain("A (cfo · for agent:eng/1): ⛔ Denied · no_grant");
+    expect(reply).toContain("employee_salary");
+    expect(reply).not.toMatch(/\$\d/);
+    web.close();
+  });
 });

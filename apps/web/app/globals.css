@@ -767,3 +767,42 @@ hr.weaver-divider { border: none; border-top: 1px solid var(--color-divider); ma
 .mem-when { color: var(--color-text-subtle); }
 .ac-card__label + .mem-pipeline,
 .ac-card__label + .cf-card { margin-top: var(--space-3); }
+
+/* ---- Access-decision toast (NOTIFY frames, e.g. ⛔ Denied · no_grant) ---- */
+.cf-toast {
+  position: fixed;
+  right: var(--space-5);
+  bottom: var(--space-5);
+  z-index: 60;
+  max-width: 26rem;
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.18);
+  animation: cf-toast-in 0.18s ease-out;
+}
+.cf-toast--deny {
+  border-color: var(--color-danger);
+  background: var(--color-danger-subtle);
+}
+.cf-toast__head {
+  color: var(--color-danger);
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-sm);
+}
+.cf-toast__body {
+  margin-top: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  line-height: var(--leading-snug);
+}
+.cf-toast__from {
+  margin-top: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--color-text-subtle);
+}
+@keyframes cf-toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}

@@ -193,9 +193,11 @@ async fn handle_conn(stream: TcpStream, rooms: Rooms, config: Arc<Config>) -> Re
                 });
                 tracing::info!(%principal, doc = %doc_id, peer_id, "subscribed");
             }
-            SyncMessage::Update { doc_id, bytes } => {
+            SyncMessage::Update { doc_id, bytes, .. } => {
                 // update = write(document), proven by the verified token;
-                // revocation re-checked above.
+                // revocation re-checked above. The rebroadcast carries `from` —
+                // the authenticated sender, never the client-supplied value —
+                // so peers (e.g. the editor agent) can attribute new blocks.
                 if !doc_authorized(&write, &scope, &doc_id, Operation::Write).await? {
                     continue;
                 }
@@ -205,6 +207,7 @@ async fn handle_conn(stream: TcpStream, rooms: Rooms, config: Arc<Config>) -> Re
                         SyncMessage::Update {
                             doc_id: doc_id.clone(),
                             bytes: bytes.clone(),
+                            from: Some(principal.clone()),
                         }
                         .to_json(),
                     ));
@@ -229,6 +232,33 @@ async fn handle_conn(stream: TcpStream, rooms: Rooms, config: Arc<Config>) -> Re
                     let _ = tx.send((
                         peer_id,
                         SyncMessage::Awareness { doc_id, presence }.to_json(),
+                    ));
+                }
+            }
+            SyncMessage::Notify {
+                doc_id,
+                to,
+                reason,
+                message,
+                ..
+            } => {
+                // injecting a decision notification into a room is gated like
+                // presence (read(document)); `from` is stamped with the
+                // authenticated sender so a peer cannot speak for another
+                if !doc_authorized(&write, &scope, &doc_id, Operation::Read).await? {
+                    continue;
+                }
+                if let Some(tx) = rooms.lock().await.get(&doc_id) {
+                    let _ = tx.send((
+                        peer_id,
+                        SyncMessage::Notify {
+                            doc_id,
+                            to,
+                            from: principal.clone(),
+                            reason,
+                            message,
+                        }
+                        .to_json(),
                     ));
                 }
             }
