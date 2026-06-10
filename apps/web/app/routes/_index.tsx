@@ -166,7 +166,7 @@ export default function Home() {
     else if (route.decision === "auto") {
       applyGrant(req);
       pushLog("grant", `auto-approved ${req.fields.join(", ")} (${route.reason})`);
-    } else pushLog("info", `access request raised → CFO decides (${req.fields.join(", ")})`);
+    } else pushLog("info", `access request raised → Monica (CFO) decides (${req.fields.join(", ")})`);
   };
 
   const applyGrant = (req: AccessRequest) => {
@@ -174,7 +174,7 @@ export default function Home() {
       const granted = approveRequest(cfoCapability(), req);
       setCaps((c) => ({ ...c, [req.requester]: granted }));
       setPending(null);
-      pushLog("grant", `CFO minted scoped token → ${req.requester} (${req.fields.join(", ")}, ttl ${req.ttl})`);
+      pushLog("grant", `Monica (CFO) minted scoped token → ${req.requester} (${req.fields.join(", ")}, ttl ${req.ttl})`);
       // agent retries automatically with the new token
       const res = brainQuery(granted, DATASETS, { view: req.view, fields: selFields });
       setResult(res);
@@ -186,7 +186,7 @@ export default function Home() {
   };
 
   const denyRequest = () => {
-    if (pending) pushLog("deny", `CFO denied ${pending.req.fields.join(", ")} — stays blocked`);
+    if (pending) pushLog("deny", `Monica (CFO) denied ${pending.req.fields.join(", ")} — stays blocked`);
     setPending(null);
   };
 
@@ -202,7 +202,7 @@ export default function Home() {
     setResult(res);
     const route = routeRequest(FLOW_A_REQUEST, CFO_ENVELOPE);
     setPending({ req: FLOW_A_REQUEST, route });
-    pushLog("deny", `Flow A · CTO agent denied finance_private → request raised`);
+    pushLog("deny", `Flow A · Richard's agent denied finance_private → request raised`);
   };
 
   const runFlowB = () => {
@@ -360,7 +360,7 @@ export default function Home() {
         <main className="app-main">
           <section className="app-editor" aria-label="Document">
             <div className="app-editor__inner">
-              <span className="cf-eyebrow">Finance · Engineering · Operations</span>
+              <span className="cf-eyebrow">Pied Piper · Finance · Engineering</span>
               <h1>{activeDoc.title}</h1>
               <div className="app-editor__metarow">
                 <span className="cf-badge">Shared with 5 + 3 agents</span>
