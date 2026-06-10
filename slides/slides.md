@@ -16,7 +16,7 @@ themeConfig:
   primary: '#4f46e5'
 ---
 
-<img :src="'/arts/logo.png'" alt="Contextful logo" class="slide-art mx-auto mb-2 w-16" />
+<img :src="'/arts/logo.png?v=2'" alt="Contextful logo" class="slide-art mx-auto mb-2 w-16" />
 
 # Contextful
 
@@ -24,7 +24,7 @@ themeConfig:
 
 It knows everything — and lets no one ask everything.
 
-<img :src="'/arts/slide-cover.png'" alt="A startup team and their robot agents collaborating around one shared document" class="slide-art mx-auto mt-6 w-80" />
+<img :src="'/arts/slide-cover.png?v=2'" alt="A startup team and their robot agents collaborating around one shared document" class="slide-art mx-auto mt-6 w-80" />
 
 <!--
 🎤 SAY (placeholder — edit me):
@@ -44,8 +44,8 @@ layout: center
 class: text-center
 ---
 
-<SlidevVideo class="demo-film" autoplay controls :poster="'/assets/contextful_sv_demo-poster.jpg'">
-  <source :src="'/assets/contextful_sv_demo.mp4'" type="video/mp4" />
+<SlidevVideo class="demo-film" autoplay controls :poster="'/assets/contextful_sv_demo-poster.jpg?v=2'">
+  <source :src="'/assets/contextful_sv_demo.mp4?v=2'" type="video/mp4" />
   <p>Your browser can't play this video. <a href="/assets/contextful_sv_demo.mp4">Download the demo film</a>.</p>
 </SlidevVideo>
 
@@ -77,7 +77,7 @@ class: text-center
 
 <p v-click class="mt-10 font-bold text-2xl">All three are bad. That's the point.</p>
 
-<img :src="'/arts/slide-do-you.png'" alt="A worried founder choosing between three bad doors" class="slide-art mx-auto mt-4 w-70" />
+<img :src="'/arts/slide-do-you.png?v=2'" alt="A worried founder choosing between three bad doors" class="slide-art mx-auto mt-4 w-70" />
 
 <!--
 🎤 SAY (placeholder — edit me):
@@ -105,7 +105,7 @@ class: text-center
 **Your data. Your rules.**
 
 
-<img :src="'/arts/slide-contextful.png'" alt="The Pied Piper team around a glowing brain of document cards, each branch passing through a personal gate" class="slide-art mx-auto mt-4 w-70" />
+<img :src="'/arts/slide-contextful.png?v=2'" alt="The Pied Piper team around a glowing brain of document cards, each branch passing through a personal gate" class="slide-art mx-auto mt-4 w-70" />
 
 <!--
 🎤 SAY (placeholder — edit me):
@@ -125,7 +125,7 @@ Everything runs in a trusted environment the company chooses — on-prem or its 
 # For demo, we let agents run a company
 
 <div class="flex items-center gap-3">
-  <img :src="'/assets/pied-piper-logo.jpeg'" alt="Pied Piper logo" class="w-12 h-12 rounded-lg" />
+  <img :src="'/assets/pied-piper-logo.jpeg?v=2'" alt="Pied Piper logo" class="w-12 h-12 rounded-lg" />
   <p class="my-0">"Pied Pipers" - Compression-as-a-Service SaaS with 100+ employees</p>
 </div>
 
@@ -139,11 +139,11 @@ a **living simulation run by agents**:
 
 <div class="flex gap-4 mt-4 items-start">
   <div class="screenshot-slot flex-1">
-    <img :src="'/assets/mock-company-stripe.png'" alt="Stripe sandbox dashboard for the Pied Pipers mock company — gross volume, balance, and payment charts from the simulated revenue events" onerror="this.parentElement.classList.add('empty'); this.remove()" />
+    <img :src="'/assets/mock-company-stripe.png?v=2'" alt="Stripe sandbox dashboard for the Pied Pipers mock company — gross volume, balance, and payment charts from the simulated revenue events" onerror="this.parentElement.classList.add('empty'); this.remove()" />
     <p class="screenshot-slot__hint">screenshot — Stripe sandbox, "Pied Pipers" test mode<br/><span class="opacity-60">gross volume + balances from the simulated revenue events</span></p>
   </div>
   <div class="screenshot-slot flex-1">
-    <img :src="'/assets/mock-company-extra.png'" alt="The Pied Pipers mock company — agents keeping the simulation alive" onerror="this.parentElement.classList.add('empty'); this.remove()" />
+    <img :src="'/assets/mock-company-extra.png?v=2'" alt="The Pied Pipers mock company — agents keeping the simulation alive" onerror="this.parentElement.classList.add('empty'); this.remove()" />
   </div>
 </div>
 
@@ -167,13 +167,13 @@ real — and it makes the later answers falsifiable rather than canned.
 # Context for collaboration matters
 
 <div class="screenshot-slot screenshot-slot--beside-cast mt-2">
-  <img :src="'/assets/q3-spend-review-quotes.png'" alt="The Q3 AI Spend Review shared doc — shared with 5 + 3 agents, Live; Richard (CEO): 'Let's improve AI optimization spending for 2026 Q3.' Jared (COO): 'We need to dive deep on Unit economics — cost per compression ($/KB) at the client.'" style="max-height: 22rem" />
+  <img :src="'/assets/q3-spend-review-quotes.png?v=2'" alt="The Q3 AI Spend Review shared doc — shared with 5 + 3 agents, Live; Richard (CEO): 'Let's improve AI optimization spending for 2026 Q3.' Jared (COO): 'We need to dive deep on Unit economics — cost per compression ($/KB) at the client.'" style="max-height: 22rem" />
 </div>
 
 <div class="cast cast--side">
-  <figure><img :src="'/cast/richard.webp'" alt="Richard (CEO)" /><figcaption><b>Richard</b>CEO</figcaption></figure>
-  <figure><img :src="'/cast/monica.webp'" alt="Monica (CFO)" /><figcaption><b>Monica</b>CFO</figcaption></figure>
-  <figure><img :src="'/cast/dinesh.webp'" alt="Dinesh (CTO)" /><figcaption><b>Dinesh</b>CTO</figcaption></figure>
+  <figure><img :src="'/cast/richard.webp?v=2'" alt="Richard (CEO)" /><figcaption><b>Richard</b>CEO</figcaption></figure>
+  <figure><img :src="'/cast/monica.webp?v=2'" alt="Monica (CFO)" /><figcaption><b>Monica</b>CFO</figcaption></figure>
+  <figure><img :src="'/cast/dinesh.webp?v=2'" alt="Dinesh (CTO)" /><figcaption><b>Dinesh</b>CTO</figcaption></figure>
   <p class="cast-caption">Dinesh is trying…</p>
 </div>
 
@@ -196,7 +196,7 @@ class: text-center
 
 # 💻 The CTO's laptop
 
-<img :src="'/cast/dinesh.webp'" alt="Dinesh (CTO)" class="w-44 h-44 rounded-full object-cover mx-auto mt-8" />
+<img :src="'/cast/dinesh.webp?v=2'" alt="Dinesh (CTO)" class="w-44 h-44 rounded-full object-cover mx-auto mt-8" />
 
 <p class="mt-4 text-xl"><b>Dinesh</b> — CTO</p>
 
@@ -215,7 +215,7 @@ live product, not on the slide.
 ---
 
 <div class="screenshot-slot mt-2">
-  <img :src="'/assets/q3-spend-review.png'" alt="The Q3 AI Spend Review shared doc — on-prem · tailnet and salary · redacted badges, Richard (CEO)'s 2026 Q3 ask, Jared (COO)'s $/KB nuance, and Monica's agent denied on the CEO-salary question (no_grant)" style="max-height: 28rem" />
+  <img :src="'/assets/q3-spend-review.png?v=2'" alt="The Q3 AI Spend Review shared doc — on-prem · tailnet and salary · redacted badges, Richard (CEO)'s 2026 Q3 ask, Jared (COO)'s $/KB nuance, and Monica's agent denied on the CEO-salary question (no_grant)" style="max-height: 28rem" />
 </div>
 
 <div v-click class="overlay-line">
@@ -242,7 +242,7 @@ class: text-center
 
 # 🖥️ The CFO's on-prem — Mac Studio
 
-<img :src="'/cast/monica.webp'" alt="Monica (CFO)" class="w-44 h-44 rounded-full object-cover mx-auto mt-8" />
+<img :src="'/cast/monica.webp?v=2'" alt="Monica (CFO)" class="w-44 h-44 rounded-full object-cover mx-auto mt-8" />
 
 <p class="mt-4 text-xl"><b>Monica</b> — CFO</p>
 
@@ -260,7 +260,7 @@ cards. The local model on this box is what's answering — say so.
 ---
 
 <div class="screenshot-slot mt-2">
-  <img :src="'/assets/q3-spend-review-monica-answer.png'" alt="The Q3 AI Spend Review shared doc on Monica's machine — her agent answers the unit-economics question in full: Monica (CFO) · 4 rows, gross spend $165,000, net of credits $134,000, Enterprise (Tier 3), with the per-team table" style="max-height: 28rem" />
+  <img :src="'/assets/q3-spend-review-monica-answer.png?v=2'" alt="The Q3 AI Spend Review shared doc on Monica's machine — her agent answers the unit-economics question in full: Monica (CFO) · 4 rows, gross spend $165,000, net of credits $134,000, Enterprise (Tier 3), with the per-team table" style="max-height: 28rem" />
 </div>
 
 <div v-click class="overlay-line">
@@ -290,10 +290,10 @@ class: text-center
 Brings your stack into one capability-scoped brain.
 
 <div class="connector-logos mt-10">
-  <figure><img :src="'/logos/notion.svg'" alt="Notion" /><span class="label">Notion</span></figure>
-  <figure><img :src="'/logos/slack.svg'" alt="Slack" /><span class="label">Slack</span></figure>
-  <figure><img :src="'/logos/stripe.svg'" alt="Stripe" /><span class="label">Stripe</span></figure>
-  <figure><img :src="'/logos/exa.svg'" alt="Exa" /><span class="label">web research</span></figure>
+  <figure><img :src="'/logos/notion.svg?v=2'" alt="Notion" /><span class="label">Notion</span></figure>
+  <figure><img :src="'/logos/slack.svg?v=2'" alt="Slack" /><span class="label">Slack</span></figure>
+  <figure><img :src="'/logos/stripe.svg?v=2'" alt="Stripe" /><span class="label">Stripe</span></figure>
+  <figure><img :src="'/logos/exa.svg?v=2'" alt="Exa" /><span class="label">web research</span></figure>
 </div>
 
 <!--
@@ -313,12 +313,12 @@ say "the open web", not "Exa".
 
 <div class="flex gap-8 mt-4 items-center">
   <div class="screenshot-slot flex-1">
-    <img :src="'/assets/brain-locally.png'" alt="~/.contextful open in an editor — the brain as readable Markdown: a unit-economics synthesis card with acl_view/acl_fields frontmatter, plus caps/, control keys, and the brain.db index" style="max-height: 22rem" />
+    <img :src="'/assets/brain-locally.png?v=2'" alt="~/.contextful open in an editor — the brain as readable Markdown: a unit-economics synthesis card with acl_view/acl_fields frontmatter, plus caps/, control keys, and the brain.db index" style="max-height: 22rem" />
   </div>
   <div class="flex-1 text-left">
     <p>📥 &nbsp; Every <b>ingest</b> synthesizes new cards</p>
     <p v-click>🌙 &nbsp; <b>Daydreams</b> when idle — revisits cards, connects the dots, asks the questions nobody typed</p>
-    <p v-click>🔎 &nbsp; <b>Researches the web with Exa</b> — policy-gated egress; findings land as new cards <img :src="'/logos/exa.svg'" alt="Exa" class="inline-block h-5 ml-1 align-text-bottom" /></p>
+    <p v-click>🔎 &nbsp; <b>Researches the web with Exa</b> — policy-gated egress; findings land as new cards <img :src="'/logos/exa.svg?v=2'" alt="Exa" class="inline-block h-5 ml-1 align-text-bottom" /></p>
   </div>
 </div>
 
@@ -357,19 +357,19 @@ The opposite of one all-knowing agent — partial, attenuated, auditable context
 
 <div class="feature-grid mt-6">
   <figure v-click>
-    <img :src="'/arts/feature-scoped.png'" alt="Capability-scoped access — agents inherit a subset of permissions" class="slide-art" />
+    <img :src="'/arts/feature-scoped.png?v=2'" alt="Capability-scoped access — agents inherit a subset of permissions" class="slide-art" />
     <figcaption><b>Capability-scoped access</b>Agents inherit a subset of your permissions — never more. Delegation is attenuation, not trust.</figcaption>
   </figure>
   <figure v-click>
-    <img :src="'/arts/feature-brain.png'" alt="A growing brain of synthesized context cards" class="slide-art" />
+    <img :src="'/arts/feature-brain.png?v=2'" alt="A growing brain of synthesized context cards" class="slide-art" />
     <figcaption><b>A brain that grows</b>Ingests your tools, synthesizes context, flags anomalies — answers over MCP.</figcaption>
   </figure>
   <figure v-click>
-    <img :src="'/arts/feature-local.png'" alt="A local machine keeping data inside its own perimeter" class="slide-art" />
+    <img :src="'/arts/feature-local.png?v=2'" alt="A local machine keeping data inside its own perimeter" class="slide-art" />
     <figcaption><b>Local-first &amp; on-prem</b>Runs on your machine over Tailscale. Cloud optional — your context stays yours.</figcaption>
   </figure>
   <figure v-click>
-    <img :src="'/arts/feature-collab.png'" alt="Humans and agents editing one document together" class="slide-art" />
+    <img :src="'/arts/feature-collab.png?v=2'" alt="Humans and agents editing one document together" class="slide-art" />
     <figcaption><b>Real-time collaboration</b>Humans and agents edit the same doc as peers — CRDT sync that works offline.</figcaption>
   </figure>
 </div>
@@ -403,7 +403,7 @@ class: text-center
 
 <p v-click class="mt-8 font-bold text-2xl">Capability access control takes place <em>before</em> data can leak.</p>
 
-<img :src="'/arts/slide-how.png'" alt="Gilfoyle as gatekeeper handing one small key through a gate to Richard" class="slide-art absolute bottom-6 right-8 w-36" />
+<img :src="'/arts/slide-how.png?v=2'" alt="Gilfoyle as gatekeeper handing one small key through a gate to Richard" class="slide-art absolute bottom-6 right-8 w-36" />
 
 <!--
 🎤 SAY (placeholder — edit me):
@@ -440,7 +440,7 @@ layout: two-cols
 
 ::right::
 
-<img :src="'/arts/layers.png'" alt="The three-layer stack — collaboration on top, the capability filter in the middle, synthesized memory at the base" class="slide-art mx-auto max-h-105 w-auto" />
+<img :src="'/arts/layers.png?v=2'" alt="The three-layer stack — collaboration on top, the capability filter in the middle, synthesized memory at the base" class="slide-art mx-auto max-h-105 w-auto" />
 
 <!--
 🎤 SAY (placeholder — edit me):
@@ -461,55 +461,6 @@ share → collaboration, delegate → access control, ask → memory.
 layout: two-cols
 ---
 
-# Where it runs <span class="text-base opacity-50">· technical</span>
-
-**Your trusted environment — your choice:**
-
-- **On-prem** — this Mac Studio, over Tailscale. Inference included: **local model on the box** — that's what's answering on stage.
-- **BYOC** — your own **AWS** / **Vercel** accounts; inference via *your* Bedrock / AI Gateway credentials. Your cloud, your contract — **never our pool.**
-- **Mission Control** + one control plane set policy centrally.
-- The **brain grows** — learns baselines, flags anomalies.
-- **One outbound path** — cited web research; only the *query* leaves.
-
-<img :src="'/arts/slide-where.png'" alt="Gilfoyle at an office desk with a compact server keeping documents inside a drawn perimeter" class="slide-art mt-4 w-32" />
-
-::right::
-
-```mermaid
-flowchart TD
-    subgraph TE["Trusted environment — on-prem or your cloud"]
-        Doc[Shared document] --- Agents[Scoped agents]
-        Agents --- MC[Mission Control]
-        Agents --- Brain[(Growing brain)]
-        Agents --- Conn[Connectors<br/>Stripe · AWS · internal DBs · …]
-    end
-    Agents -->|outbound, policy-gated| Web[Web research]
-    CP[Control plane] -.configures.-> MC
-    style TE fill:#f0fdf9,stroke:#14534a
-```
-
-<!--
-🎤 SAY (placeholder — edit me):
-"And where does all this run? In a trusted environment you choose. Fully on-prem — this
-Mac Studio, over our own private network, and the inference too: the model answering on
-stage is running locally on that box. Or bring your own cloud: your AWS account, your
-Vercel account — inference goes through your own Bedrock or gateway credentials. Either
-way it's your infrastructure, your contract — never our pool. One control plane sets
-policy centrally. The brain keeps growing — it learns your baselines and flags anomalies.
-And there's exactly one outbound path: web research, policy-gated, where only the query
-leaves and every result comes back cited."
-
-TECHNICAL 2/3. This is the slide that closes the CISO asterisk: name what model is
-answering and where it runs (on stage: LM Studio + Gemma on the Mac Studio — say "a local
-model on this machine"). BYOC = same binary, same policy engine; deployment is a choice,
-not an architecture change. Footer idea: full tech docs on the landing page (local-first
-& ingestion · sandbox & capability tokens · collaboration & CRDT).
--->
-
----
-layout: two-cols
----
-
 # Bring your own cloud — and connectors
 
 **Deploy where you trust:**
@@ -518,7 +469,7 @@ layout: two-cols
   <figure><logos-aws /><span class="label">AWS</span></figure>
   <figure><logos-vercel-icon /><span class="label">Vercel</span></figure>
   <figure><logos-apple /><span class="label">Local · Mac</span></figure>
-  <figure><img :src="'/logos/tailscale.svg'" alt="Tailscale" class="deploy-logo-img" /><span class="label">Tailscale</span></figure>
+  <figure><img :src="'/logos/tailscale.svg?v=2'" alt="Tailscale" class="deploy-logo-img" /><span class="label">Tailscale</span></figure>
 </div>
 
 **One binary** that is easy to run locally or deploy to cloud.
@@ -578,7 +529,7 @@ layout: two-cols
 class: self-center text-center
 ---
 
-<img :src="'/arts/logo.png'" alt="Contextful logo" class="slide-art mx-auto mb-2 w-14" />
+<img :src="'/arts/logo.png?v=2'" alt="Contextful logo" class="slide-art mx-auto mb-2 w-14" />
 
 
 ## Your Agents. Your Data. Your Rules.
@@ -587,7 +538,7 @@ class: self-center text-center
 
 ::right::
 
-<img :src="'/arts/slide-close.png'" alt="The five Pied Piper team members lined up confidently with presence dots above them" class="slide-art mx-auto mt-6 w-80" />
+<img :src="'/arts/slide-close.png?v=2'" alt="The five Pied Piper team members lined up confidently with presence dots above them" class="slide-art mx-auto mt-6 w-80" />
 
 <!--
 🎤 SAY (placeholder — edit me):
@@ -615,7 +566,7 @@ Let's solve it. Be Contextful.
 
 <div class="flex flex-col items-center justify-center h-full">
   <a href="https://www.linkedin.com/in/vincentlaucy" target="_blank" class="flex flex-col items-center">
-    <img :src="'/cast/vincent.jpg'" alt="Vincent — fractional CTO / CISO" class="w-40 h-40 rounded-full object-cover shadow-lg" onerror="this.style.display='none'" />
+    <img :src="'/cast/vincent.jpg?v=2'" alt="Vincent — fractional CTO / CISO" class="w-40 h-40 rounded-full object-cover shadow-lg" onerror="this.style.display='none'" />
     <span class="mt-3 text-sm fb-link">linkedin.com/in/vincentlaucy</span>
   </a>
   <a href="https://fractalbox.dev/" target="_blank" class="fb-lockup mt-8">
