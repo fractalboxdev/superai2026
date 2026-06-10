@@ -38,8 +38,9 @@ export type SyncMessage =
   | { type: "HELLO_OK"; doc_id: RoomId; server_vv?: LoroBytes }
   | { type: "SUBSCRIBE"; doc_id: RoomId; client_vv?: LoroBytes }
   | { type: "SNAPSHOT"; doc_id: RoomId; bytes: LoroBytes }
-  | { type: "UPDATE"; doc_id: RoomId; bytes: LoroBytes }
+  | { type: "UPDATE"; doc_id: RoomId; bytes: LoroBytes; from?: string }
   | { type: "AWARENESS"; doc_id: RoomId; presence: PresenceState }
+  | { type: "NOTIFY"; doc_id: RoomId; to: string; from?: string; reason: string; message: string }
   | { type: "ERROR"; code: string; message: string };
 
 export const PROTO = "contextful/1";
@@ -64,6 +65,19 @@ export const update = (doc_id: RoomId, bytes: LoroBytes): SyncMessage => ({
   doc_id,
   bytes,
 });
+
+/**
+ * A targeted access-decision notification (e.g. a mention-ask denial). The
+ * relay stamps `from` with the authenticated sender on rebroadcast; peers act
+ * only on notifications whose `to` is their own principal. Carries decision
+ * metadata only — never brain/document content (the presence invariant).
+ */
+export const notify = (
+  doc_id: RoomId,
+  to: string,
+  reason: string,
+  message: string,
+): SyncMessage => ({ type: "NOTIFY", doc_id, to, reason, message });
 
 /** Full Loro snapshot bytes for a doc (catch-up / first publish). */
 export const snapshot = (doc_id: RoomId, bytes: LoroBytes): SyncMessage => ({

@@ -124,6 +124,62 @@ pub fn synthesize(store: &Store, index: &mut BrainIndex) -> anyhow::Result<usize
         });
     }
 
+    // employee-salary card per period from finance_private — tagged with the
+    // never-delegated `employee_salary` field, so only the CFO's own root
+    // token can read it (the Flow B invariant, enforced per card)
+    let mut salaries: BTreeMap<String, Vec<(String, i64)>> = BTreeMap::new();
+    for e in index.events_for_view("stripe/finance_private") {
+        let (Some(period), Some(team)) = (
+            e.payload.get("period").and_then(|v| v.as_str()),
+            e.payload.get("team").and_then(|v| v.as_str()),
+        ) else {
+            continue;
+        };
+        let salary = e
+            .payload
+            .get("employee_salary")
+            .and_then(|v| v.as_i64())
+            .unwrap_or(0);
+        salaries
+            .entry(period.to_string())
+            .or_default()
+            .push((team.to_string(), salary));
+    }
+    for (period, mut teams) in salaries {
+        teams.sort();
+        let title = format!("Employee salary · {period}");
+        let lines: Vec<String> = teams
+            .iter()
+            .map(|(team, salary)| format!("{team} **${}**", fmt(*salary)))
+            .collect();
+        let body = format!("Salary baseline by team: {}.\n", lines.join(" · "));
+        let acl = AclTag {
+            view: crate::access::View::new("stripe", "finance_private"),
+            fields: vec!["team".into(), "period".into(), "employee_salary".into()],
+        };
+        let meta = CardMeta {
+            topic: "finance",
+            kind: "wiki",
+            period: Some(&period),
+            confidence: 0.95,
+            acl_tag: &acl,
+        };
+        let slug_name = slug(&format!("employee-salary-{period}"));
+        let path = store.write_card("finance", &slug_name, &render_card(&meta, &title, &body))?;
+        cards_written += 1;
+        index.memories.push(Memory {
+            id: uuid::Uuid::new_v4().to_string(),
+            kind: MemoryKind::Wiki,
+            topic: "finance".into(),
+            path: path.display().to_string(),
+            acl_tag: acl,
+            confidence: 0.95,
+            period: Some(period.clone()),
+            supersedes: None,
+            created_at: now.clone(),
+        });
+    }
+
     // unit-economics card per product from product_economics (CFO-rooted). The
     // card's acl floor is finance_private{gross, credits} — the most privileged
     // tag over its inputs that an issued token can actually grant (tokens are

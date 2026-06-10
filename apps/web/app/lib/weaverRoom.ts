@@ -12,9 +12,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Editor } from "@weaver/core";
 import type { PresenceState } from "@superai2026/protocol/sync";
-import type { RoomStatus, RoomTransport } from "./weaverTransport";
+import type { RoomNotice, RoomStatus, RoomTransport } from "./weaverTransport";
 
-export type { RoomStatus };
+export type { RoomNotice, RoomStatus };
 
 const SYNC_URL_KEY = "contextful:syncUrl";
 const CHUNK_RELOAD_KEY = "contextful:chunkReload";
@@ -83,11 +83,17 @@ export function useWeaverRoom(
   principal: string,
   displayName: string,
   docId: string,
+  onNotice?: (notice: RoomNotice) => void,
 ): WeaverRoom {
   const [editor, setEditor] = useState<Editor | null>(null);
   const [status, setStatus] = useState<RoomStatus>("local");
   const [peers, setPeers] = useState<PresenceState[]>([]);
   const transportRef = useRef<RoomTransport | null>(null);
+  // ref-stable so a re-rendered callback never tears down the transport
+  const noticeRef = useRef(onNotice);
+  useEffect(() => {
+    noticeRef.current = onNotice;
+  }, [onNotice]);
   const setCursor = useCallback(
     (cursor: { blockId: string; offset: number } | null) => {
       transportRef.current?.setCursor(cursor);
@@ -127,6 +133,9 @@ export function useWeaverRoom(
         },
         onPeers: (p) => {
           if (!disposed) setPeers(p);
+        },
+        onNotice: (n) => {
+          if (!disposed) noticeRef.current?.(n);
         },
       });
       transportRef.current = transport;

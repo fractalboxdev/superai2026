@@ -54,6 +54,7 @@ pub async fn run(addr: &str, doc: &str, principal: &str) -> Result<()> {
     // read loop: persist snapshots, log relayed traffic
     let config = Config::load();
     let doc_owned = doc.to_string();
+    let self_principal = principal.to_string();
     tokio::spawn(async move {
         let docs = DocStore::new(config);
         while let Some(Ok(frame)) = read.next().await {
@@ -65,6 +66,21 @@ pub async fn run(addr: &str, doc: &str, principal: &str) -> Result<()> {
                     }
                     Ok(SyncMessage::Update { bytes, .. }) => {
                         tracing::info!(bytes = bytes.len(), "← update from peer");
+                    }
+                    Ok(SyncMessage::Notify {
+                        to,
+                        from,
+                        reason,
+                        message,
+                        ..
+                    }) => {
+                        // an access decision addressed to this machine's
+                        // principal — surface it loudly, others quietly
+                        if to == self_principal {
+                            tracing::warn!(%from, "⛔ Denied · {reason} — {message}");
+                        } else {
+                            tracing::debug!(%to, %from, %reason, "← notify for another principal");
+                        }
                     }
                     Ok(SyncMessage::Awareness { presence, .. }) => {
                         tracing::info!(peer = %presence.principal, mode = ?presence.mode, "← presence");
@@ -103,6 +119,7 @@ pub async fn run(addr: &str, doc: &str, principal: &str) -> Result<()> {
             SyncMessage::Update {
                 doc_id: doc_owned.clone(),
                 bytes: b"contextful-headless-edit".to_vec(),
+                from: None,
             }
             .to_json(),
         ))
