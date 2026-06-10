@@ -78,6 +78,25 @@ video shows them appearing in real time. The peer tab's own recording is discard
 - scroll: text=A (cfo · for cfo
 - pause: 3s
 
+## Scene: Now impersonate Dinesh (CTO)'s agent
+
+> Same room, different badge — now acting as Dinesh (CTO)'s agent, whose token carries no finance grant.
+
+- click: button.cf-actor:has-text("Dinesh (CTO)'s agent")
+- pause: 1.5s
+
+## Scene: The same finance question, denied
+
+> He reaches for the same private finance view Monica just used — and policy denies it before any data moves.
+
+- click: text=stripe / finance_private
+- pause: 1s
+- click: text=Run query as Dinesh (CTO)'s agent
+- wait for: .cf-result--deny
+- expect: text=⛔ Denied
+- scroll: .cf-result--deny
+- pause: 3s
+
 ## Scene: Connectors feed the brain
 
 > Context comes from connectors — Stripe and Exa already sync into the brain on this machine.
