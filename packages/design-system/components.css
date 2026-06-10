@@ -202,6 +202,14 @@
 @media (prefers-reduced-motion: reduce) {
   .cf-presence__dot--live { animation: none; }
 }
+/* The acting user's own chip — Google-Docs style: rightmost in the roster,
+   set apart from the collaborator stack, ringed in the primary color. */
+.cf-presence__dot--self {
+  width: 2rem;
+  height: 2rem;
+  margin-left: var(--space-3);
+  box-shadow: 0 0 0 2px var(--color-primary);
+}
 
 /* ---- Surfaces & helpers ------------------------------------------ */
 .cf-surface {

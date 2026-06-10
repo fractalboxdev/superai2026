@@ -2,6 +2,8 @@
 // document, switchable in the sidebar, synced via CRDT across tabs (and the
 // relay when configured). `id` is the `doc_id` on the wire; `seed` is the body
 // prose a fresh room starts with (the title renders separately from `title`).
+// `@[Label](principalId)` in seed copy becomes a real @mention chip (the same
+// `mention` mark the @-picker writes) — see buildSeed in lib/weaverTransport.
 export type DocMeta = { id: string; title: string; seed: string };
 
 export const DOCS: DocMeta[] = [
@@ -9,10 +11,11 @@ export const DOCS: DocMeta[] = [
     id: "finops",
     title: "Q3 AI Spend Review",
     seed:
-      "Richard (CEO): “Let’s improve AI optimization spending for 2026 Q3.”\n\n" +
-      "Jared (COO): “Unit economics — cost per compression ($/KB) at the client.”\n\n" +
-      "Nobody at the table can answer alone: Richard (CEO)’s agent sees the value but " +
-      "no pricing, Jared (COO) runs the outcome evals but sees no cost, and Monica (CFO) " +
+      "@[Richard (CEO)](cto): “Let’s improve AI optimization spending for 2026 Q3.”\n\n" +
+      "@[Jared (COO)](coo): “We need to dive deep on Unit economics — cost per " +
+      "compression ($/KB) at the client.”\n\n" +
+      "Nobody at the table can answer alone: @[Richard (CEO)](cto)’s agent sees the value but " +
+      "no pricing, @[Jared (COO)](coo) runs the outcome evals but sees no cost, and @[Monica (CFO)](cfo) " +
       "holds the decisive pieces — credits, discount tier, Stripe revenue — and won’t " +
       "expose them to everyone.\n\n" +
       "Switch “Acting as” and put the same query to each agent — the brain redacts " +

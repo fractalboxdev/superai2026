@@ -14,7 +14,7 @@ const WeaverSurface = lazy(() =>
 import {
   CFO,
   CFO_AGENT,
-  CTO_AGENT,
+  ENG,
   ENG_AGENT,
   PRINCIPALS,
   REGISTRY,
@@ -33,7 +33,7 @@ let logSeq = 0;
 
 // The scripted editor-agent demos: each button impersonates its asker
 // (switching the acting principal) and types a mention ask into the live doc,
-// tagging Monica (CFO)'s analyst agent (spec 04). The local `sync agent
+// tagging Monica (CFO)'s agent (spec 04). The local `sync agent
 // --watch-doc <doc>` peer answers with the ASKER's token from brain memory
 // (~/.contextful) over the relay — the relay's authenticated `UPDATE.from`
 // stamp attributes the typed block to the asker, so Monica gets the numbers
@@ -48,7 +48,7 @@ const DEMOS: { label: string; actorId: string; question: string }[] = [
   },
   {
     label: "Demo Q by CTO",
-    actorId: ENG_AGENT.id,
+    actorId: ENG.id,
     question: "what is the CEO's salary?",
   },
 ];
@@ -66,12 +66,17 @@ const demoSleep = (ms: number, signal: AbortSignal) =>
     }, { once: true });
   });
 
+// Selectable actors ("Acting as"): Dinesh (the human), his agent, and Monica.
+// Richard (CEO)'s agent stays in the room roster but is not a switchable
+// identity; Dinesh comes from the wider REGISTRY, not the console cast.
+const ACTORS = [ENG, ENG_AGENT, CFO];
+
 /** The capability console for one document room — rendered at `/` (default doc) and `/docs/:docId`. */
 export default function ConsolePage({ docId }: { docId: string }) {
-  const [actorId, setActorId] = useState<string>(CTO_AGENT.id);
+  const [actorId, setActorId] = useState<string>(ENG_AGENT.id);
   const [log, setLog] = useState<LogEntry[]>([]);
 
-  const actor = PRINCIPALS.find((p) => p.id === actorId)!;
+  const actor = REGISTRY.find((p) => p.id === actorId)!;
   const activeDoc = DOCS.find((d) => d.id === docId)!;
   // Active access-decision notifications (NOTIFY frames addressed to the
   // acting principal — e.g. a mention-ask denied with no_grant): toast + audit log.
@@ -139,7 +144,7 @@ export default function ConsolePage({ docId }: { docId: string }) {
 
   const runEditorDemo = (d: (typeof DEMOS)[number]) => {
     if (demo) return;
-    const asker = PRINCIPALS.find((p) => p.id === d.actorId)!;
+    const asker = REGISTRY.find((p) => p.id === d.actorId)!;
     switchActor(d.actorId);
     // `insertMention` writes `@<label> ` then the question is typed after it.
     setDemo({ actorId: d.actorId, ask: `@${CFO_AGENT.name} ${d.question}`, question: d.question });
@@ -155,7 +160,7 @@ export default function ConsolePage({ docId }: { docId: string }) {
     if (!demo || actorId !== demo.actorId || !ed || demoBusyRef.current) return;
     demoBusyRef.current = true;
     const ctrl = new AbortController();
-    const asker = PRINCIPALS.find((p) => p.id === demo.actorId)!;
+    const asker = REGISTRY.find((p) => p.id === demo.actorId)!;
 
     const run = async () => {
       const { rootId, getChildren, getBlock } = await import("@weaver/core");
@@ -248,8 +253,13 @@ export default function ConsolePage({ docId }: { docId: string }) {
                     ? `● cross-tab · ${livePeers.length} peer${livePeers.length === 1 ? "" : "s"}`
                     : "◐ local"}
           </span>
+          <button className="cf-btn cf-btn--ghost cf-btn--sm" onClick={resetAll}>
+            Reset demo
+          </button>
+          {/* Google-Docs layout: other collaborators stack on the left, the
+              acting user's own ringed avatar sits in the top-right corner. */}
           <span className="cf-presence" aria-label="collaborators present">
-            {PRINCIPALS.map((p) => {
+            {PRINCIPALS.filter((p) => p.id !== actorId).map((p) => {
               const live = liveByPrincipal.get(p.id);
               return (
                 <AvatarDot
@@ -274,10 +284,14 @@ export default function ConsolePage({ docId }: { docId: string }) {
                 stacked
               />
             ))}
+            <AvatarDot
+              id={actor.id}
+              fallback={tag(actor)}
+              color={dotColor(actor.id)}
+              title={`${actor.name} · you`}
+              self
+            />
           </span>
-          <button className="cf-btn cf-btn--ghost cf-btn--sm" onClick={resetAll}>
-            Reset demo
-          </button>
         </div>
       </header>
 
@@ -336,7 +350,7 @@ export default function ConsolePage({ docId }: { docId: string }) {
                 the relay.
               </p>
               {DEMOS.map((d) => {
-                const asker = PRINCIPALS.find((p) => p.id === d.actorId)!;
+                const asker = REGISTRY.find((p) => p.id === d.actorId)!;
                 return (
                   <button
                     key={d.actorId}
@@ -354,7 +368,7 @@ export default function ConsolePage({ docId }: { docId: string }) {
           <div>
             <p className="app-agentpanel__label">Acting as</p>
             <div className="cf-actor-switch">
-              {PRINCIPALS.map((p) => (
+              {ACTORS.map((p) => (
                 <button
                   key={p.id}
                   className={`cf-actor${p.id === actorId ? " cf-actor--on" : ""}`}

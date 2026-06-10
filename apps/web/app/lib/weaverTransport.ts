@@ -135,11 +135,49 @@ const fnv1a64 = (s: string): bigint => {
 
 const seedPeerId = (docId: string): bigint => fnv1a64(seedTextOf(docId)) | 1n;
 
+// `@[Label](principalId)` in seed copy → the visible text `@Label` carrying
+// the same `mention` mark the @-picker writes, so seeded names are real
+// tagged chips, not prose.
+const SEED_MENTION = /@\[([^\]]+)\]\(([^)]+)\)/g;
+
+type SeedMention = {
+  start: number;
+  end: number;
+  value: { userId: string; label: string; kind: "user" | "agent" };
+};
+
+function parseSeedParagraph(para: string): { text: string; mentions: SeedMention[] } {
+  let text = "";
+  let last = 0;
+  const mentions: SeedMention[] = [];
+  for (const m of para.matchAll(SEED_MENTION)) {
+    text += para.slice(last, m.index);
+    const label = `@${m[1]!}`;
+    const start = text.length;
+    text += label;
+    mentions.push({
+      start,
+      end: start + label.length,
+      value: {
+        userId: m[2]!,
+        label,
+        kind: m[2]!.startsWith("agent:") ? "agent" : "user",
+      },
+    });
+    last = m.index + m[0].length;
+  }
+  text += para.slice(last);
+  return { text, mentions };
+}
+
 function buildSeed(docId: string): Uint8Array {
   const seedText = seedTextOf(docId);
   const paragraphs = seedText.split("\n\n").filter((p) => p.length > 0);
   const doc = new LoroDoc();
   doc.setPeerId(seedPeerId(docId));
+  // Mirrors @weaver/core's mention style (expand: "none") — required before
+  // a custom mark can be applied on this throwaway doc.
+  doc.configTextStyle({ mention: { expand: "none" } });
   const tree = doc.getTree("content");
   const blocks = paragraphs.length > 0 ? paragraphs : [""];
   for (const para of blocks) {
@@ -147,7 +185,9 @@ function buildSeed(docId: string): Uint8Array {
     node.data.set("kind", "paragraph");
     node.data.setContainer("attrs", new LoroMap());
     const text = node.data.setContainer("text", new LoroText());
-    if (para.length > 0) text.insert(0, para);
+    const { text: plain, mentions } = parseSeedParagraph(para);
+    if (plain.length > 0) text.insert(0, plain);
+    for (const m of mentions) text.mark({ start: m.start, end: m.end }, "mention", m.value);
   }
   doc.commit({ origin: "seed" });
   return doc.export({ mode: "snapshot" });

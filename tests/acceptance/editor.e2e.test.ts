@@ -147,7 +147,7 @@ d("editor agent answers Q: blocks from brain memory", () => {
     web.close();
   });
 
-  // Dinesh's agent types a mention ask addressed to Monica's analyst agent.
+  // Dinesh's agent types a mention ask addressed to Monica's agent.
   // The CFO-side watcher answers under the ASKER's token — salary is
   // finance_private and never granted to agent:eng/1 — so the asking peer
   // receives an active ⛔ Denied · no_grant NOTIFY frame, and the doc gets a
@@ -161,7 +161,7 @@ d("editor agent answers Q: blocks from brain memory", () => {
 
     watchers.push(await startWatcher(env, "cfo", "finops-ask", web));
 
-    const ask = "@Monica (CFO)'s analyst agent What's CEO's Salary";
+    const ask = "@Monica (CFO)'s agent What's CEO's Salary";
     const doc = new LoroDoc();
     appendParagraph(doc, ask);
     doc.commit();
