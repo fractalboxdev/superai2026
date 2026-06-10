@@ -32,55 +32,116 @@ in a second off-camera tab in the same browser — the "agent peer". Same origin
 means its edits reach the recorded tab live over cross-tab CRDT sync, so the
 video shows them appearing in real time. The peer tab's own recording is discarded.
 
+## Scene: Warm-up
+
+- goto: /
+- wait for: .weaver-surface p
+- wait for: text=1 peer
+- wait for: text=Dinesh's agent ·
+
 ## Scene: Every doc is live
 
 > Contextful — every document is a live CRDT room. Edits sync between peers in real time.
 
-- goto: /
-- wait for: .weaver-surface p
 - pause: 2s
 
 ## Scene: An agent peer is in the room
 
 > Dinesh's agent is already here — a live peer with its own presence, not a mock.
 
-- wait for: text=1 peer
+- expect: text=1 peer
 - pause: 2s
 
 ## Scene: The agent edits in real time
 
 > Watch it work: every keystroke is a CRDT op, landing in this view live.
 
-- wait for: text=Dinesh's agent ·
 - scroll: text=Dinesh's agent ·
 - pause: 9s
 
+## Scene: Connectors feed the brain
+
+> Context comes from connectors — Stripe and Exa already sync into the brain on this machine.
+
+- goto: /connectors
+- wait for: h1
+- expect: text=Connectors
+- expect: text=connected
+- hover: .cn-card
+- pause: 2s
+
+## Scene: Switch a source on
+
+> Turning on a source is one toggle — it starts ingesting into local views, nothing leaves the machine.
+
+- click: button[aria-label="GitHub — off"]
+- expect: button[aria-label="GitHub — connected"]
+- pause: 2s
+
 ## Scene: Company directory
 
-> The directory shows every person and agent in the org — the principals that capabilities are granted to.
+> Access control starts in the directory: every person and agent, and what their capability token actually grants.
 
 - goto: /directory
 - wait for: h1
 - expect: text=Company directory
+- hover: .ac-caps
+- pause: 1.5s
 - scroll: bottom
 - pause: 1.5s
 - scroll: top
 
 ## Scene: Delegate to your agent
 
-> Delegation is scoped: pick a view, pick the fields, and your agent can see exactly that — nothing more.
+> Delegation is scoped. From the directory, hand a narrowed token to your own agent.
 
-- goto: /delegate
+- click: .ac-agent__action
 - wait for: h1
+- expect: text=Delegate to my agent
+- pause: 1.5s
+
+## Scene: Narrow the scope
+
+> Drop a field and the token shrinks — salary can never be delegated at all.
+
+- click: .ac-form .cf-chip
+- pause: 1s
+- click: button.cf-block
+- expect: text=narrowed, never widened
 - pause: 2.5s
 
 ## Scene: The inbox
 
-> Incoming grant requests land in the inbox, where a human approves or rejects each scope.
+> Requests your agents make for someone else's data land in the owner's inbox, each with its exact scope.
 
 - goto: /inbox
 - wait for: h1
 - expect: text=Inbox
+- hover: .ac-request__scope
+- pause: 2.5s
+
+## Scene: Approve exactly the scope
+
+> Approve mints a token for exactly the requested fields, rows, and TTL — nothing wider.
+
+- click: text="Approve (scoped)"
+- expect: text=✓ Approved
+- pause: 2s
+
+## Scene: A hard floor
+
+> Some requests have no approve path at all — salary is forbidden outright, for any agent.
+
+- scroll: .cf-forbidden
+- expect: .cf-forbidden
+- pause: 2.5s
+
+## Scene: Every decision is audited
+
+> Each grant and denial lands in the audit trail — who minted what, to whom, with which TTL.
+
+- scroll: .ac-audit
+- expect: .cf-log__row
 - pause: 2.5s
 
 ## Scene: Back in the room
