@@ -7,7 +7,7 @@ import {
   type AccessRequest,
   type RouteDecision,
 } from "@superai2026/protocol/requests";
-import { useWeaverRoom } from "@/lib/weaverRoom";
+import { recoverStaleChunk, useWeaverRoom } from "@/lib/weaverRoom";
 import { useDemoAgent } from "@/lib/demoAgent";
 import { DOCS } from "@/lib/docs";
 import { avatarOf, initialsOf, isScenarioPrincipal, peerColor, peerKey } from "@/lib/presence";
@@ -16,7 +16,9 @@ import { AvatarDot } from "@/components/AvatarDot";
 // The Weaver editing surface pulls in loro-crdt (WASM) via @weaver/react —
 // lazy-loaded so it ships as a separate client chunk and never renders during
 // SSR (useWeaverRoom only yields an editor after client hydration).
-const WeaverSurface = lazy(() => import("@/components/WeaverSurface"));
+const WeaverSurface = lazy(() =>
+  import("@/components/WeaverSurface").catch(recoverStaleChunk),
+);
 import {
   CFO,
   CFO_ENVELOPE,
@@ -382,7 +384,14 @@ export default function ConsolePage({ docId }: { docId: string }) {
                     ? "Live · cross-tab"
                     : "Local"}
               </span>
-              <span className="cf-badge cf-badge--primary">acting: {actor.name}</span>
+              <span className="app-editor__actor" title={`acting: ${actor.name}`}>
+                <AvatarDot
+                  id={actor.id}
+                  fallback={tag(actor)}
+                  color={dotColor(actor.id)}
+                  title={`acting: ${actor.name}`}
+                />
+              </span>
             </div>
 
             <div className="app-editor__body">

@@ -17,6 +17,31 @@ import type { RoomStatus, RoomTransport } from "./weaverTransport";
 export type { RoomStatus };
 
 const SYNC_URL_KEY = "contextful:syncUrl";
+const CHUNK_RELOAD_KEY = "contextful:chunkReload";
+
+// A failed dynamic import almost always means a stale deploy: this tab's HTML
+// references hashed chunks that no longer exist on the CDN, so the lazy editor
+// import rejects and the page hangs at "Waking the editor…". Reload once to
+// pick up the new asset manifest; the session flag prevents a reload loop.
+export function recoverStaleChunk(err: unknown): never {
+  try {
+    if (!sessionStorage.getItem(CHUNK_RELOAD_KEY)) {
+      sessionStorage.setItem(CHUNK_RELOAD_KEY, "1");
+      window.location.reload();
+    }
+  } catch {
+    /* storage unavailable — fall through to the rethrow */
+  }
+  throw err;
+}
+
+function clearChunkReloadFlag() {
+  try {
+    sessionStorage.removeItem(CHUNK_RELOAD_KEY);
+  } catch {
+    /* ignore */
+  }
+}
 
 // Relay URL resolution: `?sync=ws://…` overrides and persists (so the deployed
 // demo can point at a local `sync serve`), `?sync=off` clears the override;
@@ -83,7 +108,8 @@ export function useWeaverRoom(
       const [{ createEditor }, { attachRoomTransport }] = await Promise.all([
         import("@weaver/core"),
         import("./weaverTransport"),
-      ]);
+      ]).catch(recoverStaleChunk);
+      clearChunkReloadFlag();
       if (disposed) return;
 
       // `seed: false` — initial content comes from the transport's
