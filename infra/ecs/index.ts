@@ -3,6 +3,8 @@
 // Builds the repo-root Dockerfile (linux/arm64 → Fargate Graviton), pushes to
 // ECR, and runs one task in the account's default VPC behind a network load
 // balancer: TCP 7878 (Loro WS relay) and TCP 7979 (brain MCP streamable HTTP).
+// The task co-hosts the editor agent so `Q:` lines typed into the relay doc
+// get answered by the deployed demo.
 //
 //   cd infra/ecs && pnpm install && pnpm up
 //
@@ -18,6 +20,10 @@ import * as awsx from "@pulumi/awsx";
 const cfg = new pulumi.Config("contextful-ecs");
 const syncPort = cfg.getNumber("syncPort") ?? 7878;
 const mcpPort = cfg.getNumber("mcpPort") ?? 7979;
+// Co-hosted editor agent (spec 04 §1): answers `Q:` lines written into the
+// relay doc by the web editor — without it the deployed demo never replies.
+const agentDoc = cfg.get("agentDoc") ?? "finops";
+const agentPrincipal = cfg.get("agentPrincipal") ?? "cfo";
 
 // --- Image: repo-root Dockerfile → ECR -------------------------------------
 
@@ -117,6 +123,21 @@ const taskDefinition = new aws.ecs.TaskDefinition("sync", {
       name: "sync",
       image: image.imageUri,
       essential: true,
+      // Pin the serve invocation here (rather than relying on the image CMD)
+      // so the editor-agent wiring is visible and tunable per stack.
+      command: [
+        "serve",
+        "--addr",
+        `0.0.0.0:${syncPort}`,
+        "--with-mcp",
+        "--mcp-addr",
+        `0.0.0.0:${mcpPort}`,
+        "--with-editor-agent",
+        "--agent-doc",
+        agentDoc,
+        "--agent-principal",
+        agentPrincipal,
+      ],
       portMappings: [
         { containerPort: syncPort, protocol: "tcp" },
         { containerPort: mcpPort, protocol: "tcp" },
