@@ -9,7 +9,7 @@
 // Requires AI_GATEWAY_API_KEY (https://vercel.com/docs/ai-gateway).
 // The AI SDK routes plain "creator/model" string ids through the gateway.
 
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, writeFile, readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -19,6 +19,10 @@ import { arts, stylePrompt, defaultModel } from "../arts.manifest.mjs";
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const outDir = path.resolve(root, "../public/arts");
+// `refs` entries in the manifest are repo-root-relative paths to reference
+// images (cast portraits, comic frames) sent alongside the prompt so the
+// model reuses the exact characters and style.
+const repoRoot = path.resolve(root, "../../..");
 
 const argv = process.argv.slice(2);
 const force = argv.includes("--force");
@@ -88,14 +92,33 @@ for (const art of selected) {
     art.style ?? stylePrompt,
   ].join("\n\n");
 
-  console.log(`gen   ${art.id} … (${art.model ?? defaultModel}, ${art.aspectRatio})`);
+  console.log(`gen   ${art.id} … (${art.model ?? defaultModel}, ${art.aspectRatio}${art.refs?.length ? `, ${art.refs.length} refs` : ""})`);
   try {
+    const providerOptions = {
+      google: { imageConfig: { aspectRatio: art.aspectRatio } },
+    };
+    const request = art.refs?.length
+      ? {
+          messages: [
+            {
+              role: "user",
+              content: [
+                { type: "text", text: prompt },
+                ...(await Promise.all(
+                  art.refs.map(async (r) => ({
+                    type: "image",
+                    image: await readFile(path.resolve(repoRoot, r)),
+                  }))
+                )),
+              ],
+            },
+          ],
+        }
+      : { prompt };
     const result = await generateText({
       model: art.model ?? defaultModel,
-      prompt,
-      providerOptions: {
-        google: { imageConfig: { aspectRatio: art.aspectRatio } },
-      },
+      ...request,
+      providerOptions,
     });
 
     const image = result.files?.find((f) => f.mediaType?.startsWith("image/"));

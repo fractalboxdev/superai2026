@@ -8,6 +8,7 @@
     "export:pptx": "mkdir -p dist && slidev export --format pptx --output dist/contextful-slides.pptx"
   },
   "devDependencies": {
+    "@iconify-json/logos": "^1.2.11",
     "@slidev/cli": "^52.16.0",
     "@slidev/theme-default": "^0.25.0",
     "playwright-chromium": "^1.60.0"
