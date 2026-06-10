@@ -445,13 +445,6 @@ export default function ConsolePage({ docId }: { docId: string }) {
               >
                 {demoAsk ? "Typing as CFO…" : "▶ Demo Q by CFO"}
               </button>
-              {syncStatus !== "live" && (
-                <p className="cf-text-muted" style={{ fontSize: "var(--text-sm)", margin: 0 }}>
-                  Relay not connected — run <code>sync serve</code> and{" "}
-                  <code>sync agent --principal cfo --watch-doc {docId}</code>, then open this
-                  page with <code>?sync=ws://127.0.0.1:7878</code>.
-                </p>
-              )}
             </div>
           </div>
 
