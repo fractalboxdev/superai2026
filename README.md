@@ -5,7 +5,7 @@
 🌐 **Website:** [contextful.work](https://contextful.work/) · 🚀 **Live demo:** [demo.contextful.work](https://demo.contextful.work/)
 
 <p align="center">
-  <img src="slides/public/arts/slide-close.png" alt="The Pied Piper team lined up confidently with presence dots above them — Contextful's closing slide art" width="520" />
+  <img src="https://www.contextful.work/arts/slide-cover.png?v=2" alt="Contextful cover art — the company brain keeping every agent in its lane" width="520" />
 </p>
 
 Every company wants one AI that knows everything. That's exactly the thing you must
@@ -22,18 +22,63 @@ permitted to** — capability-scoped, attenuable, field/row-enforced. The one-li
 [PRESENTATION.md](./PRESENTATION.md) for the full story and [`specs/`](./specs) for the
 design.
 
-| Path | What | Stack |
-| --- | --- | --- |
-| `apps/landing` | Marketing / landing page — [www.contextful.work](https://www.contextful.work) | Astro (static) → Vercel |
-| `apps/web` | Interactive capability console (Flows A & B) + live presence — [demo.contextful.work](https://demo.contextful.work) | React Router 7 (Vite), React 19 → Vercel |
-| `crates/sync` | Backend: capabilities, brain, MCP, Loro relay, control plane | Rust (7 subcommands) — self-hosted |
-| `packages/protocol` | Capability engine + brain query + wire/MCP mirrors | TypeScript |
-| `tests/acceptance` | End-to-end Flow A/B tests against the binary | vitest |
-| `infra/` | Pulumi cloud recipes (standalone) | Pulumi TS |
+## Why not a SuperAgent?
 
-The on-host backend is implemented and tested. Cloud edges (Bedrock, Vercel Sandbox,
-Exa HTTP, real Biscuit-WASM, Pulumi `apply`) are interface-complete and feature-gated
-off, so the default build runs fully offline.
+A 50-person company runs on Claude, Notion, Slack, Linear, AWS, Vercel, and Stripe —
+and nobody can answer *"is this spend worth it?"*, because the context needed to answer
+is split across people who each hold one piece. The obvious fix — dump it all into one
+all-knowing agent — is the one thing that gets you breached. Today's agents fail in one
+of two ways:
+
+- **Insufficient context** — the agent can't see what it needs, so it's useless:
+  confidently wrong, or "I don't know".
+- **Insecure access** — the agent can see everything, so it's dangerous: one prompt
+  injection, one leaked key, one careless query spills the whole company.
+
+Contextful refuses the trade-off. **Omniscience is the vulnerability:**
+
+| One omniscient SuperAgent | Contextful |
+| --- | --- |
+| Sees everything — so one prompt injection leaks everything. | Each agent sees a provable subset — never more than its grantor. |
+| Trust by configuration: a forgotten ACL is a breach. | Trust by construction: scopes attenuate, they can't widen. |
+| Your context lives in someone else's cloud. | Context stays on your machines — on-prem or BYOC. |
+| No proof of what it could and couldn't access. | Every answer is auditable, with redactions shown inline. |
+
+## What you get
+
+- **Capability-scoped access** — agents inherit a subset of your permissions — never
+  more. Delegation is attenuation, not trust.
+- **A brain that grows** — Contextful ingests your tools, synthesizes context, flags
+  anomalies, and learns from last month's mistakes — then answers questions over MCP.
+- **Local-first & on-prem** — runs on your machine over Tailscale. Cloud is optional,
+  used only for sync transport and LLM inference. Your context stays yours.
+- **Real-time collaboration** — humans and agents edit the same document together as
+  peers, with live presence — powered by CRDT sync that works offline.
+
+## The core idea — delegation is attenuation
+
+An agent can never out-see its grantor. When you delegate, you hand over a *narrower*
+slice of your own context — and that slice can only shrink as it passes down the chain.
+
+```mermaid
+flowchart LR
+    A["CFO agent<br/>grant: spend.read"] --> F{"capability filter"}
+    F -->|"spend_by_team ✓"| B["scoped answer"]
+    F -.->|"payroll.salary ✗"| R["redacted — shown, not dropped"]
+```
+
+- Scopes compose by **intersection**, never union.
+- Redactions are **shown**, not silently dropped.
+- Every grant is **revocable and auditable**.
+
+## How it works
+
+1. **Share a document** — create a doc and invite teammates *and their agents* into a
+   shared, real-time workspace.
+2. **Delegate scoped access** — grant your agent a narrow slice of your permissions.
+   It asks for more only when it needs to.
+3. **Ask the company brain** — agents answer from synthesized context —
+   capability-filtered, with the parts you can't see redacted.
 
 ## Built on
 
@@ -43,9 +88,9 @@ off, so the default build runs fully offline.
 - [Loro](https://loro.dev) — the CRDT engine underneath: every document is a live
   `loro-crdt` room, synced through the Rust relay (`sync serve`).
 - [Biscuit](https://www.biscuitsec.org) — attenuable capability tokens behind the
-  scoped-grant model (real Biscuit-WASM is feature-gated; an offline mirror runs by default).
+  scoped-grant model (`biscuit-auth` signed + Datalog-verified).
 - [Model Context Protocol](https://modelcontextprotocol.io) — the brain is exposed to
-  agents over MCP (JSON-RPC stdio via `sync mcp`).
+  agents over MCP (stdio + streamable HTTP with per-call auth, via `sync mcp`).
 
 ## Prerequisites
 
@@ -69,5 +114,25 @@ cargo test -p sync                             # capability + brain tests (incl.
 
 To see live presence in the web app, run the relay and start it with
 `VITE_SYNC_URL=ws://localhost:7878/ pnpm dev:web`.
+
+## Repository structure
+
+A monorepo with two toolchains at the root: a **pnpm + Turborepo** workspace for JS
+(`apps/*`, `packages/*`, `tests/*`) and a **Cargo** workspace for Rust (`crates/*`).
+
+| Path | What | Stack |
+| --- | --- | --- |
+| `apps/landing` | Marketing / landing page — [www.contextful.work](https://www.contextful.work) | Astro (static) → Vercel |
+| `apps/web` | Interactive capability console (Flows A & B) + live presence — [demo.contextful.work](https://demo.contextful.work) | React Router 7 (Vite), React 19 → Vercel |
+| `apps/desktop` | macOS menu-bar app — bundles `sync` as a supervised sidecar, first-run wizard, Keychain identity | Tauri (standalone Cargo workspace) |
+| `crates/sync` | Backend: capabilities, brain, MCP, Loro relay, control plane | Rust (7 subcommands) — self-hosted |
+| `packages/protocol` | Capability engine + brain query + wire/MCP mirrors | TypeScript |
+| `tests/acceptance` | End-to-end Flow A/B tests against the binary | vitest |
+| `infra/` | Pulumi cloud recipes (standalone) | Pulumi TS |
+
+The backend is implemented and tested end to end. Cloud paths (Exa, Stripe, Bedrock /
+AI Gateway inference, Vercel Sandbox) are compiled in and selected at runtime by
+env/creds; with no creds everything degrades to the on-host cache and a deterministic
+offline floor — never to fakes.
 
 See [CLAUDE.md](./CLAUDE.md) for the full command reference and architecture.
