@@ -161,7 +161,7 @@ flowchart LR
 | Egress firewall (outbound term taint check) | `crates/sync/src/access/egress.rs` (stub) |
 | Principal registry / root keys / envelopes (`ctl`) | `crates/sync/src/controlplane/` ✅ built |
 | TS types + helper signatures | `packages/protocol/src/access.ts` — `Capability`, `Action`, `Resource`, `PermissionRequest`/`Grant`, `attenuate()`/`authorize()` |
-| Web UI logic — route/approve/delegate | `packages/protocol/src/{requests,access}.ts` — `routeRequest()`, `approveRequest()`, `delegateTo()`, `effectiveCapability()` ✅ built |
-| Web UI surfaces — directory · delegation · inbox | `apps/web/src/app/page.tsx` — embedded request panel + audit trail prototyped; **company directory, delegation form, standalone inbox: Future** |
+| Web UI logic — route/approve/delegate | `packages/protocol/src/{requests,access}.ts` — `routeRequest()`, `approveRequest()`, `delegateTo()`, `effectiveCapability()`, `delegableFields()` ✅ built |
+| Web UI surfaces — directory · delegation · inbox | `apps/web/app/routes/{directory,delegate,inbox}.tsx` over a shared `app/lib/accessStore.tsx` ✅ built — each route folds the same `caps(child) ⊆ caps(parent)` result; the `_index.tsx` console keeps its embedded request panel + audit trail |
 
-**Future:** real Biscuit Datalog policies + `Authorizer`, `@biscuit-auth/biscuit-wasm` integration in the web for client-side checks, revocation, audit UI; the standalone web access-control surfaces of [§6](#6-web-access-control-ui) — company directory, agent-delegation form, and a request inbox (today: a single embedded request panel + audit trail in the demo console).
+**Future:** real Biscuit Datalog policies + `Authorizer`, `@biscuit-auth/biscuit-wasm` integration in the web for client-side checks, revocation, and host-persisted audit (the surfaces of [§6](#6-web-access-control-ui) are built but compute against in-browser fixtures; a browser "delegate"/"approve" is still a *request to mint* that the real control plane re-verifies and records).

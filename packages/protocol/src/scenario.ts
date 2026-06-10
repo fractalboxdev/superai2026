@@ -4,7 +4,7 @@
 // reference requests that drive Flow A (request → approve → scoped pull) and
 // Flow B (the salary invariant). Everything the web console needs is here.
 
-import { mint, view, type Capability, type Principal, type RootKey, type View } from "./access";
+import { mint, view, viewEq, type Capability, type Principal, type RootKey, type View } from "./access";
 import type { Dataset } from "./brain";
 import type { AccessRequest, Envelope } from "./requests";
 
@@ -15,15 +15,54 @@ export const FINANCE_PRIVATE: View = view("stripe", "finance_private");
 
 // ---- Principals -----------------------------------------------------------
 
+// Humans (each owns the agents minted under their id) ...
 export const CFO: Principal = { kind: "human", id: "cfo", name: "Dana (CFO)", role: "finance" };
+export const CTO: Principal = { kind: "human", id: "cto", name: "Sam (CTO)", role: "engineering" };
+export const ENG: Principal = { kind: "human", id: "eng", name: "Riley (Eng lead)", role: "engineering" };
+
+// ... and their agents (agent:<owner>/<n>, no root authority of their own).
+export const CFO_AGENT: Principal = { kind: "agent", id: "agent:cfo/1", name: "Finance analyst agent", owner: "cfo" };
 export const CTO_AGENT: Principal = { kind: "agent", id: "agent:cto/1", name: "CTO's agent", owner: "cto" };
 export const ENG_AGENT: Principal = { kind: "agent", id: "agent:eng/1", name: "Engineering agent", owner: "eng" };
 
+/** The demo console's cast (a subset of the registry, focused on the two flows). */
 export const PRINCIPALS: Principal[] = [CTO_AGENT, ENG_AGENT, CFO];
+
+/**
+ * The full control-plane principal registry — every human and, owned by it,
+ * the agents minted under its id. This is what the company directory ([03 §6.1])
+ * enumerates; `PRINCIPALS` above is the narrower console cast.
+ */
+export const REGISTRY: Principal[] = [CFO, CFO_AGENT, CTO, CTO_AGENT, ENG, ENG_AGENT];
+
+/** Humans in the registry (directory rows). */
+export const humans = (): Extract<Principal, { kind: "human" }>[] =>
+  REGISTRY.filter((p): p is Extract<Principal, { kind: "human" }> => p.kind === "human");
+
+/** Agents a human owns (nested under each directory row). */
+export const ownedAgents = (ownerId: string): Principal[] =>
+  REGISTRY.filter((p): p is Extract<Principal, { kind: "agent" }> => p.kind === "agent" && p.owner === ownerId);
+
+/** Look up a registry principal by id. */
+export const principal = (id: string): Principal | undefined => REGISTRY.find((p) => p.id === id);
 
 /** Short tag for presence dots / labels. */
 export const tag = (p: Principal): string =>
-  p.id === "cfo" ? "CF" : p.id.startsWith("agent:cto") ? "CT" : p.id.startsWith("agent:eng") ? "EN" : "◆";
+  p.id === "cfo" || p.id.startsWith("agent:cfo")
+    ? "CF"
+    : p.id === "cto" || p.id.startsWith("agent:cto")
+      ? "CT"
+      : p.id === "eng" || p.id.startsWith("agent:eng")
+        ? "EN"
+        : "◆";
+
+/** Stable presence color per owner family (matches the console's dot palette). */
+export const principalColor = (id: string): string =>
+  id === "cfo" || id.startsWith("agent:cfo")
+    ? "var(--cf-sky-500)"
+    : id === "cto" || id.startsWith("agent:cto")
+      ? "var(--cf-indigo-500)"
+      : "var(--cf-amber-500)";
 
 // ---- Root keys (no super-root) --------------------------------------------
 
@@ -93,6 +132,31 @@ export const engAgentCapability = (): Capability =>
     rows: [{ field: "team", in: ["eng"] }],
   });
 
+/** CFO's analyst agent: a finance_private token already narrowed to drop salary. */
+export const cfoAgentCapability = (): Capability =>
+  mint(CFO_ROOT, CFO_AGENT.id, {
+    ops: ["query", "read"],
+    view: SPEND_BY_TEAM,
+    fields: ["team", "period", "gross", "net"],
+  });
+
+/** CTO (human): team-level spend across all teams — the token they can narrow when delegating. */
+export const ctoCapability = (): Capability =>
+  mint(CFO_ROOT, CTO.id, {
+    ops: ["query", "read"],
+    view: SPEND_BY_TEAM,
+    fields: ["team", "period", "gross", "net"],
+  });
+
+/** Eng lead (human): team-level spend, scoped to the eng + ops rows they own. */
+export const engLeadCapability = (): Capability =>
+  mint(CFO_ROOT, ENG.id, {
+    ops: ["query", "read"],
+    view: SPEND_BY_TEAM,
+    fields: ["team", "period", "gross", "net"],
+    rows: [{ field: "team", in: ["eng", "ops"] }],
+  });
+
 export const initialCapability = (principalId: string): Capability => {
   switch (principalId) {
     case CFO.id:
@@ -105,6 +169,24 @@ export const initialCapability = (principalId: string): Capability => {
       throw new Error(`no initial capability for ${principalId}`);
   }
 };
+
+/** Initial token for ANY registry principal (used to seed the web access-control UI). */
+export const registryCapability = (principalId: string): Capability => {
+  switch (principalId) {
+    case CFO_AGENT.id:
+      return cfoAgentCapability();
+    case CTO.id:
+      return ctoCapability();
+    case ENG.id:
+      return engLeadCapability();
+    default:
+      return initialCapability(principalId);
+  }
+};
+
+/** Seed token map for the whole registry — one capability per principal. */
+export const registryCapabilities = (): Record<string, Capability> =>
+  Object.fromEntries(REGISTRY.map((p) => [p.id, registryCapability(p.id)]));
 
 // ---- Auto-mode envelope ----------------------------------------------------
 
@@ -138,3 +220,22 @@ export const FLOW_B_REQUEST: AccessRequest = {
   doc: "finops",
   ttl: "7d",
 };
+
+// ---- Resource ownership + inbox seed --------------------------------------
+
+/** All resource roots in the demo (extend as more owners mint their own views). */
+const RESOURCE_ROOTS: RootKey[] = [CFO_ROOT];
+
+/**
+ * Who owns the root of a view — the principal whose inbox an `access_request`
+ * for it lands in, and whose token approval attenuates ([03 §6.3]). Falls back
+ * to the CFO root owner for any view not explicitly rooted elsewhere.
+ */
+export const resourceOwnerOf = (v: View): string =>
+  RESOURCE_ROOTS.find((root) => root.views.some((x) => viewEq(x, v)))?.owner ?? CFO_ROOT.owner;
+
+/**
+ * The reference requests as they arrive in the resource owner's inbox: Flow A
+ * (escalate → approvable) and Flow B (forbidden → no approve button).
+ */
+export const INBOX_SEED: AccessRequest[] = [FLOW_A_REQUEST, FLOW_B_REQUEST];
