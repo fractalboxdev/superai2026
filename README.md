@@ -1,11 +1,26 @@
-# superai2026 — Contextful
+# Contextful
 
-A **local-first company brain** where humans and AI agents collaborate in shared
-documents, and every agent sees **exactly what it is permitted to** — capability-scoped,
-attenuable, field/row-enforced. The one-line claim: *"the CTO's agent can't read the
-CEO's salary — provably."* See [`specs/`](./specs) for the full design.
+**Your Agents. Your Data. Your Rules.**
 
-**Live:** [www.contextful.work](https://www.contextful.work) (landing + [docs](https://www.contextful.work/docs/)) · [demo.contextful.work](https://demo.contextful.work) (live collaborative demo)
+🌐 **Website:** [contextful.work](https://contextful.work/) · 🚀 **Live demo:** [demo.contextful.work](https://demo.contextful.work/)
+
+<p align="center">
+  <img src="slides/public/arts/slide-close.png" alt="The Pied Piper team lined up confidently with presence dots above them — Contextful's closing slide art" width="520" />
+</p>
+
+Every company wants one AI that knows everything. That's exactly the thing you must
+never build. **Contextful** is the company brain that gets *smarter* as it gets *more
+careful* — a **local-first collaboration workspace for your agents**, scoped per
+person, approved at the boundary, run in a trusted environment you choose: on-prem or
+your own cloud (BYOC).
+
+Each member's agent holds only *their* context. When an answer needs something across
+a boundary, the request is **routed to the owner's agent, approved, and scoped** — the
+data crosses the line for *that question only*. Every agent sees **exactly what it is
+permitted to** — capability-scoped, attenuable, field/row-enforced. The one-line claim:
+*"the CTO's agent can't read the CEO's salary — provably."* See
+[PRESENTATION.md](./PRESENTATION.md) for the full story and [`specs/`](./specs) for the
+design.
 
 | Path | What | Stack |
 | --- | --- | --- |
