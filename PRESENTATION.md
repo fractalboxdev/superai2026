@@ -349,9 +349,9 @@ policy. Contextful is built for that world.
 
 ---
 
-## Slide deck (≤ 9 slides — the deck is built from this)
+## Slide deck (≤ 10 slides — the deck is built from this)
 
-**Slide principles:** keep it simple — **fewer than 10 slides**, **mostly jargon-free**.
+**Slide principles:** keep it simple — **no more than 10 slides**, **mostly jargon-free**.
 Each slide = **one idea + one money line**; the detail lives in the speaker notes, not on
 the slide. Only the **technical breakdown slides (max 3)** may use technical terms — mark
 them. Everything else must read to a non-technical exec. The deck is generated and kept in
@@ -367,7 +367,17 @@ sync from this table by the **`slidev-deck`** skill → `slides/slides.md`.
 | 6 | **How it works** 🔧 | Scoped agents; a **deterministic policy engine** decides the boundary (the agent only *drafts* the request); auto-mode escalates to a human only on a policy breach. | Act 3 architecture | **Technical 1/3** |
 | 7 | **Where it runs** 🔧 | On-prem over Tailscale; Mission Control + guardrails; control plane; the brain grows (learns baselines, flags anomalies); agents research the open web (Exa) — outbound, policy-gated, cited. | Act 3 architecture | **Technical 2/3** |
 | 8 | **Why now** | Most companies just *blocked* AI (safety by amputation). Other brains are one shared cloud pool; Contextful is boundaried + local-first. Workloads are going hybrid. | Act 4 (de-named — no "Gbrain") | No |
-| 9 | **The ask** | What we want — design partners (companies that already blocked AI and want the upside back). *Replace with the real ask once decided.* | Act 4 close | No |
+| 9 | **BYOC** | Bring your own connectors — not paying **$200 × N per connector, every month**, to reach your own data. Your agent writes the connector once; it runs on your machines. Sample setup on screen: 2 server nodes (AWS box + office Mac Studio) and 3–4 client nodes on employee laptops. | Act 3 ad-hoc connectors + "why today's tools fail" | No |
+| 10 | **The ask** | What we want — design partners (companies that already blocked AI and want the upside back). *Replace with the real ask once decided.* | Act 4 close | No |
+
+> **Cold-open storyboard:** the comic frames in `assets/` are inserted into the deck as
+> full-bleed image slides right after slide 1, in story order: the brag (001) → the
+> innocent cloud-cost ask (002) → one merged panel for frames 003+004 (the agent leaks
+> the CEO's Lamborghini buy AND shuts down cloud + building power —
+> `slides/public/assets/003-004-merged.png`, AI-merged scene with the bubble text
+> composited deterministically; regenerate via `apps/landing/scripts/merge-comic.mjs`
+> then `apps/landing/scripts/compose-bubbles.py`). They are beats of the slide-1 hook, not separate
+> table rows — the slide-count cap is deliberately ignored while the storyboard is in.
 
 > **Cut from the long narrative for the spoken talk** (kept here as source material / for
 > the investor & appendix version): the separate CEO / Batman / Nucleus slides (now one

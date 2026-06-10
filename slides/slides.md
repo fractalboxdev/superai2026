@@ -26,6 +26,49 @@ That slap is the whole talk in one frame: all context in one place = all access 
 -->
 
 ---
+layout: image
+image: /assets/001.png
+backgroundSize: contain
+---
+
+<!--
+🎤 COLD OPEN · frame 1 — the brag.
+Launch party. The CEO announces: "Today, we've fully integrated all our context into
+the AGENT!" Banner says "context is king". Everyone applauds. Let the frame breathe —
+no narration needed beyond reading the bubble in a CEO voice.
+-->
+
+---
+layout: image
+image: /assets/002.png
+backgroundSize: contain
+---
+
+<!--
+🎤 COLD OPEN · frame 2 — the innocent ask.
+An engineer asks the all-knowing agent a perfectly reasonable question: "Agent, how can
+we optimize our cloud cost?" The agent eagerly offers $12,180.47 of monthly savings.
+Looks great. What could go wrong.
+-->
+
+---
+layout: image
+image: /assets/003-004-merged.png
+backgroundSize: contain
+---
+
+<!--
+🎤 COLD OPEN · frame 3 — the agent knows too much, and acts on everything.
+One panel, two beats. The dashboard spikes and the agent volunteers: "API costs SPIKED,
+and Mercury can't pay — cash ran out after yesterday's CEO Lamborghini buy." It just
+leaked the CEO's spending to the whole room — because it could see everything. Then it
+acts: "To ensure we have enough to pay the bill, shutting down the CLOUD and our
+building power NOW." Lights out, mid-party. All context + all access = it can say
+anything AND do anything. [beat → slap] "Why did you give it ALL the access?"
+-->
+
+
+---
 layout: center
 class: text-center
 ---
@@ -95,7 +138,7 @@ class: text-center
 
 # Contextful
 
-## Local-first collaboration workspaces for your agents
+## Local-first, privacy-aware workspace on your company brain 
 
 **Your data. Your rules.**
 
@@ -160,14 +203,14 @@ into per-product performance; it holds NO standing access, only the scoped slice
 # How it works <span class="text-base opacity-50">· technical</span>
 
 ```mermaid
-sequenceDiagram
-    participant A as Member agent
-    participant P as Policy engine (deterministic)
-    participant O as Owner agent (auto-mode)
-    A->>P: Scoped request (drafted, not decided)
-    P->>O: Within policy? scope ok · salary blocked
-    O-->>A: Approved slice — this question only
-    Note over P,O: Escalates to a human only when policy is exceeded
+flowchart LR
+    A["Member agent<br/>drafts a scoped request"] --> P{"Policy engine<br/>deterministic"}
+    P -->|within policy| O["Owner agent<br/>auto-mode"]
+    O --> S["Approved slice<br/>this question only"]
+    P -->|"out of scope<br/>(salary)"| D["Denied"]
+    P -.->|policy exceeded| H["Human"]
+    style P fill:#eef2ff,stroke:#4f46e5
+    style D fill:#fef2f2,stroke:#dc2626
 ```
 
 - **Nothing holds everything** — scoped agents, partial access per person.
@@ -259,24 +302,55 @@ than ever, workloads are going hybrid — and Contextful is built for it.
 -->
 
 ---
-layout: center
-class: text-center
+layout: two-cols
 ---
 
-# The ask
+# Bring your own connectors
 
-## We're looking for design partners
+Connector subscriptions today: **$200 × N tools — every month** — to reach *your own data*.
 
-Companies that already blocked AI — and want the upside back, safely.
+<v-clicks>
 
-<p class="mt-10 text-xl">It answers the question. And the brain keeps growing.</p>
+- **Your agent writes the connector once.**
+- **It runs on your machines.**
+
+</v-clicks>
+
+<p v-click class="mt-8 font-bold text-2xl">Stop renting access to your own data.</p>
+
+::right::
+
+<p class="text-sm opacity-60 mt-12">Sample setup — hardware you already own:</p>
+
+```mermaid
+flowchart LR
+    subgraph S["2 server nodes — relay + connectors · synced"]
+        AWS["☁️ AWS box"]
+        MS["🖥️ Mac Studio · office"]
+    end
+    AWS --- L1["💻 laptop"]
+    AWS --- L2["💻 laptop"]
+    MS --- L3["💻 laptop"]
+    MS --- L4["💻 laptop"]
+    style S fill:#eef2ff,stroke:#4f46e5
+```
 
 <!--
 🎤 SAY (placeholder — edit me):
-"We're looking for design partners — companies that already blocked AI and want the
-upside back, safely. Come run it on your own machines, on your own rules. It answers
-the question — and the brain keeps growing. Thank you."
+"One more thing about cost. Today, reaching your own data means renting connectors —
+two hundred dollars a tool, every month, multiplied by every tool you run. With
+Contextful, your agent writes the connector once, and it runs on hardware you already
+own. This is a real setup: two server nodes — a small AWS box and the Mac Studio in the
+office — and every employee laptop is just a client. The meter stops. You stop renting
+access to your own data."
 
-Replace with the REAL ask once decided (pilot / raise / hires). A keynote without an ask is a
-magic trick with no "...and that's why you should act." One slide, one verb.
+BYOC = bring your own connectors. Source: the ad-hoc connectors beat (an agent writes a
+one-off integration connector) + the "aggregators are missing the connectors you actually
+need" line. Two jabs in one: the recurring per-connector tax AND the missing-connector
+problem — your agent writes the long-tail connector nobody sells. Keep numbers honest:
+"$200 × N" is the order of magnitude of managed-connector/ETL pricing, not a quote.
+SAMPLE TOPOLOGY: the diagram is the real product shape — server nodes run `sync serve`
+(relay + connectors; AWS box and/or a Mac Studio over Tailscale), employee laptops run
+the menu-bar client. 2 servers + 3–4 laptop clients is the honest small-company install.
 -->
+
