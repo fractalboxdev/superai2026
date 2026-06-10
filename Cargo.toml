@@ -22,3 +22,4 @@ uuid = { version = "1", features = ["v4", "serde"] }
 thiserror = "1"
 biscuit-auth = "6"
 hex = "0.4"
+ureq = { version = "2", features = ["json"] }

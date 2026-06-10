@@ -9,6 +9,7 @@ pub mod markdown;
 pub mod mcp;
 pub mod retrieval;
 pub mod synthesis;
+pub mod world;
 
 #[cfg(test)]
 mod tests;
@@ -23,6 +24,11 @@ pub enum MemoryKind {
     Wiki,
     Anomaly,
     Learning,
+    /// Public, cited world knowledge (Exa) — default-readable, never authority
+    /// (spec 02 §8).
+    WorldFact,
+    /// A daydream-loop hypothesis card (spec 02 §9).
+    Daydream,
 }
 
 /// Memory tier (icarus-style; spec 02 §5).
@@ -85,6 +91,24 @@ pub struct Learning {
     pub suppresses_metric: Option<String>,
 }
 
+/// Typed graph edge between memories (spec 02 §3 `link`): self-wired
+/// wikilinks, supersede chains, and world-memory grounding.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LinkRel {
+    RelatesTo,
+    Supersedes,
+    /// world card → private card it grounds (spec 02 §8).
+    Grounds,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Link {
+    pub from: String,
+    pub to: String,
+    pub rel: LinkRel,
+}
+
 /// The full file-based index (spec 02 §3). Persisted as one JSON document.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct BrainIndex {
@@ -98,6 +122,8 @@ pub struct BrainIndex {
     pub anomalies: Vec<Anomaly>,
     #[serde(default)]
     pub learnings: Vec<Learning>,
+    #[serde(default)]
+    pub links: Vec<Link>,
 }
 
 impl BrainIndex {

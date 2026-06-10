@@ -21,7 +21,19 @@ pub fn ingest_once(source: &str) -> Result<()> {
 
     let events = match source {
         "stripe" => StripeConnector::new(config.fixtures_dir()).pull(&Cursor::default())?,
-        "exa" => ExaConnector::new("AI tooling spend benchmarks").pull(&Cursor::default())?,
+        "exa" => {
+            // proactive enrichment query — taint-checked through the egress
+            // firewall like every outbound Exa call (spec 03 §4)
+            let query = "AI tooling spend benchmarks";
+            let terms = crate::brain::world::taint_terms(&index, query);
+            let allowed =
+                crate::access::egress::firewall(&terms).map_err(|e| anyhow::anyhow!("{e}"))?;
+            ExaConnector::with_cache(
+                allowed.join(" "),
+                config.fixtures_dir().join("exa-cache.json"),
+            )
+            .pull(&Cursor::default())?
+        }
         other => bail!("unknown source '{other}' (known: stripe, exa)"),
     };
 

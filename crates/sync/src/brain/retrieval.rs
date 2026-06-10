@@ -278,7 +278,12 @@ pub fn remember(
 }
 
 /// A caller can read a card iff its token grants every field in the card's tag.
+/// World cards (`world/public`) are default-readable by every principal —
+/// public, cited knowledge is never authority (spec 02 §8).
 fn card_authorized(cap: &Capability, tag: &AclTag) -> bool {
+    if tag.view.id() == "world/public" {
+        return true;
+    }
     matches!(
         authorize(
             cap,

@@ -57,7 +57,7 @@ pub fn run(principal: &str) -> Result<()> {
             "initialize" => Some(ok(id, initialize_result())),
             "tools/list" => Some(ok(id, json!({ "tools": tool_defs() }))),
             "tools/call" => Some(handle_tool_call(
-                &store, &mut index, &cap, principal, id, &req,
+                &config, &store, &mut index, &cap, principal, id, &req,
             )),
             "ping" => Some(ok(id, json!({}))),
             _ if id.is_some() => Some(err(id, -32601, &format!("method not found: {method}"))),
@@ -91,10 +91,14 @@ fn tool_defs() -> Vec<Value> {
         json!({ "name": "brain.detect_anomalies", "description": "anomalies for a view", "inputSchema": { "type": "object", "properties": { "view": view_arg } , "required": ["view"] } }),
         json!({ "name": "brain.remember", "description": "write a memory scoped to a document (taint-tracked)", "inputSchema": { "type": "object", "properties": { "fact": { "type": "string" }, "doc": { "type": "string" } }, "required": ["fact", "doc"] } }),
         json!({ "name": "brain.request_access", "description": "raise a permission request", "inputSchema": { "type": "object", "properties": { "view": view_arg, "fields": { "type": "array", "items": { "type": "string" } }, "reason": { "type": "string" } }, "required": ["view", "fields"] } }),
+        json!({ "name": "brain.world_search", "description": "firewalled public web search (Exa) → cited world cards; private-tainted terms are blocked at egress", "inputSchema": { "type": "object", "properties": { "query": { "type": "string" } }, "required": ["query"] } }),
+        json!({ "name": "brain.ground", "description": "wire a world card to the private card it grounds (grounds edge)", "inputSchema": { "type": "object", "properties": { "world_id": { "type": "string" }, "memory_id": { "type": "string" } }, "required": ["world_id", "memory_id"] } }),
     ]
 }
 
+#[allow(clippy::too_many_arguments)]
 fn handle_tool_call(
+    config: &Config,
     store: &Store,
     index: &mut BrainIndex,
     cap: &Capability,
@@ -183,6 +187,32 @@ fn handle_tool_call(
                 }
             };
             Ok(json!({ "request": request, "routing": routed }))
+        }
+        "brain.world_search" => {
+            let q = args.get("query").and_then(|v| v.as_str()).unwrap_or("");
+            match crate::brain::world::world_search(config, store, index, q) {
+                Ok(memories) => match store.save_index(index) {
+                    Ok(()) => Ok(json!({
+                        "world_cards": memories.iter().map(|m| json!({
+                            "id": m.id, "url": m.topic, "path": m.path,
+                        })).collect::<Vec<_>>()
+                    })),
+                    Err(e) => Err(e.to_string()),
+                },
+                // egress violations surface as a tool error (terms not echoed)
+                Err(e) => Err(e.to_string()),
+            }
+        }
+        "brain.ground" => {
+            let world_id = args.get("world_id").and_then(|v| v.as_str()).unwrap_or("");
+            let memory_id = args.get("memory_id").and_then(|v| v.as_str()).unwrap_or("");
+            match crate::brain::world::ground(index, world_id, memory_id) {
+                Ok(()) => match store.save_index(index) {
+                    Ok(()) => Ok(json!({ "grounded": { "from": world_id, "to": memory_id } })),
+                    Err(e) => Err(e.to_string()),
+                },
+                Err(e) => Err(e.to_string()),
+            }
         }
         other => Err(format!("unknown tool: {other}")),
     };
