@@ -1,6 +1,6 @@
 ---
 theme: default
-title: Contextful — the company brain you don't have to be afraid of
+title: Contextful — let your agents work with your data, on your infra
 class: text-center
 transition: slide-left
 mdc: true
@@ -8,7 +8,7 @@ mdc: true
 
 # Contextful
 
-## The company brain you don't have to be afraid of
+## Let your agents work with your data, on your infra
 
 It knows everything — and lets no one ask everything.
 
