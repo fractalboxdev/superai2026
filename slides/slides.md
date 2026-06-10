@@ -100,7 +100,7 @@ class: text-center
 
 # Contextful
 
-## Local-first, privacy-aware workspace on your company brain
+## Local-first, privacy-aware company brain
 
 **Your data. Your rules.**
 
