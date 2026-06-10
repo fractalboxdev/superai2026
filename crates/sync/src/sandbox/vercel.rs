@@ -45,8 +45,9 @@ fn bridge_path() -> Option<PathBuf> {
 
 /// Spawn the bridge for one call and parse its single-line JSON reply.
 fn bridge_call(args: &[&str]) -> anyhow::Result<serde_json::Value> {
-    let bridge = bridge_path()
-        .ok_or_else(|| anyhow::anyhow!("sandbox bridge not found (set CONTEXTFUL_SANDBOX_BRIDGE)"))?;
+    let bridge = bridge_path().ok_or_else(|| {
+        anyhow::anyhow!("sandbox bridge not found (set CONTEXTFUL_SANDBOX_BRIDGE)")
+    })?;
     let out = std::process::Command::new("node")
         .arg(&bridge)
         .args(args)

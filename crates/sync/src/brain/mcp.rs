@@ -1,11 +1,15 @@
 //! Brain over MCP (spec 06).
 //!
-//! A working JSON-RPC 2.0 server over stdio exposing the `brain.*` tools, each
-//! capability-checked against the session's token. The spec's intended SDK is
-//! [`rmcp`] (the official Rust MCP SDK) with stdio + streamable-HTTP transports;
-//! this hand-rolled stdio loop is wire-compatible with MCP clients (Claude Code,
-//! sandboxed agent loops) and keeps the build dependency-light. Swapping in
-//! `rmcp` later changes the transport plumbing, not the tool semantics.
+//! A working JSON-RPC 2.0 / MCP server with both spec transports: **stdio**
+//! (co-located agents — Claude Code, the local agent loop) and **streamable
+//! HTTP** (remote agents — Vercel Sandbox over Tailscale, spec 06 §2).
+//! Wire-compatible with MCP clients; the official `rmcp` SDK remains a
+//! drop-in transport swap, the tool semantics live here either way.
+//!
+//! **Session auth binding:** every call re-resolves the principal's token —
+//! signature-verified against the registry root key and revocation-checked —
+//! so a grant or a revocation takes effect on the very next tool call
+//! (spec 06 §3).
 
 use std::io::{BufRead, Write};
 
@@ -16,21 +20,54 @@ use crate::access::request::{route_request, AccessRequest, RouteDecision};
 use crate::access::{Capability, View};
 use crate::brain::{retrieval, BrainIndex};
 use crate::config::Config;
-use crate::controlplane::load_capability;
+use crate::controlplane::{is_revoked, load_capability};
 use crate::scenario;
 use crate::store::Store;
 
 const PROTOCOL_VERSION: &str = "2024-11-05";
 
+/// Handle one JSON-RPC request as `principal`. Returns None for notifications.
+/// Capability + revocation are re-checked per call (spec 06 §3).
+pub fn dispatch(config: &Config, principal: &str, req: &Value) -> Option<Value> {
+    let id = req.get("id").cloned();
+    let method = req.get("method").and_then(|m| m.as_str()).unwrap_or("");
+
+    match method {
+        "initialize" => Some(ok(id, initialize_result())),
+        "tools/list" => Some(ok(id, json!({ "tools": tool_defs() }))),
+        "ping" => Some(ok(id, json!({}))),
+        "tools/call" => {
+            // per-call session auth binding: revocation + verified token
+            if is_revoked(config, principal) {
+                return Some(tool_error(id, &format!("principal {principal} is revoked")));
+            }
+            let Some(cap) = load_capability(config, principal) else {
+                return Some(tool_error(
+                    id,
+                    &format!("no verified capability for '{principal}' — run `ctl seed`"),
+                ));
+            };
+            let store = Store::new(config.clone());
+            let mut index = match store.load_index() {
+                Ok(i) => i,
+                Err(e) => return Some(err(id, -32603, &format!("index unavailable: {e}"))),
+            };
+            Some(handle_tool_call(
+                config, &store, &mut index, &cap, principal, id, req,
+            ))
+        }
+        _ if id.is_some() => Some(err(id, -32601, &format!("method not found: {method}"))),
+        _ => None, // notification we don't act on (e.g. notifications/initialized)
+    }
+}
+
 /// Run the brain MCP server over stdio as the given principal.
 pub fn run(principal: &str) -> Result<()> {
     let config = Config::load();
-    let store = Store::new(config.clone());
-    let mut index = store.load_index()?;
-    let cap = load_capability(&config, principal)
-        .or_else(|| scenario::initial_capability(principal))
-        .ok_or_else(|| anyhow::anyhow!("no capability for principal '{principal}'"))?;
-
+    // fail fast on a bad identity, then re-verify per call
+    if load_capability(&config, principal).is_none() {
+        anyhow::bail!("no verified capability for principal '{principal}' — run `ctl seed`");
+    }
     tracing::info!(%principal, "brain MCP server ready on stdio");
 
     let stdin = std::io::stdin();
@@ -49,26 +86,54 @@ pub fn run(principal: &str) -> Result<()> {
                 continue;
             }
         };
-        let id = req.get("id").cloned();
-        let method = req.get("method").and_then(|m| m.as_str()).unwrap_or("");
-
-        // notifications (no id) get no response
-        let response = match method {
-            "initialize" => Some(ok(id, initialize_result())),
-            "tools/list" => Some(ok(id, json!({ "tools": tool_defs() }))),
-            "tools/call" => Some(handle_tool_call(
-                &config, &store, &mut index, &cap, principal, id, &req,
-            )),
-            "ping" => Some(ok(id, json!({}))),
-            _ if id.is_some() => Some(err(id, -32601, &format!("method not found: {method}"))),
-            _ => None, // notification we don't act on (e.g. notifications/initialized)
-        };
-
-        if let Some(resp) = response {
+        if let Some(resp) = dispatch(&config, principal, &req) {
             writeln!(out, "{resp}")?;
             out.flush()?;
         }
     }
+    Ok(())
+}
+
+/// Streamable-HTTP transport (spec 06 §2): `POST /mcp` carries one JSON-RPC
+/// message; the caller's identity rides the `x-contextful-principal` header
+/// and is re-verified (token signature + revocation) on every call. Reachable
+/// over the tailnet for remote sandbox agents.
+pub async fn serve_http(addr: &str) -> Result<()> {
+    use axum::{extract::Request, http::StatusCode, response::IntoResponse, routing::post, Router};
+
+    async fn handle(req: Request) -> impl IntoResponse {
+        let principal = req
+            .headers()
+            .get("x-contextful-principal")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("")
+            .to_string();
+        if principal.is_empty() {
+            return (
+                StatusCode::UNAUTHORIZED,
+                "missing x-contextful-principal header".to_string(),
+            )
+                .into_response();
+        }
+        let bytes = match axum::body::to_bytes(req.into_body(), 1 << 20).await {
+            Ok(b) => b,
+            Err(e) => return (StatusCode::BAD_REQUEST, format!("body: {e}")).into_response(),
+        };
+        let rpc: Value = match serde_json::from_slice(&bytes) {
+            Ok(v) => v,
+            Err(e) => return (StatusCode::BAD_REQUEST, format!("json: {e}")).into_response(),
+        };
+        let config = Config::load();
+        match dispatch(&config, &principal, &rpc) {
+            Some(resp) => axum::Json(resp).into_response(),
+            None => StatusCode::ACCEPTED.into_response(), // notification
+        }
+    }
+
+    let app = Router::new().route("/mcp", post(handle));
+    let listener = tokio::net::TcpListener::bind(addr).await?;
+    tracing::info!(%addr, "brain MCP streamable-HTTP endpoint ready");
+    axum::serve(listener, app).await?;
     Ok(())
 }
 
@@ -273,6 +338,17 @@ fn parse_strings(args: &Value, key: &str) -> Vec<String> {
 
 fn ok(id: Option<Value>, result: Value) -> Value {
     json!({ "jsonrpc": "2.0", "id": id.unwrap_or(Value::Null), "result": result })
+}
+
+/// A tools/call error surfaced as MCP tool output (isError), not a transport error.
+fn tool_error(id: Option<Value>, message: &str) -> Value {
+    ok(
+        id,
+        json!({
+            "content": [ { "type": "text", "text": message } ],
+            "isError": true
+        }),
+    )
 }
 
 fn err(id: Option<Value>, code: i64, message: &str) -> Value {

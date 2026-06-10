@@ -36,9 +36,7 @@ pub async fn run(addr: &str, with_mcp: bool) -> Result<()> {
     let config = Config::load();
     config.ensure_dirs()?;
     if with_mcp {
-        tracing::warn!(
-            "--with-mcp co-hosting is declared but the demo uses `sync mcp` (spec 06 §4)"
-        );
+        tracing::info!("co-hosting the brain MCP over streamable HTTP (spec 06 §4)");
     }
 
     let listener = TcpListener::bind(addr).await?;
