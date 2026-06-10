@@ -59,6 +59,57 @@ video shows them appearing in real time. The peer tab's own recording is discard
 - scroll: text=Dinesh's agent ·
 - pause: 9s
 
+## Scene: Over the on-prem relay
+
+> The room hops onto the on-prem relay — synced over Tailscale, the company's own network. Never a third-party pool.
+
+- goto: /?sync=wss://debuggingfutures-macbook-air.tailfccfb1.ts.net
+- wait for: text=▶ Demo Q as
+- pause: 1.5s
+
+## Scene: Dinesh (CTO)'s agent asks — denied
+
+> First: acting as Dinesh (CTO)'s agent, ask for the out-of-pocket spend. The watching agent checks HIS token.
+
+- click: button.cf-actor:has-text("Dinesh (CTO)'s agent")
+- pause: 1s
+- click: text=▶ Demo Q as Dinesh (CTO)'s agent
+- expect: text=Typing as Dinesh
+- wait for: text=out-of-pocket expense this month
+- scroll: text=out-of-pocket expense this month
+- pause: 5s
+
+## Scene: Denied by policy, in the doc
+
+> The answer is a denial: his token holds no finance grant — the boundary bites before any data moves.
+
+- pause: 3s
+- wait for: text=A (cfo · for agent:eng/1
+- scroll: text=A (cfo · for agent:eng/1
+- caption: off
+- pause: 3s
+
+## Scene: Monica (CFO) asks the question
+
+> Same brain, right person: acting as Monica (CFO), tag her analyst agent with the question.
+
+- click: button.cf-actor:has-text("Monica (CFO)")
+- pause: 1s
+- click: text=▶ Demo Q as Monica (CFO)
+- expect: text=Typing as Monica
+- wait for: text=aggregated out of pocket cost
+- scroll: text=aggregated out of pocket cost
+- pause: 1.5s
+
+## Scene: Her agent answers from brain memory
+
+> Her analyst agent is watching the doc. It checks her capability token and answers from the Markdown memory on this machine — live, over the relay.
+
+- pause: 6s
+- wait for: text=A (cfo · for cfo
+- scroll: text=A (cfo · for cfo
+- pause: 3s
+
 ## Scene: Connectors feed the brain
 
 > Context comes from connectors — Stripe and Exa already sync into the brain on this machine.
@@ -148,6 +199,6 @@ video shows them appearing in real time. The peer tab's own recording is discard
 
 > The agent kept working the whole time — that's Contextful: local-first context, capability-scoped sharing.
 
-- goto: /
+- goto: /?sync=off
 - wait for: text=Dinesh's agent ·
 - pause: 4s
