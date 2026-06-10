@@ -212,6 +212,7 @@
   --duration-fast:   120ms;
   --duration-normal: 200ms;
   --duration-slow:   320ms;
+  --duration-entrance: 640ms; /* scroll-reveal entrances */
 
   /* ---------------------------------------------------------------- *
    * Layout & z-index
@@ -308,5 +309,6 @@
     --duration-fast:   0ms;
     --duration-normal: 0ms;
     --duration-slow:   0ms;
+    --duration-entrance: 0ms;
   }
 }
