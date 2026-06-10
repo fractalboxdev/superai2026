@@ -641,3 +641,25 @@ contact/Q&A card. AVATAR: slides/public/cast/vincent.jpg (exported LinkedIn phot
 image links to https://www.linkedin.com/in/vincentlaucy and hides itself if the file is
 missing.
 -->
+
+---
+layout: center
+class: text-center
+---
+
+# Appendix — full product demo
+
+<SlidevVideo class="demo-film" controls>
+  <source src="https://contextful-releases.s3.us-west-2.amazonaws.com/demos/contextful-product-demo-2026-06-10.mp4" type="video/mp4" />
+  <p>Your browser can't play this video. <a href="https://contextful-releases.s3.us-west-2.amazonaws.com/demos/contextful-product-demo-2026-06-10.mp4">Download the full demo</a>.</p>
+</SlidevVideo>
+
+<p class="mt-4 text-sm opacity-60"><a href="https://contextful-releases.s3.us-west-2.amazonaws.com/demos/contextful-product-demo-2026-06-10.mp4" target="_blank">contextful-releases.s3.us-west-2.amazonaws.com/demos/contextful-product-demo-2026-06-10.mp4</a></p>
+
+<!--
+🎤 APPENDIX (~80s) — the full scripted product demo of demo.contextful.work, for
+Q&A or follow-up viewing; not part of the talk flow. Hosted on the public S3
+releases bucket (contextful-releases, us-west-2) so the deck stays light and the
+hosted deck streams it. Source recording:
+demos/recordings/story-2026-06-10T15-11-31.mp4 (3super worktree).
+-->
