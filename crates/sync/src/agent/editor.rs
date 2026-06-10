@@ -2,10 +2,12 @@
 //! (spec 04 §1 over the spec 01 wire).
 //!
 //! A real Loro peer (the relay still never parses CRDT bytes): it subscribes to
-//! one doc, merges snapshots/updates into a local `LoroDoc`, and when the doc
-//! settles it scans the Weaver block tree (`content` LoroTree, one paragraph
-//! per node with a `text` container — the same shape `@weaver/core` edits) for
-//! `Q:` paragraphs that no `A (…)` paragraph answers yet. Each question is
+//! one doc, merges snapshots/updates into a local `LoroDoc`, and scans the
+//! Weaver block tree (`content` LoroTree, one paragraph per node with a `text`
+//! container — the same shape `@weaver/core` edits) for `Q:` paragraphs that
+//! no `A (…)` paragraph answers yet. A question is only answered once its text
+//! has been stable across scans and no peer reports `writing` presence
+//! ([`QuestionGate`]) — never one mid-keystroke. Each question is
 //! matched against the brain's Markdown memory (`~/.contextful/brain/**`),
 //! authorized against the agent's capability token — all-or-nothing per card,
 //! same rule as `brain.get_context` — and the answer is inserted as a new
@@ -44,9 +46,15 @@ use crate::store::Store;
 use crate::sync::presence::{PresenceMode, PresenceState};
 use crate::sync::protocol::SyncMessage;
 
-/// Quiet period after the last remote edit before we scan for questions, so we
-/// answer a finished line, not one mid-keystroke.
-const SETTLE_MS: u64 = 900;
+/// A question's text must be unchanged across scans for this long before we
+/// answer it — a line still being typed keeps changing and never qualifies.
+const STABLE_MS: u64 = 1_500;
+
+/// Defer answering while any peer reported `writing` presence this recently.
+/// Heartbeats arrive every ~5s, so this must exceed one heartbeat interval —
+/// browser-tab timer throttling can stretch keystrokes past any settle window,
+/// but the author's presence keeps saying `writing` the whole time.
+const WRITER_QUIET_MS: u64 = 6_000;
 
 /// The Weaver editor's block tree container (`@weaver/core` TREE_NAME).
 const TREE_NAME: &str = "content";
@@ -374,6 +382,49 @@ fn compose_answer(card: &str, m: &Memory) -> String {
     )
 }
 
+/// Decides when a pending ask (a `Q:` line or a mention ask) is safe to
+/// answer: its text must have been stable for [`STABLE_MS`] across scans, and
+/// no peer may have reported `writing` presence within [`WRITER_QUIET_MS`].
+/// Both guards exist because a line mid-typing is a moving target — answering
+/// it locks the completed question out forever (an `A (…)` block right below
+/// counts as answered).
+#[derive(Default)]
+pub struct QuestionGate {
+    pending_since: HashMap<String, Instant>,
+    last_writing: Option<Instant>,
+}
+
+impl QuestionGate {
+    pub fn observe_presence(&mut self, presence: &PresenceState, now: Instant) {
+        if matches!(presence.mode, PresenceMode::Writing) {
+            self.last_writing = Some(now);
+        }
+    }
+
+    /// Track candidate ask keys (question / raw block text) across scans;
+    /// return the subset that is ready to answer.
+    pub fn ready(&mut self, candidates: Vec<String>, now: Instant) -> HashSet<String> {
+        self.pending_since.retain(|k, _| candidates.contains(k));
+        for k in &candidates {
+            self.pending_since.entry(k.clone()).or_insert(now);
+        }
+        let writer_active = self
+            .last_writing
+            .is_some_and(|t| now.duration_since(t) < Duration::from_millis(WRITER_QUIET_MS));
+        if writer_active {
+            return HashSet::new();
+        }
+        candidates
+            .into_iter()
+            .filter(|k| {
+                self.pending_since
+                    .get(k)
+                    .is_some_and(|t| now.duration_since(*t) >= Duration::from_millis(STABLE_MS))
+            })
+            .collect()
+    }
+}
+
 /// Loopback dial address for a relay bind address. A co-hosted agent dials its
 /// own relay, so wildcard binds (`0.0.0.0`, `[::]`) become `127.0.0.1`.
 pub fn dial_addr(bind_addr: &str) -> String {
@@ -435,7 +486,7 @@ pub async fn watch(addr: &str, doc_id: &str, principal: &str) -> Result<()> {
         .iter()
         .map(|p| (p.id().to_string(), p.name().to_string()))
         .collect();
-    let mut dirty_since: Option<Instant> = None;
+    let mut gate = QuestionGate::default();
     let mut scan = interval(Duration::from_millis(250));
     let mut heartbeat = interval(Duration::from_secs(5));
 
@@ -462,9 +513,8 @@ pub async fn watch(addr: &str, doc_id: &str, principal: &str) -> Result<()> {
                         Ok(SyncMessage::Snapshot { doc_id: d, bytes })
                             if d == doc_id && !bytes.is_empty() =>
                         {
-                            match ldoc.import(&bytes) {
-                                Ok(_) => dirty_since = Some(Instant::now()),
-                                Err(e) => tracing::warn!(error = %e, "import failed"),
+                            if let Err(e) = ldoc.import(&bytes) {
+                                tracing::warn!(error = %e, "import failed");
                             }
                         }
                         Ok(SyncMessage::Update { doc_id: d, bytes, from })
@@ -478,7 +528,6 @@ pub async fn watch(addr: &str, doc_id: &str, principal: &str) -> Result<()> {
                                 .collect();
                             match ldoc.import(&bytes) {
                                 Ok(_) => {
-                                    dirty_since = Some(Instant::now());
                                     if let Some(sender) = from {
                                         for (id, _) in read_blocks_with_ids(&ldoc) {
                                             if !before.contains(&id) {
@@ -489,6 +538,9 @@ pub async fn watch(addr: &str, doc_id: &str, principal: &str) -> Result<()> {
                                 }
                                 Err(e) => tracing::warn!(error = %e, "import failed"),
                             }
+                        }
+                        Ok(SyncMessage::Awareness { doc_id: d, presence }) if d == doc_id => {
+                            gate.observe_presence(&presence, Instant::now());
                         }
                         Ok(SyncMessage::Error { code, message }) => {
                             tracing::error!(%code, %message, "relay rejected us");
@@ -501,26 +553,36 @@ pub async fn watch(addr: &str, doc_id: &str, principal: &str) -> Result<()> {
                 }
             }
             _ = scan.tick() => {
-                let settled = dirty_since
-                    .is_some_and(|t| t.elapsed() >= Duration::from_millis(SETTLE_MS));
-                if !settled {
-                    continue;
-                }
-                dirty_since = None;
-
                 let blocks = read_blocks_with_ids(&ldoc);
                 let texts: Vec<String> = blocks.iter().map(|(_, t)| t.clone()).collect();
+
+                let questions: Vec<PendingQuestion> = find_unanswered(&texts)
+                    .into_iter()
+                    .filter(|q| !answered.contains(&q.question))
+                    .collect();
+                let asks: Vec<MentionAsk> = find_mention_asks(&blocks, &dir_names)
+                    .into_iter()
+                    .filter(|a| !answered.contains(&a.raw))
+                    .filter(|a| addressed_to(&directory, &a.target_id, principal))
+                    .collect();
+
+                // both ask kinds pass the same gate: text stable across scans,
+                // no peer writing — a line mid-typing is never answered
+                let ready = gate.ready(
+                    questions
+                        .iter()
+                        .map(|q| q.question.clone())
+                        .chain(asks.iter().map(|a| a.raw.clone()))
+                        .collect(),
+                    Instant::now(),
+                );
 
                 // (insert index, reply paragraph) for both ask kinds, plus the
                 // NOTIFY frames to ship after the CRDT update lands
                 let mut replies: Vec<(usize, String)> = Vec::new();
                 let mut notifies: Vec<SyncMessage> = Vec::new();
 
-                let pending: Vec<PendingQuestion> = find_unanswered(&texts)
-                    .into_iter()
-                    .filter(|q| !answered.contains(&q.question))
-                    .collect();
-                for q in pending {
+                for q in questions.into_iter().filter(|q| ready.contains(&q.question)) {
                     let answer = answer_for(&store, &index, &cap, &q.question);
                     tracing::info!(question = %q.question, "answering from brain");
                     replies.push((
@@ -530,12 +592,7 @@ pub async fn watch(addr: &str, doc_id: &str, principal: &str) -> Result<()> {
                     answered.insert(q.question.clone());
                 }
 
-                let asks: Vec<MentionAsk> = find_mention_asks(&blocks, &dir_names)
-                    .into_iter()
-                    .filter(|a| !answered.contains(&a.raw))
-                    .filter(|a| addressed_to(&directory, &a.target_id, principal))
-                    .collect();
-                for ask in asks {
+                for ask in asks.into_iter().filter(|a| ready.contains(&a.raw)) {
                     // mention asks are answered with the ASKER's token — the
                     // reply lands in a doc the asker reads. No attributed
                     // author (e.g. a pre-snapshot block) means no one to
@@ -668,6 +725,63 @@ mod tests {
 
     fn blocks(xs: &[&str]) -> Vec<String> {
         xs.iter().map(|x| x.to_string()).collect()
+    }
+
+    fn q(text: &str) -> Vec<String> {
+        vec![text.to_string()]
+    }
+
+    fn writing(now: Instant) -> (PresenceState, Instant) {
+        (
+            PresenceState {
+                principal: "cfo".into(),
+                display_name: "Monica".into(),
+                mode: PresenceMode::Writing,
+                session: None,
+                cursor_block: None,
+                cursor_anchor: None,
+                selection_end: None,
+                heartbeat: 0,
+            },
+            now,
+        )
+    }
+
+    #[test]
+    fn gate_answers_only_text_stable_questions() {
+        let mut gate = QuestionGate::default();
+        let t0 = Instant::now();
+        // first sighting registers, never answers immediately
+        assert!(gate.ready(q("Let me sh"), t0).is_empty());
+        // text changed (still typing) — the clock restarts for the new text
+        let t1 = t0 + Duration::from_millis(STABLE_MS);
+        assert!(gate
+            .ready(q("Let me share the unit economics"), t1)
+            .is_empty());
+        // same text seen again before STABLE_MS — still not ready
+        let t2 = t1 + Duration::from_millis(STABLE_MS / 2);
+        assert!(gate
+            .ready(q("Let me share the unit economics"), t2)
+            .is_empty());
+        // stable for STABLE_MS — ready
+        let t3 = t1 + Duration::from_millis(STABLE_MS);
+        let ready = gate.ready(q("Let me share the unit economics"), t3);
+        assert_eq!(ready.len(), 1);
+    }
+
+    #[test]
+    fn gate_defers_while_a_peer_is_writing() {
+        let mut gate = QuestionGate::default();
+        let t0 = Instant::now();
+        assert!(gate.ready(q("stable question"), t0).is_empty());
+        // a peer reports writing — even a stable question waits
+        let (presence, seen) = writing(t0 + Duration::from_millis(STABLE_MS));
+        gate.observe_presence(&presence, seen);
+        let t1 = t0 + Duration::from_millis(STABLE_MS + 100);
+        assert!(gate.ready(q("stable question"), t1).is_empty());
+        // writer quiet long enough — answer flows
+        let t2 = seen + Duration::from_millis(WRITER_QUIET_MS);
+        assert_eq!(gate.ready(q("stable question"), t2).len(), 1);
     }
 
     #[test]
