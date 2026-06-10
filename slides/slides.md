@@ -45,14 +45,14 @@ class: text-center
 ---
 
 <SlidevVideo class="demo-film" autoplay controls :poster="'/assets/contextful_sv_demo-poster.jpg?v=2'">
-  <source :src="'/assets/contextful_sv_demo.mp4?v=2'" type="video/mp4" />
+  <source :src="'/assets/contextful_sv_demo.mp4?v=3'" type="video/mp4" />
   <p>Your browser can't play this video. <a href="/assets/contextful_sv_demo.mp4">Download the demo film</a>.</p>
 </SlidevVideo>
 
 <p class="mt-4 text-sm opacity-60"><a href="/assets/contextful_sv_demo.mp4" target="_blank">/assets/contextful_sv_demo.mp4</a></p>
 
 <!--
-🎤 DEMO FILM (~27s) — the whole story in one sting.
+🎤 DEMO FILM (~21s, played at 1.3×) — the whole story in one sting.
 Let it play; no narration over it. The film is the cold open's punchline in motion:
 the all-knowing agent brags, leaks, and acts — then Contextful scopes it.
 Plays automatically when this slide becomes active (SlidevVideo), with controls as backup.
@@ -129,7 +129,7 @@ Everything runs in a trusted environment the company chooses — on-prem or its 
   <p class="my-0">"Pied Pipers" - Compression-as-a-Service SaaS with 100+ employees</p>
 </div>
 
-a **living simulation run by agents**:
+**Context across multiple services**:
 
 <div class="deploy-logos mt-2">
   <figure><logos-slack-icon /><span class="label">Slack — team chatter</span></figure>
