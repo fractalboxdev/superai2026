@@ -99,7 +99,13 @@ pub fn run(principal: &str) -> Result<()> {
 /// and is re-verified (token signature + revocation) on every call. Reachable
 /// over the tailnet for remote sandbox agents.
 pub async fn serve_http(addr: &str) -> Result<()> {
-    use axum::{extract::Request, http::StatusCode, response::IntoResponse, routing::post, Router};
+    use axum::{
+        extract::{Path, Request},
+        http::StatusCode,
+        response::IntoResponse,
+        routing::{get, post},
+        Router,
+    };
 
     async fn handle(req: Request) -> impl IntoResponse {
         let principal = req
@@ -130,7 +136,19 @@ pub async fn serve_http(addr: &str) -> Result<()> {
         }
     }
 
-    let app = Router::new().route("/mcp", post(handle));
+    // Debug surface for the web console's per-document debug menu: which
+    // sandbox backs this room, and where its execution logs live. Read-only,
+    // no data authority (the handle holds ids/URLs, never document content).
+    // CORS `*` is safe for the same reason; GET with no custom headers needs
+    // no preflight.
+    async fn debug_sandbox(Path(room): Path<String>) -> impl IntoResponse {
+        let body = crate::sandbox::debug_status(&room);
+        ([("access-control-allow-origin", "*")], axum::Json(body))
+    }
+
+    let app = Router::new()
+        .route("/mcp", post(handle))
+        .route("/debug/sandbox/:room", get(debug_sandbox));
     let listener = tokio::net::TcpListener::bind(addr).await?;
     tracing::info!(%addr, "brain MCP streamable-HTTP endpoint ready");
     axum::serve(listener, app).await?;
