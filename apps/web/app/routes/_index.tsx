@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import type { MetaFunction } from "react-router";
 import { viewId, type Capability, type View } from "@superai2026/protocol/access";
@@ -67,6 +67,12 @@ const dotColor = (id: string): string =>
 type LogEntry = { id: number; kind: "ok" | "deny" | "grant" | "block" | "info"; text: string };
 
 let logSeq = 0;
+
+// The scripted editor-agent demo: impersonate the CFO, type this question into
+// the live doc, and let the local `sync agent --watch-doc finops` peer answer
+// it from brain memory (~/.contextful) over the relay.
+const DEMO_QUESTION = "Unit economics of compression product";
+const DEMO_ANSWER_MARK = "A (cfo · from brain memory)";
 
 export default function Home() {
   // One capability token per principal; minted grants replace the holder's token.
@@ -201,6 +207,67 @@ export default function Home() {
     setPending({ req: FLOW_B_REQUEST, route });
     pushLog("block", `Flow B · salary invariant — no approval path`);
   };
+
+  // ---- editor-agent demo (right panel) ----
+  const [demoAsk, setDemoAsk] = useState<string | null>(null);
+  const demoStartedRef = useRef(false);
+  const awaitingAnswerRef = useRef(false);
+  // latest room text/applyText without re-binding the typing effect
+  const textRef = useRef(room.text);
+  textRef.current = room.text;
+  const applyRef = useRef(room.applyText);
+  applyRef.current = room.applyText;
+
+  const runEditorDemo = () => {
+    if (demoAsk) return;
+    setActiveDocId(DEFAULT_DOC_ID); // the watcher follows the finops doc
+    switchActor(CFO.id);
+    setDemoAsk(DEMO_QUESTION);
+    pushLog("info", `Demo · acting as ${CFO.name} — typing the question into the doc`);
+  };
+
+  // Type the question into the editor once the CFO's room is hydrated. Each
+  // tick re-bases on the latest CRDT text so concurrent remote edits merge in.
+  useEffect(() => {
+    if (!demoAsk || actorId !== CFO.id || syncStatus === "connecting") return;
+    if (demoStartedRef.current) return;
+    demoStartedRef.current = true;
+
+    let typer: ReturnType<typeof setInterval> | undefined;
+    let typed = "";
+    const start = setTimeout(() => {
+      const full = `${textRef.current.trim() ? "\n\n" : ""}Q: ${demoAsk}\n`;
+      let i = 0;
+      typer = setInterval(() => {
+        i = Math.min(i + 2, full.length);
+        const cur = textRef.current;
+        const base = typed && cur.endsWith(typed) ? cur.slice(0, cur.length - typed.length) : cur;
+        typed = full.slice(0, i);
+        applyRef.current(base + typed);
+        if (i >= full.length) {
+          clearInterval(typer);
+          demoStartedRef.current = false;
+          awaitingAnswerRef.current = true;
+          setDemoAsk(null);
+          pushLog("ok", `CFO asked “${DEMO_QUESTION}” — editor agent is reading`);
+        }
+      }, 35);
+    }, 700); // let the snapshot/localStorage hydration land first
+
+    return () => {
+      clearTimeout(start);
+      if (typer) clearInterval(typer);
+      demoStartedRef.current = false;
+    };
+  }, [demoAsk, actorId, syncStatus]);
+
+  // Log once when the agent's answer lands in the doc.
+  useEffect(() => {
+    if (awaitingAnswerRef.current && room.text.includes(DEMO_ANSWER_MARK)) {
+      awaitingAnswerRef.current = false;
+      pushLog("ok", "editor agent answered from brain memory (~/.contextful)");
+    }
+  }, [room.text]);
 
   const resetAll = () => {
     setCaps({
@@ -357,6 +424,31 @@ export default function Home() {
           </section>
 
           <aside className="app-agentpanel" aria-label="Query console">
+            <div>
+              <p className="app-agentpanel__label">Editor agent — live demo</p>
+              <div className="cf-card cf-stack">
+                <p className="cf-text-muted" style={{ fontSize: "var(--text-sm)", margin: 0 }}>
+                  Impersonates the CFO and types a question into the doc. The local{" "}
+                  <code>sync agent --watch-doc finops</code> peer answers it from brain
+                  memory — capability-filtered, over the relay.
+                </p>
+                <button
+                  className="cf-btn cf-btn--primary cf-btn--sm cf-block"
+                  onClick={runEditorDemo}
+                  disabled={demoAsk != null}
+                >
+                  {demoAsk ? "Typing as CFO…" : `▶ CFO asks: ${DEMO_QUESTION}`}
+                </button>
+                {syncStatus !== "live" && (
+                  <p className="cf-text-muted" style={{ fontSize: "var(--text-sm)", margin: 0 }}>
+                    Relay not connected — run <code>sync serve</code> and{" "}
+                    <code>sync agent --principal cfo --watch-doc finops</code>, then open this
+                    page with <code>?sync=ws://127.0.0.1:7878</code>.
+                  </p>
+                )}
+              </div>
+            </div>
+
             <div>
               <p className="app-agentpanel__label">brain.query — capability-filtered</p>
               <div className="cf-card cf-stack">

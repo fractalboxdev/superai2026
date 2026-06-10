@@ -31,3 +31,4 @@ futures-util = { workspace = true }
 chrono = { workspace = true }
 uuid = { workspace = true }
 thiserror = { workspace = true }
+loro = { workspace = true }

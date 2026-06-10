@@ -278,7 +278,7 @@ pub fn remember(
 }
 
 /// A caller can read a card iff its token grants every field in the card's tag.
-fn card_authorized(cap: &Capability, tag: &AclTag) -> bool {
+pub(crate) fn card_authorized(cap: &Capability, tag: &AclTag) -> bool {
     matches!(
         authorize(
             cap,

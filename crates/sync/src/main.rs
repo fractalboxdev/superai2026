@@ -62,6 +62,12 @@ enum Command {
         /// Ask the brain this question, then exit.
         #[arg(long)]
         ask: Option<String>,
+        /// Watch this relay document and answer its `Q:` lines from the brain.
+        #[arg(long)]
+        watch_doc: Option<String>,
+        /// Relay address used with --watch-doc.
+        #[arg(long, default_value = "127.0.0.1:7878")]
+        addr: String,
     },
     /// Control plane: identity & membership (cannot mint data authority).
     Ctl {
@@ -118,7 +124,15 @@ async fn main() -> Result<()> {
         Command::Ingest { source } => cron::ingest_once(&source),
         Command::Cron => cron::scheduler::run().await,
         Command::Mcp { principal } => brain::mcp::run(&principal),
-        Command::Agent { principal, ask } => agent::runtime::run(&principal, ask.as_deref()),
+        Command::Agent {
+            principal,
+            ask,
+            watch_doc,
+            addr,
+        } => match watch_doc {
+            Some(doc) => agent::editor::watch(&addr, &doc, &principal).await,
+            None => agent::runtime::run(&principal, ask.as_deref()),
+        },
         Command::Ctl { cmd } => run_ctl(cmd),
     }
 }

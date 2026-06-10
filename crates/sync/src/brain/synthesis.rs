@@ -120,6 +120,79 @@ pub fn synthesize(store: &Store, index: &mut BrainIndex) -> anyhow::Result<usize
         });
     }
 
+    // unit-economics card per product from product_economics (CFO-rooted). The
+    // card's acl floor is finance_private{gross, credits} — the most privileged
+    // tag over its inputs that an issued token can actually grant (tokens are
+    // single-view; product_economics is surfaced only through these cards).
+    let product_events: Vec<(String, serde_json::Value)> = index
+        .events_for_view("stripe/product_economics")
+        .into_iter()
+        .map(|e| (e.id.clone(), e.payload.clone()))
+        .collect();
+    for (raw_event_id, p) in &product_events {
+        let (Some(product), Some(period)) = (
+            p.get("product").and_then(|v| v.as_str()),
+            p.get("period").and_then(|v| v.as_str()),
+        ) else {
+            continue;
+        };
+        let units = p.get("units").and_then(|v| v.as_i64()).unwrap_or(0).max(1);
+        let gross = p.get("gross").and_then(|v| v.as_i64()).unwrap_or(0);
+        let credits = p.get("credits").and_then(|v| v.as_i64()).unwrap_or(0);
+        let infra = p.get("infra_cost").and_then(|v| v.as_i64()).unwrap_or(0);
+        let net = gross - credits;
+        let contribution = net - infra;
+        let margin_pct = if net > 0 { contribution * 100 / net } else { 0 };
+
+        let title = format!("Unit economics · {product} · {period}");
+        let body = format!(
+            "{} active unit(s): gross **${}** (${}/unit), credits **${}** → net **${}** \
+             (${}/unit). Infra cost **${}** (${}/unit) leaves contribution **${}** \
+             (${}/unit) — a **{}%** contribution margin.\n",
+            fmt(units),
+            fmt(gross),
+            fmt(gross / units),
+            fmt(credits),
+            fmt(net),
+            fmt(net / units),
+            fmt(infra),
+            fmt(infra / units),
+            fmt(contribution),
+            fmt(contribution / units),
+            margin_pct,
+        );
+        let acl = AclTag {
+            view: crate::access::View::new("stripe", "finance_private"),
+            fields: vec!["gross".into(), "credits".into()],
+        };
+        let meta = CardMeta {
+            topic: "products",
+            kind: "wiki",
+            period: Some(period),
+            confidence: 0.88,
+            acl_tag: &acl,
+        };
+        let slug_name = slug(&format!("unit-economics-{product}-{period}"));
+        let path = store.write_card("products", &slug_name, &render_card(&meta, &title, &body))?;
+        cards_written += 1;
+        let memory_id = uuid::Uuid::new_v4().to_string();
+        index.memories.push(Memory {
+            id: memory_id.clone(),
+            kind: MemoryKind::Wiki,
+            topic: "products".into(),
+            path: path.display().to_string(),
+            acl_tag: acl,
+            confidence: 0.88,
+            period: Some(period.to_string()),
+            supersedes: None,
+            created_at: now.clone(),
+        });
+        index.provenance.push(Provenance {
+            memory_id,
+            raw_event_id: raw_event_id.clone(),
+        });
+    }
+
     detect_anomalies(index, "stripe/spend_by_team", "gross");
     Ok(cards_written)
 }
