@@ -10,7 +10,7 @@
 
 Every company wants one AI that knows everything. That's exactly the thing you must
 never build. **Contextful** is the company brain that gets *smarter* as it gets *more
-careful* — a **local-first collaboration workspace for your agents**, scoped per
+careful* — a **local-first collaboration workspace with your agents**, scoped per
 person, approved at the boundary, run in a trusted environment you choose: on-prem or
 your own cloud (BYOC).
 
@@ -18,13 +18,11 @@ Each member's agent holds only *their* context. When an answer needs something a
 a boundary, the request is **routed to the owner's agent, approved, and scoped** — the
 data crosses the line for *that question only*. Every agent sees **exactly what it is
 permitted to** — capability-scoped, attenuable, field/row-enforced. The one-line claim:
-*"the CTO's agent can't read the CEO's salary — provably."* See
-[PRESENTATION.md](./PRESENTATION.md) for the full story and [`specs/`](./specs) for the
-design.
+*"the CTO's agent can't read the CEO's salary — provably."*
 
 ## Why not a SuperAgent?
 
-A 50-person company runs on Claude, Notion, Slack, Linear, AWS, Vercel, and Stripe —
+A 100-person SaaS company runs on Claude, Notion, Slack, Linear, AWS, Vercel, and Stripe —
 and nobody can answer *"is this spend worth it?"*, because the context needed to answer
 is split across people who each hold one piece. The obvious fix — dump it all into one
 all-knowing agent — is the one thing that gets you breached. Today's agents fail in one
@@ -50,7 +48,7 @@ Contextful refuses the trade-off. **Omniscience is the vulnerability:**
   more. Delegation is attenuation, not trust.
 - **A brain that grows** — Contextful ingests your tools, synthesizes context, flags
   anomalies, and learns from last month's mistakes — then answers questions over MCP.
-- **Local-first & on-prem** — runs on your machine over Tailscale. Cloud is optional,
+- **Local-first & BYOC ** — runs on your machine over Tailscale. Cloud is optional,
   used only for sync transport and LLM inference. Your context stays yours.
 - **Real-time collaboration** — humans and agents edit the same document together as
   peers, with live presence — powered by CRDT sync that works offline.
