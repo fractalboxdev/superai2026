@@ -1,13 +1,14 @@
 // useDemoAgent — an in-app simulated agent peer so the live site demos
 // real-time sync on its own, without a relay or a second visitor.
 //
-// It attaches a SECOND editor + room transport in the same tab as Dinesh's
-// agent (`agent:eng/1`): two BroadcastChannel instances in one page deliver
-// to each other, so the bot's CRDT commits and presence (labeled caret,
-// roster dot, "writing" mode) reach the visitor's editor exactly like a real
-// cross-tab peer. The bot owns one clearly-marked paragraph at the end of
-// the doc and rewrites it in a slow loop — bounded content, char-by-char
-// typing, caret riding along.
+// It attaches a SECOND editor + room transport in the same tab as Gilfoyle's
+// agent (`agent:gilfoyle/1` — a guest outside the scenario cast, so it never
+// collides with an identity the visitor can act as): two BroadcastChannel
+// instances in one page deliver to each other, so the bot's CRDT commits and
+// presence (labeled caret, roster dot, "writing" mode) reach the visitor's
+// editor exactly like a real cross-tab peer. The bot owns one clearly-marked
+// paragraph at the end of the doc and rewrites it in a slow loop — bounded
+// content, char-by-char typing, caret riding along.
 //
 // Scope guards:
 //   • Off when VITE_SYNC_URL is set — on the relay path a real headless peer
@@ -19,10 +20,10 @@
 import { useEffect } from "react";
 import { resolveSyncUrl } from "./weaverRoom";
 
-const PRINCIPAL = "agent:eng/1";
-const DISPLAY_NAME = "Dinesh (Lead Engineer)'s agent";
+const PRINCIPAL = "agent:gilfoyle/1";
+const DISPLAY_NAME = "Gilfoyle's agent";
 /** The bot finds (or creates) the paragraph that starts with this marker. */
-const MARKER = "Dinesh's agent · ";
+const MARKER = "Gilfoyle's agent · ";
 
 const LINES = [
   "rechecking this week's burn — net spend lands 12% under budget once credits apply.",

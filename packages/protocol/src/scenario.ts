@@ -26,7 +26,7 @@ export const CTO: Principal = { kind: "human", id: "cto", name: "Richard (CEO)",
 export const ENG: Principal = { kind: "human", id: "eng", name: "Dinesh (CTO)", role: "engineering" };
 
 // ... and their agents (agent:<owner>/<n>, no root authority of their own).
-export const CFO_AGENT: Principal = { kind: "agent", id: "agent:cfo/1", name: "Monica (CFO)'s analyst agent", owner: "cfo" };
+export const CFO_AGENT: Principal = { kind: "agent", id: "agent:cfo/1", name: "Monica (CFO)'s agent", owner: "cfo" };
 export const CTO_AGENT: Principal = { kind: "agent", id: "agent:cto/1", name: "Richard (CEO)'s agent", owner: "cto" };
 export const ENG_AGENT: Principal = { kind: "agent", id: "agent:eng/1", name: "Dinesh (CTO)'s agent", owner: "eng" };
 
@@ -137,7 +137,7 @@ export const engAgentCapability = (): Capability =>
     rows: [{ field: "team", in: ["eng"] }],
   });
 
-/** CFO's analyst agent: a finance_private token already narrowed to drop salary. */
+/** CFO's agent: a finance_private token already narrowed to drop salary. */
 export const cfoAgentCapability = (): Capability =>
   mint(CFO_ROOT, CFO_AGENT.id, {
     ops: ["query", "read"],

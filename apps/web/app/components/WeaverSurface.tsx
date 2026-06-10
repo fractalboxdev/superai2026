@@ -178,9 +178,25 @@ export default function WeaverSurface({
     if (!host) return;
     const overlay = attachPresenceOverlay(host);
     overlayRef.current = overlay;
+    // Tag blocks carrying a "⛔ Denied" agent reply so CSS can paint them
+    // pink. Deferred a frame: the DOM bridge subscribes to the same doc, and
+    // this must read the block text AFTER it re-renders.
+    const markDenied = () =>
+      requestAnimationFrame(() => {
+        for (const el of host.querySelectorAll<HTMLElement>("[data-block-id]")) {
+          el.classList.toggle(
+            "weaver-block--denied",
+            (el.textContent ?? "").includes("⛔ Denied"),
+          );
+        }
+      });
     const draw = () => overlay.render(cursorsRef.current);
     draw();
-    const unsubDoc = editor.doc.subscribe(() => draw());
+    markDenied();
+    const unsubDoc = editor.doc.subscribe(() => {
+      draw();
+      markDenied();
+    });
     return () => {
       unsubDoc();
       overlayRef.current = null;

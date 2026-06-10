@@ -11,6 +11,7 @@ export function AvatarDot({
   live = false,
   title,
   stacked = false,
+  self = false,
 }: {
   id: string;
   /** Text shown when no cast avatar exists (tag or initials). */
@@ -20,12 +21,14 @@ export function AvatarDot({
   title?: string;
   /** Overlapping facepile in the topbar; standalone chips reset the margin. */
   stacked?: boolean;
+  /** The acting user's own chip — Google-Docs style, rightmost and ringed. */
+  self?: boolean;
 }) {
   const src = avatarOf(id);
   return (
     <span
-      className={`cf-presence__dot${live ? " cf-presence__dot--live" : ""}`}
-      style={{ background: color, ...(stacked ? {} : { marginLeft: 0 }) }}
+      className={`cf-presence__dot${live ? " cf-presence__dot--live" : ""}${self ? " cf-presence__dot--self" : ""}`}
+      style={{ background: color, ...(stacked || self ? {} : { marginLeft: 0 }) }}
       title={title}
     >
       {src ? <img src={src} alt="" /> : fallback}

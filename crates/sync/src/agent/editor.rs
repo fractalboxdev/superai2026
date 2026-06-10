@@ -15,7 +15,7 @@
 //! Answers ride the CRDT, never awareness (presence invariant).
 //!
 //! It also answers **mention asks**: a block like
-//! `@Monica (CFO)'s analyst agent What's CEO's Salary` addressed to the
+//! `@Monica (CFO)'s agent What's CEO's Salary` addressed to the
 //! watcher (or an agent it owns). The asker is the principal the relay
 //! attributed the block to (`UPDATE.from`), and the answer is authorized
 //! against the **asker's** token — it lands in a doc the asker reads. A card
@@ -192,7 +192,7 @@ pub fn find_mention_asks(
 
 /// Is an ask addressed to `target_id` for this watcher to answer? Yes when it
 /// is the watcher itself, or an agent the watcher owns (the CFO-side watcher
-/// running as `cfo` answers for "Monica (CFO)'s analyst agent").
+/// running as `cfo` answers for "Monica (CFO)'s agent").
 pub fn addressed_to(directory: &[Principal], target_id: &str, watcher: &str) -> bool {
     if target_id == watcher {
         return true;
@@ -848,13 +848,13 @@ mod tests {
     fn parses_mention_asks_addressed_to_directory_names() {
         let dir = dir_pairs();
         let (target, q) =
-            parse_mention_ask("@Monica (CFO)'s analyst agent What's CEO's Salary", &dir).unwrap();
+            parse_mention_ask("@Monica (CFO)'s agent What's CEO's Salary", &dir).unwrap();
         assert_eq!(target, "agent:cfo/1");
         assert_eq!(q, "What's CEO's Salary");
         // a name outside the directory is prose, not an ask
         assert!(parse_mention_ask("@Gavin Belson what's our runway", &dir).is_none());
         // a bare mention with no question is not an ask
-        assert!(parse_mention_ask("@Monica (CFO)'s analyst agent", &dir).is_none());
+        assert!(parse_mention_ask("@Monica (CFO)'s agent", &dir).is_none());
         // plain prose never parses
         assert!(parse_mention_ask("email me at v@fractalbox.dev", &dir).is_none());
     }
@@ -865,7 +865,7 @@ mod tests {
         // `@<CFO_AGENT.name> — <DEMO_QUESTION>` — em-dash separator included
         let dir = dir_pairs();
         let (target, q) = parse_mention_ask(
-            "@Monica (CFO)'s analyst agent — Let me share the unit economics of our compression product",
+            "@Monica (CFO)'s agent — Let me share the unit economics of our compression product",
             &dir,
         )
         .unwrap();
@@ -882,7 +882,7 @@ mod tests {
         let blocks = vec![
             (
                 "b1".to_string(),
-                "@Monica (CFO)'s analyst agent What's CEO's Salary".to_string(),
+                "@Monica (CFO)'s agent What's CEO's Salary".to_string(),
             ),
             (
                 "b2".to_string(),
@@ -905,7 +905,7 @@ mod tests {
     fn watcher_answers_for_itself_and_its_owned_agents_only() {
         let dir = crate::scenario::directory();
         assert!(addressed_to(&dir, "cfo", "cfo"));
-        // "Monica (CFO)'s analyst agent" is owned by cfo → the cfo watcher answers
+        // "Monica (CFO)'s agent" is owned by cfo → the cfo watcher answers
         assert!(addressed_to(&dir, "agent:cfo/1", "cfo"));
         assert!(!addressed_to(&dir, "agent:cfo/1", "eng"));
         assert!(!addressed_to(&dir, "agent:eng/1", "cfo"));

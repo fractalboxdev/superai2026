@@ -290,6 +290,8 @@ hr.weaver-divider { border: none; border-top: 1px solid var(--color-divider); ma
 }
 .weaver-surface a { color: var(--color-link); text-decoration: underline; }
 .weaver-surface mark { background: var(--color-warning-subtle); color: inherit; border-radius: var(--radius-sm); }
+/* A block holding a "⛔ Denied" agent reply (WeaverSurface tags it) — pink. */
+.weaver-surface .weaver-block--denied { color: var(--cf-pink-500); }
 .weaver-mention {
   display: inline;
   color: var(--color-primary);
@@ -560,6 +562,8 @@ hr.weaver-divider { border: none; border-top: 1px solid var(--color-divider); ma
   height: fit-content;
 }
 .cf-log__row--ok .cf-log__tag { background: var(--color-success-subtle); color: var(--color-success); }
+/* Denied/blocked entries read in pink so a refusal is unmissable in the trail. */
+.cf-log__row--deny, .cf-log__row--block { color: var(--cf-pink-500); }
 .cf-log__row--deny .cf-log__tag, .cf-log__row--block .cf-log__tag { background: var(--color-danger-subtle); color: var(--color-danger); }
 .cf-log__row--grant .cf-log__tag { background: var(--color-primary-subtle); color: var(--color-primary-on-subtle); }
 .cf-log__row--info .cf-log__tag { background: var(--color-surface-sunken); color: var(--color-text-muted); }
@@ -791,6 +795,8 @@ hr.weaver-divider { border: none; border-top: 1px solid var(--color-divider); ma
   font-weight: var(--weight-semibold);
   font-size: var(--text-sm);
 }
+.cf-toast--deny .cf-toast__head,
+.cf-toast--deny .cf-toast__body { color: var(--cf-pink-500); }
 .cf-toast__body {
   margin-top: var(--space-2);
   font-size: var(--text-sm);
