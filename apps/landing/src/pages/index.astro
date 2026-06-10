@@ -35,6 +35,10 @@ const ogImage = new URL("/og.svg", site).toString();
 const demoUrl = "https://demo.contextful.work";
 // TODO: replace with the published Google Slides deck URL.
 const slidesUrl = "/slides/";
+// Public release artifact (Apple silicon .dmg), uploaded to the
+// `contextful-releases` bucket owned by infra/ecs.
+const macAppUrl =
+  "https://contextful-releases.s3.us-west-2.amazonaws.com/Contextful.dmg";
 
 const jsonLd = {
   "@context": "https://schema.org",
@@ -241,9 +245,9 @@ for (const m of cast) {
             </h1>
             <div class="hero__cta" data-reveal style="--d:.12s">
               <a class="cf-btn cf-btn--primary cf-btn--lg" href="#demo">▶ Watch it think</a>
-              <a class="cf-btn cf-btn--secondary cf-btn--lg" href={slidesUrl}>See the slides</a>
+              <a class="cf-btn cf-btn--secondary cf-btn--lg" href={macAppUrl} title="macOS 13+ · Apple silicon">⬇ Install macOS app</a>
             </div>
-            <p class="hero__note" data-reveal style="--d:.18s">Runs on-prem over Tailscale · Cloud optional</p>
+            <p class="hero__note" data-reveal style="--d:.18s">Runs on-prem over Tailscale · Cloud optional · <a href={slidesUrl}>See the slides</a></p>
           </div>
           <video
             class="cf-comic hero__video"
@@ -603,7 +607,7 @@ for (const m of cast) {
           <h2 class="cta__title">Give every agent <span class="cf-text-gradient">its own lane.</span></h2>
           <p class="cta__sub">Local-first, capability-scoped, collaborative. See the brain answer — live.</p>
           <div class="cta__btns">
-            <a class="cf-btn cf-btn--primary cf-btn--lg" href="#demo">▶ Watch it think</a>
+            <a class="cf-btn cf-btn--primary cf-btn--lg" href={macAppUrl} title="macOS 13+ · Apple silicon">⬇ Install macOS app</a>
             <a class="cf-btn cf-btn--secondary cf-btn--lg" href={demoUrl}>Open the demo</a>
           </div>
         </div>

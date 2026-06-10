@@ -154,7 +154,48 @@ new aws.ecs.Service(
   { dependsOn: [relay.listener, mcp.listener] },
 );
 
+// --- Releases: public bucket hosting desktop app downloads -----------------
+// Objects are uploaded out-of-band (aws s3 cp) after `pnpm app:build`; the
+// stack only owns the bucket + public-read policy so the landing page can
+// link a stable URL.
+
+const releases = new aws.s3.BucketV2("releases", {
+  bucket: "contextful-releases",
+  forceDestroy: true,
+});
+
+const releasesAccess = new aws.s3.BucketPublicAccessBlock("releases", {
+  bucket: releases.id,
+  blockPublicAcls: false,
+  blockPublicPolicy: false,
+  ignorePublicAcls: false,
+  restrictPublicBuckets: false,
+});
+
+new aws.s3.BucketPolicy(
+  "releases",
+  {
+    bucket: releases.id,
+    policy: releases.arn.apply((arn) =>
+      JSON.stringify({
+        Version: "2012-10-17",
+        Statement: [
+          {
+            Effect: "Allow",
+            Principal: "*",
+            Action: "s3:GetObject",
+            Resource: `${arn}/*`,
+          },
+        ],
+      }),
+    ),
+  },
+  { dependsOn: [releasesAccess] },
+);
+
 export const imageUri = image.imageUri;
 export const nlbDnsName = nlb.dnsName;
 export const relayUrl = pulumi.interpolate`ws://${nlb.dnsName}:${syncPort}`;
 export const mcpUrl = pulumi.interpolate`http://${nlb.dnsName}:${mcpPort}/mcp`;
+export const releasesBucket = releases.bucket;
+export const desktopDmgUrl = pulumi.interpolate`https://${releases.bucketRegionalDomainName}/Contextful.dmg`;
