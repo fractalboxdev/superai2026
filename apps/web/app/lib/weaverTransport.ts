@@ -73,9 +73,12 @@ const RECONNECT_MAX_MS = 30_000;
 // be rejected again (transient drops have no ERROR frame, only a close)
 const FATAL_ERROR_CODES = new Set(["revoked", "no_capability", "expected_hello"]);
 
-// v2 = Weaver block tree ("content" LoroTree). v1 (unversioned key) held the
-// plaintext `body` container and must not hydrate the Weaver editor.
-const storageKey = (docId: string) => `contextful:doc:v2:${docId}`;
+// v3 = Weaver block tree, keyed by the doc's seed-text hash: a snapshot saved
+// under an older seed revision (or one poisoned by the fixed-peer-id collision
+// the hash now prevents — see buildSeed) must not hydrate the editor. v2
+// (unhashed) and v1 (plaintext `body`) entries are simply never read again.
+const storageKey = (docId: string) =>
+  `contextful:doc:v3:${docId}:${seedPeerId(docId).toString(36)}`;
 const channelName = (docId: string) => `contextful:room:${docId}`;
 
 const toNums = (b: Uint8Array): number[] => Array.from(b);
@@ -101,19 +104,42 @@ function saveSnapshot(docId: string, bytes: Uint8Array) {
 }
 
 // Deterministic seed: build the doc's initial block tree on a throwaway
-// LoroDoc with a FIXED peer id, so every tab / peer generates byte-identical
-// ops. Importing the seed is therefore idempotent — two fresh tabs (or a
-// fresh tab joining a relay doc started from the same seed) converge to ONE
-// copy of the content instead of duplicating paragraphs. Container names and
-// block shape mirror @weaver/core's editor (`content` tree, `kind` / `attrs`
-// / `text` keys).
-const SEED_PEER_ID = 7_777_777n;
+// LoroDoc with a peer id DERIVED FROM THE SEED TEXT, so every tab / peer
+// generates byte-identical ops. Importing the seed is therefore idempotent —
+// two fresh tabs (or a fresh tab joining a relay doc started from the same
+// seed) converge to ONE copy of the content instead of duplicating paragraphs.
+//
+// The peer id must change whenever the seed copy changes: two DIFFERENT op
+// histories under the SAME (peer, counter) pairs are CRDT corruption — Loro's
+// wasm panics (`RuntimeError: unreachable`) on the first read after merging
+// them, taking the whole app down. A fixed peer id (the old `7_777_777n`) did
+// exactly that the first time a seed was reworded while relay/localStorage
+// docs still carried the old seed's history. Hashing the seed text instead
+// makes a reworded seed a distinct peer: merging old + new yields duplicated
+// paragraphs (cosmetic), never a poisoned doc.
+//
+// Container names and block shape mirror @weaver/core's editor (`content`
+// tree, `kind` / `attrs` / `text` keys).
+const seedTextOf = (docId: string): string =>
+  DOCS.find((d) => d.id === docId)?.seed ?? "";
+
+/** FNV-1a 64-bit — stable, dependency-free hash of the seed copy. */
+const fnv1a64 = (s: string): bigint => {
+  let h = 0xcbf29ce484222325n;
+  for (let i = 0; i < s.length; i++) {
+    h ^= BigInt(s.charCodeAt(i));
+    h = (h * 0x100000001b3n) & 0xffffffffffffffffn;
+  }
+  return h;
+};
+
+const seedPeerId = (docId: string): bigint => fnv1a64(seedTextOf(docId)) | 1n;
 
 function buildSeed(docId: string): Uint8Array {
-  const seedText = DOCS.find((d) => d.id === docId)?.seed ?? "";
+  const seedText = seedTextOf(docId);
   const paragraphs = seedText.split("\n\n").filter((p) => p.length > 0);
   const doc = new LoroDoc();
-  doc.setPeerId(SEED_PEER_ID);
+  doc.setPeerId(seedPeerId(docId));
   const tree = doc.getTree("content");
   const blocks = paragraphs.length > 0 ? paragraphs : [""];
   for (const para of blocks) {
@@ -177,15 +203,28 @@ export function attachRoomTransport(
     publishPeers();
   };
 
-  // ---- hydrate ------------------------------------------------------------
-  doc.import(buildSeed(docId));
-  const persisted = loadSnapshot(docId);
-  if (persisted) {
+  // Poisoned bytes (e.g. divergent histories under one peer id) often import
+  // without throwing and only panic Loro's wasm on the first READ — which in
+  // React render means a full "Application Error" page. So before letting any
+  // snapshot near the live editor doc, merge it on a throwaway doc and read it
+  // back; a panic there is a caught exception on a doc we discard.
+  const mergesCleanly = (...histories: Uint8Array[]): boolean => {
     try {
-      doc.import(persisted);
+      const scratch = new LoroDoc();
+      for (const bytes of histories) scratch.import(bytes);
+      scratch.toJSON();
+      return true;
     } catch {
-      /* corrupt local snapshot — seed already guarantees a usable doc */
+      return false;
     }
+  };
+
+  // ---- hydrate ------------------------------------------------------------
+  const seedBytes = buildSeed(docId);
+  doc.import(seedBytes);
+  const persisted = loadSnapshot(docId);
+  if (persisted && mergesCleanly(seedBytes, persisted)) {
+    doc.import(persisted);
   }
   saveSnapshot(docId, doc.export({ mode: "snapshot" }));
 
@@ -232,7 +271,12 @@ export function attachRoomTransport(
       presence?: PresenceState;
     };
     if (data.kind === "update" && Array.isArray(data.bytes)) {
-      doc.import(toBytes(data.bytes));
+      const bytes = toBytes(data.bytes);
+      // another tab may still run an older bundle whose history collides —
+      // drop its frames rather than corrupt this tab's doc (see mergesCleanly)
+      if (mergesCleanly(doc.export({ mode: "snapshot" }), bytes)) {
+        doc.import(bytes);
+      }
     } else if (data.kind === "awareness" && data.presence) {
       // validate like WS frames — another tab's payload is still untrusted input
       const presence = decodePresence(data.presence);
@@ -278,7 +322,22 @@ export function attachRoomTransport(
       const msg = decodeWire(typeof ev.data === "string" ? ev.data : "");
       if (!msg) return;
       if (msg.type === "SNAPSHOT" || msg.type === "UPDATE") {
-        if (msg.bytes.length) doc.import(toBytes(msg.bytes));
+        if (msg.bytes.length) {
+          const bytes = toBytes(msg.bytes);
+          if (!mergesCleanly(doc.export({ mode: "snapshot" }), bytes)) {
+            // Relay history is incompatible with this doc (poisoned blob or a
+            // peer-id collision). Importing it would corrupt the live editor
+            // doc and crash the app on the next render — stay offline instead.
+            console.error(
+              `[contextful] relay ${msg.type} for "${docId}" does not merge with the local doc — going offline (reset the relay's persisted doc to recover)`,
+            );
+            fatal = true;
+            onStatus("offline");
+            ws?.close();
+            return;
+          }
+          doc.import(bytes);
+        }
         if (msg.type === "SNAPSHOT" && !announced) {
           // merged seed + relay history → safe to announce as the new snapshot
           announced = true;
