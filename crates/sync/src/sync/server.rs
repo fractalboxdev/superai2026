@@ -146,6 +146,20 @@ async fn handle_conn(stream: TcpStream, rooms: Rooms, config: Arc<Config>) -> Re
                     .await?;
                     continue;
                 }
+                // Sandbox rides room presence (spec 04 §2): ensure one exists for
+                // this doc. Fire-and-forget on the blocking pool — the bridge is a
+                // child process and must not delay the snapshot; the registry in
+                // [`crate::sandbox::vercel`] single-flights concurrent entrants and
+                // feeds the `/debug/sandbox/:room` surface.
+                {
+                    let doc = doc_id.clone();
+                    tokio::task::spawn_blocking(move || {
+                        if let Err(e) = crate::sandbox::select(false).ensure(&doc) {
+                            tracing::warn!(doc = %doc, error = %e, "sandbox provisioning failed");
+                        }
+                    });
+                }
+
                 // Subscribe to the room FIRST so updates that arrive while we load
                 // and send the snapshot are buffered for delivery (no lost update).
                 let tx = room_sender(&rooms, &doc_id).await;

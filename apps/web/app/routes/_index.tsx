@@ -11,6 +11,7 @@ import {
 } from "@superai2026/protocol/requests";
 import { useWeaverRoom } from "@/lib/weaverRoom";
 import { DOCS, DEFAULT_DOC_ID } from "@/lib/docs";
+import DocDebugMenu from "@/components/DocDebugMenu";
 
 // The Weaver editing surface pulls in loro-crdt (WASM) via @weaver/react —
 // lazy-loaded so it ships as a separate client chunk and never renders during
@@ -312,14 +313,14 @@ export default function Home() {
           </p>
           <ul className="app-doclist">
             {DOCS.map((d) => (
-              <li key={d.id}>
+              <li key={d.id} className="app-doclist__row">
                 <button
                   type="button"
                   className="app-doclist__item"
                   aria-current={d.id === activeDocId}
                   onClick={() => setActiveDocId(d.id)}
                   style={{
-                    width: "100%",
+                    flex: 1,
                     textAlign: "left",
                     background: "none",
                     border: "none",
@@ -330,6 +331,7 @@ export default function Home() {
                 >
                   {d.title}
                 </button>
+                <DocDebugMenu docId={d.id} docTitle={d.title} />
               </li>
             ))}
           </ul>
