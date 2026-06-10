@@ -1,6 +1,6 @@
 ---
 name: product-demo
-description: Record a scripted product-demo video of demo.contextful.work by driving it with Playwright from an editable markdown story (demos/story.md). Use when asked to record a demo, run the product demo, regenerate the demo video, or update/extend the demo story. Outputs a .webm (and .mp4 if ffmpeg is present) under demos/recordings/.
+description: Record a scripted product-demo video of demo.contextful.work by driving it with Playwright from an editable markdown story (demos/story.md). Use when asked to record a demo, run the product demo, regenerate the demo video, export demo GIFs, or update/extend the demo story. Outputs a .webm (plus .mp4 and one GIF per scene if ffmpeg is present) under demos/recordings/.
 ---
 
 # Product demo
@@ -36,7 +36,10 @@ node .claude/skills/product-demo/scripts/run-demo.mjs --base-url=http://localhos
 
 `DEMO_BASE_URL` env var also overrides the target. The script prints each scene/step as it executes and exits non-zero on failure, saving whatever was recorded up to that point.
 
-Output: `demos/recordings/<story>-<timestamp>.webm`, converted to `.mp4` automatically when `ffmpeg` is on PATH. Recordings are gitignored.
+Output (all gitignored, under `demos/recordings/`):
+
+- `<story>-<timestamp>.webm`, converted to `.mp4` automatically when `ffmpeg` is on PATH.
+- `<story>-<timestamp>-gifs/NN-<scene-slug>.gif` — one GIF per `## Scene:`, cut from the recording at the scene's boundaries (also needs `ffmpeg`). Skip with `--no-gifs`; tune via story frontmatter `gif_fps` (default 10) and `gif_width` (default 960). On a partial failure the interrupted scene still exports up to the failing step.
 
 ## 3. If a step fails
 

@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 // Product-demo runner: parses a story markdown file into scenes/steps,
-// drives demo.contextful.work with Playwright, and records a video.
+// drives demo.contextful.work with Playwright, and records a video —
+// plus one GIF per scene (ffmpeg) for embedding in docs/READMEs/socials.
 //
-// Usage: node run-demo.mjs [path/to/story.md] [--headed] [--base-url=URL]
+// Usage: node run-demo.mjs [path/to/story.md] [--headed] [--base-url=URL] [--no-gifs]
 // Env:   DEMO_BASE_URL overrides the story's base_url.
+// Story frontmatter: gif_fps (default 10) and gif_width (default 960) tune the GIFs.
 
 import { chromium } from "playwright";
 import { readFileSync, mkdirSync, existsSync } from "node:fs";
@@ -16,6 +18,7 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..")
 // --- CLI ---------------------------------------------------------------
 const args = process.argv.slice(2);
 const headed = args.includes("--headed");
+const wantGifs = !args.includes("--no-gifs");
 const baseUrlFlag = args.find((a) => a.startsWith("--base-url="))?.split("=").slice(1).join("=");
 const storyPath = resolve(
   args.find((a) => !a.startsWith("--")) ?? join(repoRoot, "demos/story.md"),
@@ -199,10 +202,17 @@ async function getPeerPage() {
   return peerPage;
 }
 
+// Scene boundary clock for the per-scene GIF export. The video stream starts
+// with the page, so offsets from here line up with the recording close enough
+// for scene-length cuts.
+const t0 = Date.now();
+const elapsed = () => (Date.now() - t0) / 1000;
+
 let failed = null;
 try {
   for (const scene of story.scenes) {
     console.log(`  ◆ ${scene.title}`);
+    scene.start = elapsed();
     await showCaption(page, scene.caption); // scenes without a main-page goto still get their caption
     for (const step of scene.steps) {
       console.log(`    · ${step.action}: ${step.arg}`);
@@ -214,11 +224,15 @@ try {
       }
       await page.waitForTimeout(stepDelay);
     }
+    scene.end = elapsed();
   }
   await page.waitForTimeout(1500); // let the last frame breathe
 } catch (err) {
   failed = err;
   console.error(`  ✗ step failed: ${err.message}`);
+  // close the interrupted scene so the partial GIF still exports
+  const open = story.scenes.find((s) => s.start != null && s.end == null);
+  if (open) open.end = elapsed();
 }
 
 const video = page.video();
@@ -231,11 +245,39 @@ await video.delete(); // drop playwright's page@<hash>.webm original
 await peerVideo?.delete(); // the peer tab is off-camera — never keep its recording
 await browser.close();
 
+const hasFfmpeg = spawnSync("ffmpeg", ["-version"], { stdio: "ignore" }).status === 0;
+
 let final = webm;
-if (spawnSync("ffmpeg", ["-version"], { stdio: "ignore" }).status === 0) {
+if (hasFfmpeg) {
   const mp4 = webm.replace(/\.webm$/, ".mp4");
   const conv = spawnSync("ffmpeg", ["-y", "-i", webm, "-c:v", "libx264", "-pix_fmt", "yuv420p", "-movflags", "+faststart", mp4], { stdio: "ignore" });
   if (conv.status === 0) final = mp4;
+}
+
+// --- Per-scene GIF export (needs ffmpeg; skip with --no-gifs) -----------
+if (hasFfmpeg && wantGifs) {
+  const gifFps = story.config.gif_fps ? Number(story.config.gif_fps) : 10;
+  const gifWidth = story.config.gif_width ? Number(story.config.gif_width) : 960;
+  const gifDir = join(outDir, `${slug}-${stamp}-gifs`);
+  mkdirSync(gifDir, { recursive: true });
+  story.scenes.forEach((scene, i) => {
+    if (scene.start == null || scene.end == null || scene.end - scene.start < 0.3) return;
+    const sceneSlug =
+      scene.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "scene";
+    const gif = join(gifDir, `${String(i + 1).padStart(2, "0")}-${sceneSlug}.gif`);
+    // -ss/-to after -i: output-side seek — frame-accurate on Playwright's VFR webm
+    const cut = spawnSync(
+      "ffmpeg",
+      ["-y", "-i", webm, "-ss", scene.start.toFixed(2), "-to", scene.end.toFixed(2),
+        "-vf", `fps=${gifFps},scale=${gifWidth}:-1:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle`,
+        gif],
+      { stdio: "ignore" },
+    );
+    if (cut.status === 0) console.log(`  ▢ gif: ${gif}`);
+    else console.warn(`  ⚠ gif export failed for scene "${scene.title}"`);
+  });
+} else if (wantGifs) {
+  console.warn("  ⚠ ffmpeg not found — skipping per-scene GIF export");
 }
 
 console.log(`${failed ? "✗ demo failed partway — partial recording at" : "✔ recording saved"}: ${final}`);
