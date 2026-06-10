@@ -8,6 +8,7 @@ import {
   type RouteDecision,
 } from "@superai2026/protocol/requests";
 import { useWeaverRoom } from "@/lib/weaverRoom";
+import { useDemoAgent } from "@/lib/demoAgent";
 import { DOCS } from "@/lib/docs";
 import { initialsOf, isScenarioPrincipal, peerColor, peerKey } from "@/lib/presence";
 
@@ -68,6 +69,8 @@ export default function ConsolePage({ docId }: { docId: string }) {
   const actor = PRINCIPALS.find((p) => p.id === actorId)!;
   const activeDoc = DOCS.find((d) => d.id === docId)!;
   const room = useWeaverRoom(actor.id, actor.name, docId);
+  // Simulated agent peer — keeps the room visibly live for solo visitors.
+  useDemoAgent(docId);
   const { status: syncStatus, peers: livePeers } = room;
   // One presence roster (upstream weaver PR #35): scenario agents +
   // collaborators are always in the room; live sessions light their chip up,
