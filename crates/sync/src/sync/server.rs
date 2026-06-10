@@ -19,7 +19,7 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{broadcast, Mutex};
 use tokio_tungstenite::tungstenite::Message;
 
-use crate::access::token::scope_allows_doc;
+use crate::access::token::{scope_allows_doc, VerifiedScope};
 use crate::access::Operation;
 use crate::config::Config;
 use crate::controlplane::{is_revoked, is_token_revoked, load_verified_scope};
@@ -32,12 +32,9 @@ type Rooms = Arc<Mutex<HashMap<String, broadcast::Sender<RoomMsg>>>>;
 
 static PEER_SEQ: AtomicU64 = AtomicU64::new(1);
 
-pub async fn run(addr: &str, with_mcp: bool) -> Result<()> {
+pub async fn run(addr: &str) -> Result<()> {
     let config = Config::load();
     config.ensure_dirs()?;
-    if with_mcp {
-        tracing::info!("co-hosting the brain MCP over streamable HTTP (spec 06 §4)");
-    }
 
     let listener = TcpListener::bind(addr).await?;
     tracing::info!(%addr, "sync relay listening (authoritative)");
@@ -115,12 +112,13 @@ async fn handle_conn(stream: TcpStream, rooms: Rooms, config: Arc<Config>) -> Re
 
     // --- message loop ---
     while let Some(msg) = next_message(&mut read).await? {
-        // Per-message authorization: re-check revocation on every data message
-        // (a principal revoked mid-session must stop being served), enforce the
+        // Per-message authorization: re-check revocation (both the principal
+        // list and the Biscuit revocation ids) on every data message — a
+        // principal revoked mid-session must stop being served — enforce the
         // token's doc-level read/write rights, and reject unsafe doc ids before
         // they touch the filesystem. CRDT payloads stay opaque Loro bytes;
         // structured data is gated by the brain MCP path.
-        if is_revoked(&config, &principal) {
+        if is_revoked(&config, &principal) || is_token_revoked(&config, &scope.revocation_ids) {
             send(
                 &write,
                 &err("revoked", &format!("principal {principal} is revoked")),
@@ -130,20 +128,8 @@ async fn handle_conn(stream: TcpStream, rooms: Rooms, config: Arc<Config>) -> Re
         }
         match msg {
             SyncMessage::Subscribe { doc_id, .. } => {
-                if !is_safe_doc_id(&doc_id) {
-                    send(&write, &err("bad_doc_id", "unsafe doc_id")).await?;
-                    continue;
-                }
                 // subscribe = read(document), proven by the verified token
-                if !scope_allows_doc(&scope, &doc_id, Operation::Read) {
-                    send(
-                        &write,
-                        &err(
-                            "forbidden",
-                            &format!("token does not grant read on {doc_id}"),
-                        ),
-                    )
-                    .await?;
+                if !doc_authorized(&write, &scope, &doc_id, Operation::Read).await? {
                     continue;
                 }
                 // Subscribe to the room FIRST so updates that arrive while we load
@@ -194,21 +180,9 @@ async fn handle_conn(stream: TcpStream, rooms: Rooms, config: Arc<Config>) -> Re
                 tracing::info!(%principal, doc = %doc_id, peer_id, "subscribed");
             }
             SyncMessage::Update { doc_id, bytes } => {
-                if !is_safe_doc_id(&doc_id) {
-                    send(&write, &err("bad_doc_id", "unsafe doc_id")).await?;
-                    continue;
-                }
                 // update = write(document), proven by the verified token;
                 // revocation re-checked above.
-                if !scope_allows_doc(&scope, &doc_id, Operation::Write) {
-                    send(
-                        &write,
-                        &err(
-                            "forbidden",
-                            &format!("token does not grant write on {doc_id}"),
-                        ),
-                    )
-                    .await?;
+                if !doc_authorized(&write, &scope, &doc_id, Operation::Write).await? {
                     continue;
                 }
                 if let Some(tx) = rooms.lock().await.get(&doc_id) {
@@ -225,25 +199,18 @@ async fn handle_conn(stream: TcpStream, rooms: Rooms, config: Arc<Config>) -> Re
                 DocStore::new((*config).clone()).save_snapshot(&doc_id, &bytes)?;
             }
             SyncMessage::Snapshot { doc_id, bytes } => {
-                if !is_safe_doc_id(&doc_id) {
-                    send(&write, &err("bad_doc_id", "unsafe doc_id")).await?;
-                    continue;
-                }
                 // persisting a snapshot = write(document)
-                if !scope_allows_doc(&scope, &doc_id, Operation::Write) {
-                    send(
-                        &write,
-                        &err(
-                            "forbidden",
-                            &format!("token does not grant write on {doc_id}"),
-                        ),
-                    )
-                    .await?;
+                if !doc_authorized(&write, &scope, &doc_id, Operation::Write).await? {
                     continue;
                 }
                 DocStore::new((*config).clone()).save_snapshot(&doc_id, &bytes)?;
             }
             SyncMessage::Awareness { doc_id, presence } => {
+                // presence injection into a room is gated like reading it —
+                // a token without read(doc) must not reach the room's peers
+                if !doc_authorized(&write, &scope, &doc_id, Operation::Read).await? {
+                    continue;
+                }
                 if let Some(tx) = rooms.lock().await.get(&doc_id) {
                     let _ = tx.send((
                         peer_id,
@@ -257,6 +224,37 @@ async fn handle_conn(stream: TcpStream, rooms: Rooms, config: Arc<Config>) -> Re
     }
 
     Ok(())
+}
+
+/// Per-message doc guard: rejects unsafe doc ids before they touch the
+/// filesystem, then enforces the token's doc-level right for `op`. Sends the
+/// error frame itself; `Ok(false)` means "denied, keep the session".
+async fn doc_authorized(
+    write: &Arc<Mutex<WsSink>>,
+    scope: &VerifiedScope,
+    doc_id: &str,
+    op: Operation,
+) -> Result<bool> {
+    if !is_safe_doc_id(doc_id) {
+        send(write, &err("bad_doc_id", "unsafe doc_id")).await?;
+        return Ok(false);
+    }
+    if !scope_allows_doc(scope, doc_id, op) {
+        let op_name = match op {
+            Operation::Write => "write",
+            _ => "read",
+        };
+        send(
+            write,
+            &err(
+                "forbidden",
+                &format!("token does not grant {op_name} on {doc_id}"),
+            ),
+        )
+        .await?;
+        return Ok(false);
+    }
+    Ok(true)
 }
 
 fn err(code: &str, message: &str) -> SyncMessage {

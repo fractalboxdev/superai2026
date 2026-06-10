@@ -123,10 +123,21 @@ pub async fn serve_http(addr: &str) -> Result<()> {
             Ok(v) => v,
             Err(e) => return (StatusCode::BAD_REQUEST, format!("json: {e}")).into_response(),
         };
-        let config = Config::load();
-        match dispatch(&config, &principal, &rpc) {
-            Some(resp) => axum::Json(resp).into_response(),
-            None => StatusCode::ACCEPTED.into_response(), // notification
+        // Serialize calls: mutating tools do load-index → mutate → save-index,
+        // so concurrent requests would clobber each other's writes (the stdio
+        // transport is serial by construction). Dispatch also does blocking
+        // I/O (SQLite, ureq) — keep it off the async worker threads.
+        static DISPATCH_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+        let resp = tokio::task::spawn_blocking(move || {
+            let _serialized = DISPATCH_LOCK.lock().expect("mcp dispatch lock");
+            let config = Config::load();
+            dispatch(&config, &principal, &rpc)
+        })
+        .await;
+        match resp {
+            Ok(Some(resp)) => axum::Json(resp).into_response(),
+            Ok(None) => StatusCode::ACCEPTED.into_response(), // notification
+            Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("dispatch: {e}")).into_response(),
         }
     }
 
@@ -213,13 +224,8 @@ fn handle_tool_call(
                 view: View::new("doc", doc),
                 fields: vec![],
             };
-            match retrieval::remember(store, index, fact, doc, read_acl) {
-                Ok(mid) => match store.save_index(index) {
-                    Ok(()) => Ok(json!({ "memory_id": mid })),
-                    Err(e) => Err(e.to_string()),
-                },
-                Err(e) => Err(e.to_string()),
-            }
+            let written = retrieval::remember(store, index, fact, doc, read_acl);
+            saved(store, index, written, |mid| json!({ "memory_id": mid }))
         }
         "brain.request_access" => {
             let view = match parse_view(&args) {
@@ -256,29 +262,26 @@ fn handle_tool_call(
         }
         "brain.world_search" => {
             let q = args.get("query").and_then(|v| v.as_str()).unwrap_or("");
-            match crate::brain::world::world_search(config, store, index, q) {
-                Ok(memories) => match store.save_index(index) {
-                    Ok(()) => Ok(json!({
-                        "world_cards": memories.iter().map(|m| json!({
-                            "id": m.id, "url": m.topic, "path": m.path,
-                        })).collect::<Vec<_>>()
-                    })),
-                    Err(e) => Err(e.to_string()),
-                },
-                // egress violations surface as a tool error (terms not echoed)
-                Err(e) => Err(e.to_string()),
-            }
+            // egress violations surface as a tool error (terms not echoed)
+            let found = crate::brain::world::world_search(config, store, index, q);
+            saved(store, index, found, |memories| {
+                json!({
+                    "world_cards": memories.iter().map(|m| json!({
+                        "id": m.id, "url": m.topic, "path": m.path,
+                    })).collect::<Vec<_>>()
+                })
+            })
         }
         "brain.ground" => {
             let world_id = args.get("world_id").and_then(|v| v.as_str()).unwrap_or("");
             let memory_id = args.get("memory_id").and_then(|v| v.as_str()).unwrap_or("");
-            match crate::brain::world::ground(index, world_id, memory_id) {
-                Ok(()) => match store.save_index(index) {
-                    Ok(()) => Ok(json!({ "grounded": { "from": world_id, "to": memory_id } })),
-                    Err(e) => Err(e.to_string()),
-                },
-                Err(e) => Err(e.to_string()),
-            }
+            let wired = crate::brain::world::ground(index, world_id, memory_id);
+            saved(
+                store,
+                index,
+                wired,
+                |()| json!({ "grounded": { "from": world_id, "to": memory_id } }),
+            )
         }
         "brain.daydreams" => {
             // surfaced only to callers cleared for the insight's full taint
@@ -317,6 +320,19 @@ fn handle_tool_call(
             }),
         ),
     }
+}
+
+/// Persist the mutated index, then shape the tool result — every mutating
+/// tool (`remember`, `world_search`, `ground`) ends with this step.
+fn saved<T>(
+    store: &Store,
+    index: &BrainIndex,
+    result: anyhow::Result<T>,
+    to_json: impl FnOnce(T) -> Value,
+) -> Result<Value, String> {
+    let value = result.map_err(|e| e.to_string())?;
+    store.save_index(index).map_err(|e| e.to_string())?;
+    Ok(to_json(value))
 }
 
 fn parse_view(args: &Value) -> Option<View> {

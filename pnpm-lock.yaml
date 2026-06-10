@@ -88,9 +88,6 @@ importers:
       '@weaver/core':
         specifier: workspace:*
         version: link:../../packages/weaver/core
-      '@weaver/dom':
-        specifier: workspace:*
-        version: link:../../packages/weaver/dom
       '@weaver/react':
         specifier: workspace:*
         version: link:../../packages/weaver/react

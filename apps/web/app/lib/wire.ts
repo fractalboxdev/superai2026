@@ -64,3 +64,16 @@ export function decodeWire(data: string): WireMessage | null {
   const result = decodeJson(data);
   return result._tag === "Right" ? result.right : null;
 }
+
+const decodePresenceUnknown = Schema.decodeUnknownEither(PresenceState);
+
+/**
+ * Runtime-validated decode of a bare presence payload (BroadcastChannel
+ * frames carry presence outside a wire envelope); `null` if malformed.
+ */
+export function decodePresence(
+  data: unknown,
+): Schema.Schema.Type<typeof PresenceState> | null {
+  const result = decodePresenceUnknown(data);
+  return result._tag === "Right" ? result.right : null;
+}

@@ -53,6 +53,12 @@ impl View {
     pub fn id(&self) -> String {
         format!("{}/{}", self.source, self.view)
     }
+
+    /// The `world/public` pseudo-view (spec 02 §8): the floor of the taint
+    /// lattice — readable by every principal, never authority.
+    pub fn is_world_public(&self) -> bool {
+        self.source == "world" && self.view == "public"
+    }
 }
 
 /// A row-level predicate: `field IN [...]`. Empty list matches nothing.

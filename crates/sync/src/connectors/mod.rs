@@ -39,17 +39,25 @@ pub struct AclTag {
 
 impl AclTag {
     /// Merge two tags to the *max* requirement (taint propagation; never lower).
+    ///
+    /// `world/public` is the lattice floor, so the other side's view always
+    /// wins over it — regardless of argument order. When both views are
+    /// private the result keeps `self`'s view (a single tag cannot carry two
+    /// views); callers must ensure readers are cleared for both parents (the
+    /// daydream loop does, via its admissibility sampling).
     pub fn max(&self, other: &AclTag) -> AclTag {
+        let view = if self.view.is_world_public() {
+            other.view.clone()
+        } else {
+            self.view.clone()
+        };
         let mut fields = self.fields.clone();
         for f in &other.fields {
             if !fields.contains(f) {
                 fields.push(f.clone());
             }
         }
-        AclTag {
-            view: self.view.clone(),
-            fields,
-        }
+        AclTag { view, fields }
     }
 }
 
@@ -75,4 +83,28 @@ pub trait Connector {
     fn source_id(&self) -> &str;
     fn views(&self) -> Vec<ViewSchema>;
     fn pull(&self, since: &Cursor) -> anyhow::Result<Vec<RawEvent>>;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn tag(source: &str, view: &str, fields: &[&str]) -> AclTag {
+        AclTag {
+            view: View::new(source, view),
+            fields: fields.iter().map(|f| f.to_string()).collect(),
+        }
+    }
+
+    /// Taint must never sink to the public floor whichever side is `self` —
+    /// a `world/public` parent listed first must not relabel a private parent.
+    #[test]
+    fn max_is_order_independent_over_world_public() {
+        let private = tag("stripe", "finance_private", &["employee_salary"]);
+        let world = tag("world", "public", &[]);
+        for merged in [private.max(&world), world.max(&private)] {
+            assert_eq!(merged.view, private.view);
+            assert_eq!(merged.fields, private.fields);
+        }
+    }
 }

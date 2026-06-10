@@ -90,7 +90,13 @@ fn op_from_str(s: &str) -> Option<Operation> {
 /// Parse a ttl like `30s` / `15m` / `24h` / `7d` into a duration.
 pub fn parse_ttl(ttl: &str) -> Result<Duration, TokenError> {
     let ttl = ttl.trim();
-    let (num, unit) = ttl.split_at(ttl.len().saturating_sub(1));
+    // split on the last char's boundary — byte-offset split_at panics on
+    // multi-byte input, and the ttl comes from CLI args / AccessRequests
+    let (unit_at, _) = ttl
+        .char_indices()
+        .next_back()
+        .ok_or_else(|| TokenError::BadTtl(ttl.into()))?;
+    let (num, unit) = ttl.split_at(unit_at);
     let n: u64 = num.parse().map_err(|_| TokenError::BadTtl(ttl.into()))?;
     let secs = match unit {
         "s" => n,
@@ -224,7 +230,11 @@ pub fn sign(cap: &Capability, root_keys: &KeyPair) -> Result<Capability, TokenEr
     for (i, doc) in auth.docs.iter().enumerate() {
         let p = format!("doc{i}");
         params.insert(p.clone(), Term::Str(doc.clone()));
-        // docs grant read+write for the demo; attenuation can narrow later
+        // docs grant read+write unconditionally: the authority model has no
+        // per-doc op yet, and attenuation blocks cannot narrow cf_doc facts
+        // (verify_token reads them from the authority block only). A
+        // read-only relay grant needs a per-doc op in `AuthorityBlock::docs`
+        // plus a `check all` over cf_doc in `attenuation_block`.
         code.push_str(&format!("cf_doc({{{p}}}, \"read\");\n"));
         code.push_str(&format!("cf_doc({{{p}}}, \"write\");\n"));
     }

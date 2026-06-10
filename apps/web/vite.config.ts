@@ -21,6 +21,10 @@ export default defineConfig(({ command }) => ({
     // instead of externalizing them as-is. (The Weaver editor itself is only
     // ever mounted client-side; this just keeps the SSR module graph valid.)
     noExternal: [/^@superai2026\//, /^@weaver\//],
+    // loro-crdt's node entry instantiates WASM synchronously at module eval —
+    // keep it external so bundling @weaver/* can never pull that into SSR
+    // init; it is only ever reached via the client-side dynamic imports.
+    external: ["loro-crdt"],
   },
   optimizeDeps: {
     // loro-crdt is WASM-backed; serve it as-is in dev instead of prebundling

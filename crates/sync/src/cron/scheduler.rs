@@ -101,8 +101,18 @@ pub async fn run() -> Result<()> {
                     {
                         last_fired.insert(s.job.clone(), minute.clone());
                         tracing::info!(job = %s.job, "cron firing");
-                        if let Err(e) = run_job(&s.job) {
-                            tracing::error!(job = %s.job, error = %e, "scheduled job failed");
+                        // jobs do blocking I/O (ureq pulls with 20s timeouts) —
+                        // keep them off the async worker threads
+                        let job = s.job.clone();
+                        let done = tokio::task::spawn_blocking(move || run_job(&job)).await;
+                        match done {
+                            Ok(Err(e)) => {
+                                tracing::error!(job = %s.job, error = %e, "scheduled job failed");
+                            }
+                            Err(e) => {
+                                tracing::error!(job = %s.job, error = %e, "scheduled job panicked");
+                            }
+                            Ok(Ok(())) => {}
                         }
                     }
                 }

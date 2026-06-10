@@ -37,22 +37,26 @@ fn cap_path(config: &Config, principal: &str) -> PathBuf {
 /// (per-field Datalog runs). The returned capability is clamped to that
 /// verified scope — editing the JSON mirror can never widen access.
 pub fn load_capability(config: &Config, principal: &str) -> Option<Capability> {
-    let path = cap_path(config, principal);
-    let text = std::fs::read_to_string(path).ok()?;
-    let stored: Capability = serde_json::from_str(&text).ok()?;
-    match verify_stored(config, &stored, principal) {
-        Ok(cap) => Some(cap),
-        Err(e) => {
-            tracing::warn!(%principal, error = %e, "capability failed verification");
-            #[cfg(test)]
-            eprintln!("capability verification failed for {principal}: {e:#}");
-            None
-        }
+    let stored = read_stored(config, principal)?;
+    let scope = verified_scope_logged(config, &stored, principal)?;
+    // fail closed on token-level (Biscuit revocation-id) revocation too — the
+    // name list and the id list are written together by `revoke`, but loads
+    // must not depend on that staying true
+    if is_token_revoked(config, &scope.revocation_ids) {
+        tracing::warn!(%principal, "capability token is revoked");
+        return None;
     }
+    Some(clamp_to_scope(&stored, scope))
 }
 
-/// Verify a stored capability and clamp it to its token-derived scope.
-fn verify_stored(config: &Config, stored: &Capability, principal: &str) -> Result<Capability> {
+/// Read a principal's stored capability mirror (unverified).
+fn read_stored(config: &Config, principal: &str) -> Option<Capability> {
+    let text = std::fs::read_to_string(cap_path(config, principal)).ok()?;
+    serde_json::from_str(&text).ok()
+}
+
+/// Verify a stored capability, deriving its scope from the token alone.
+fn verify_stored(config: &Config, stored: &Capability, principal: &str) -> Result<VerifiedScope> {
     let root_id = match stored.blocks.first() {
         Some(Block::Authority(a)) => a.root.clone(),
         _ => anyhow::bail!("no authority block"),
@@ -68,8 +72,24 @@ fn verify_stored(config: &Config, stored: &Capability, principal: &str) -> Resul
         .as_deref()
         .ok_or_else(|| anyhow::anyhow!("root '{root_id}' has no registered public key"))?;
     let root_pub = keys::public_key_from_hex(pub_hex)?;
-    let scope = verify_capability(stored, &root_pub, principal).map_err(anyhow::Error::from)?;
-    Ok(clamp_to_scope(stored, scope))
+    verify_capability(stored, &root_pub, principal).map_err(anyhow::Error::from)
+}
+
+/// [`verify_stored`], logging (never propagating) verification failures.
+fn verified_scope_logged(
+    config: &Config,
+    stored: &Capability,
+    principal: &str,
+) -> Option<VerifiedScope> {
+    match verify_stored(config, stored, principal) {
+        Ok(scope) => Some(scope),
+        Err(e) => {
+            tracing::warn!(%principal, error = %e, "capability failed verification");
+            #[cfg(test)]
+            eprintln!("capability verification failed for {principal}: {e:#}");
+            None
+        }
+    }
 }
 
 /// Rebuild a capability whose JSON mirror is exactly the verified scope.
@@ -98,23 +118,8 @@ fn clamp_to_scope(stored: &Capability, scope: VerifiedScope) -> Capability {
 /// Load + verify a capability, returning the token-derived scope (for callers
 /// that need doc rights or revocation ids, e.g. the sync relay).
 pub fn load_verified_scope(config: &Config, principal: &str) -> Option<VerifiedScope> {
-    let path = cap_path(config, principal);
-    let text = std::fs::read_to_string(path).ok()?;
-    let stored: Capability = serde_json::from_str(&text).ok()?;
-    let root_id = match stored.blocks.first() {
-        Some(Block::Authority(a)) => a.root.clone(),
-        _ => return None,
-    };
-    let reg = registry::Registry::load(config).ok()?;
-    let root = reg.roots.iter().find(|r| r.id == root_id)?;
-    let root_pub = keys::public_key_from_hex(root.public_key.as_deref()?).ok()?;
-    match verify_capability(&stored, &root_pub, principal) {
-        Ok(scope) => Some(scope),
-        Err(e) => {
-            tracing::warn!(%principal, error = %e, "capability failed verification");
-            None
-        }
-    }
+    let stored = read_stored(config, principal)?;
+    verified_scope_logged(config, &stored, principal)
 }
 
 /// Persist a principal's capability token under `caps/` (audit/revocation).
@@ -132,26 +137,17 @@ pub fn save_capability(config: &Config, cap: &Capability) -> Result<()> {
 pub fn revoke(config: &Config, principal: &str) -> Result<()> {
     config.ensure_dirs()?;
     let path = config.caps_dir().join("revoked.json");
-    let mut list: Vec<String> = std::fs::read_to_string(&path)
-        .ok()
-        .and_then(|t| serde_json::from_str(&t).ok())
-        .unwrap_or_default();
+    let mut list = read_string_list(&path);
     if !list.iter().any(|p| p == principal) {
         list.push(principal.to_string());
     }
     std::fs::write(path, serde_json::to_string_pretty(&list)?)?;
 
     // biscuit revocation ids (one per block) — token-level revocation
-    let stored: Option<Capability> = std::fs::read_to_string(cap_path(config, principal))
-        .ok()
-        .and_then(|t| serde_json::from_str(&t).ok());
-    if let Some(token) = stored.and_then(|c| c.token) {
+    if let Some(token) = read_stored(config, principal).and_then(|c| c.token) {
         if let Ok(ub) = biscuit_auth::UnverifiedBiscuit::from_base64(&token) {
             let ids_path = config.caps_dir().join("revoked_ids.json");
-            let mut ids: Vec<String> = std::fs::read_to_string(&ids_path)
-                .ok()
-                .and_then(|t| serde_json::from_str(&t).ok())
-                .unwrap_or_default();
+            let mut ids = read_string_list(&ids_path);
             for id in ub.revocation_identifiers() {
                 let id = hex::encode(id);
                 if !ids.contains(&id) {
@@ -164,25 +160,24 @@ pub fn revoke(config: &Config, principal: &str) -> Result<()> {
     Ok(())
 }
 
+/// Read a JSON string-list file; absent or unparseable means empty.
+fn read_string_list(path: &std::path::Path) -> Vec<String> {
+    std::fs::read_to_string(path)
+        .ok()
+        .and_then(|t| serde_json::from_str(&t).ok())
+        .unwrap_or_default()
+}
+
 /// Is any of a verified token's revocation ids on the revocation list?
 pub fn is_token_revoked(config: &Config, revocation_ids: &[String]) -> bool {
-    let path = config.caps_dir().join("revoked_ids.json");
-    let Some(ids) = std::fs::read_to_string(path)
-        .ok()
-        .and_then(|t| serde_json::from_str::<Vec<String>>(&t).ok())
-    else {
-        return false;
-    };
+    let ids = read_string_list(&config.caps_dir().join("revoked_ids.json"));
     revocation_ids.iter().any(|id| ids.contains(id))
 }
 
 pub fn is_revoked(config: &Config, principal: &str) -> bool {
-    let path = config.caps_dir().join("revoked.json");
-    std::fs::read_to_string(path)
-        .ok()
-        .and_then(|t| serde_json::from_str::<Vec<String>>(&t).ok())
-        .map(|list| list.iter().any(|p| p == principal))
-        .unwrap_or(false)
+    read_string_list(&config.caps_dir().join("revoked.json"))
+        .iter()
+        .any(|p| p == principal)
 }
 
 /// Seed the demo control plane: principals, root catalog (with real ed25519

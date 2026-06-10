@@ -12,11 +12,10 @@ use crate::access::biscuit::{authorize, effective_capability, row_allowed};
 use crate::access::{
     AuthDecision, Capability, DenyReason, Operation, QueryRequest, RowScope, View,
 };
-use crate::brain::markdown::{render_card, slug, CardMeta};
+use crate::brain::markdown::slug;
 use crate::brain::{BrainIndex, Memory, MemoryKind};
 use crate::connectors::AclTag;
 use crate::store::Store;
-use chrono::Utc;
 
 #[derive(Debug, Serialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
@@ -270,28 +269,22 @@ pub fn remember(
     doc: &str,
     read_acl: AclTag,
 ) -> anyhow::Result<String> {
-    let meta = CardMeta {
-        topic: doc,
-        kind: "wiki",
-        period: None,
-        confidence: 0.6,
-        acl_tag: &read_acl,
-    };
     let slug_name = slug(&format!("note-{}", &uuid::Uuid::new_v4().to_string()[..8]));
-    let path = store.write_card(doc, &slug_name, &render_card(&meta, "Agent note", fact))?;
-    let id = uuid::Uuid::new_v4().to_string();
-    index.memories.push(Memory {
-        id: id.clone(),
-        kind: MemoryKind::Wiki,
-        topic: doc.to_string(),
-        path: path.display().to_string(),
-        acl_tag: read_acl,
-        confidence: 0.6,
-        period: None,
-        supersedes: None,
-        created_at: Utc::now().to_rfc3339(),
-    });
-    Ok(id)
+    let memory = crate::brain::write_memory(
+        store,
+        index,
+        crate::brain::CardWrite {
+            kind: MemoryKind::Wiki,
+            topic: doc,
+            index_topic: None,
+            slug: &slug_name,
+            title: "Agent note",
+            body: fact,
+            confidence: 0.6,
+            acl_tag: read_acl,
+        },
+    )?;
+    Ok(memory.id)
 }
 
 /// Public card-readability check (used by the daydream loop's admissibility
@@ -304,7 +297,7 @@ pub fn card_readable(cap: &Capability, tag: &AclTag) -> bool {
 /// World cards (`world/public`) are default-readable by every principal —
 /// public, cited knowledge is never authority (spec 02 §8).
 fn card_authorized(cap: &Capability, tag: &AclTag) -> bool {
-    if tag.view.id() == "world/public" {
+    if tag.view.is_world_public() {
         return true;
     }
     matches!(
