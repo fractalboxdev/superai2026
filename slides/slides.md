@@ -306,6 +306,24 @@ say "the open web", not "Exa".
 -->
 
 ---
+layout: center
+class: text-center
+---
+
+# One toggle to feed the brain
+
+<img :src="'/connectors-switch-on.gif?v=1'" class="mx-auto mt-4 rounded-lg shadow-lg max-h-90" alt="Connectors page — switching a data source on with one toggle" />
+
+<p class="mt-4 text-lg opacity-80">It starts ingesting into local views — <b>nothing leaves the machine</b>.</p>
+
+<!--
+PRODUCT UI (follows "Connectors ingesting from your services").
+Connectors page: Stripe + Exa already connected; flipping GitHub on is one toggle.
+Raw payloads never leave the host; secrets scrubbed before indexing; each source only
+surfaces through its capability views.
+-->
+
+---
 
 # Growing Brain. Locally
 
@@ -386,6 +404,23 @@ every agent gets its own lane."
 Source: landing "Why Contextful — Context, with consent" feature cards + the CTA line
 ("Give every agent its own lane."). Art: apps/landing feature-*.png, halftone-teal comic
 set. Click through the four cards, land on the lane line.
+-->
+
+---
+layout: center
+class: text-center
+---
+
+# Access control starts in the directory
+
+<img :src="'/company-directory.gif?v=1'" class="mx-auto mt-4 rounded-lg shadow-lg max-h-90" alt="Company directory — every person and agent and what their capability token grants" />
+
+<p class="mt-4 text-lg opacity-80">Every person and agent — and what their capability token <b>actually grants</b>.</p>
+
+<!--
+PRODUCT UI (follows "Context, with consent"). The directory is where boundaries live: each person/agent listed with
+the exact scope their capability token grants. This is the static proof behind the live
+demo's salary denial — policy is inspectable, not vibes.
 -->
 
 ---
@@ -631,3 +666,4 @@ releases bucket (contextful-releases, us-west-2) so the deck stays light and the
 hosted deck streams it. Source recording:
 demos/recordings/story-2026-06-10T15-11-31.mp4 (3super worktree).
 -->
+
