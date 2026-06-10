@@ -18,6 +18,18 @@ The on-host backend is implemented and tested. Cloud edges (Bedrock, Vercel Sand
 Exa HTTP, real Biscuit-WASM, Pulumi `apply`) are interface-complete and feature-gated
 off, so the default build runs fully offline.
 
+## Built on
+
+- [Weaver](https://github.com/OpenHackersClub/weaver) — open-source local-first CRDT
+  editor by the repository author [@debuggingfuture](https://github.com/debuggingfuture);
+  powers the collaborative document editing in `apps/web`.
+- [Loro](https://loro.dev) — the CRDT engine underneath: every document is a live
+  `loro-crdt` room, synced through the Rust relay (`sync serve`).
+- [Biscuit](https://www.biscuitsec.org) — attenuable capability tokens behind the
+  scoped-grant model (real Biscuit-WASM is feature-gated; an offline mirror runs by default).
+- [Model Context Protocol](https://modelcontextprotocol.io) — the brain is exposed to
+  agents over MCP (JSON-RPC stdio via `sync mcp`).
+
 ## Prerequisites
 
 - Node ≥ 22.13 and [pnpm](https://pnpm.io) 11
