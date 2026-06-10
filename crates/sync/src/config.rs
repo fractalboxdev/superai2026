@@ -98,6 +98,10 @@ impl Config {
     pub fn db_path(&self) -> PathBuf {
         self.root.join("brain.db")
     }
+    /// Append-only JSONL audit trail (spec 03 §7).
+    pub fn audit_path(&self) -> PathBuf {
+        self.root.join("audit.jsonl")
+    }
     /// Legacy JSON index location — migrated into [`Self::db_path`] on load.
     pub fn index_path(&self) -> PathBuf {
         self.root.join("brain.index.json")
