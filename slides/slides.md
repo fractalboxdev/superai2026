@@ -49,41 +49,13 @@ class: text-center
   <p>Your browser can't play this video. <a href="/assets/contextful_sv_demo.mp4">Download the demo film</a>.</p>
 </SlidevVideo>
 
+<p class="mt-4 text-sm opacity-60"><a href="/assets/contextful_sv_demo.mp4" target="_blank">/assets/contextful_sv_demo.mp4</a></p>
+
 <!--
 🎤 DEMO FILM (~27s) — the whole story in one sting.
 Let it play; no narration over it. The film is the cold open's punchline in motion:
 the all-knowing agent brags, leaks, and acts — then Contextful scopes it.
 Plays automatically when this slide becomes active (SlidevVideo), with controls as backup.
--->
-
----
-layout: center
-class: text-center
----
-
-# How do you share the company brain — with everyone, and their agents?
-
-<v-clicks>
-
-<p class="text-2xl mt-10">Too <b>little context</b> → <span class="opacity-60">useless</span></p>
-
-<p class="text-2xl">Too <b>much access</b> → <span class="opacity-60">dangerous</span></p>
-
-</v-clicks>
-
-<p v-click class="mt-10 font-bold text-2xl">Today you're forced to pick one.</p>
-
-<!--
-🎤 SAY (placeholder — edit me):
-"So here's the real question: how do you share the company brain — with everyone on the
-team, and with their agents? Give an agent too little context and it's useless — it can't
-answer anything that matters. Give it too much access and it's dangerous — that's the
-salary leak you just watched. Today, those are your only two settings. You're forced to
-pick one."
-
-Source: Act 1 · Beat 4 — the dilemma slide (PRESENTATION.md table row 2). This frames
-the rest of the talk: the three bad options on the next slide are just the three ways
-companies cope with this forced choice.
 -->
 
 ---
@@ -123,84 +95,6 @@ recognize themselves; the ask slide pays this off later.
 
 ---
 
-# Context for collaboration matters
-
-<div class="mr-44 mt-8">
-
-> **Richard (CEO):** "Let's improve AI optimization spending for 2026 Q3."
->
-> **Jared (COO):** "We can't just cut cost — we're growing. We need to check unit economics: cost per compression ($/KB) at the client."
-
-</div>
-
-<div class="cast cast--side">
-  <figure><img :src="'/cast/richard.webp'" alt="Richard (CEO)" /><figcaption><b>Richard</b>CEO</figcaption></figure>
-  <figure><img :src="'/cast/monica.webp'" alt="Monica (CFO)" /><figcaption><b>Monica</b>CFO</figcaption></figure>
-  <figure><img :src="'/cast/dinesh.webp'" alt="Dinesh (CTO)" /><figcaption><b>Dinesh</b>CTO</figcaption></figure>
-  <p class="cast-caption">Dinesh is trying…</p>
-</div>
-
-<!--
-🎤 SAY (placeholder — edit me):
-"Context for collaboration matters. The CEO writes in the shared doc — let's improve AI
-optimization spending for 2026 Q3. The COO adds the nuance: we're growing, we need unit
-economics — what does a compressed kilobyte actually cost us at the client? Simple
-question, and nobody can answer it alone: engineering knows what the tools are worth but
-not what they cost; finance holds the credits and the discount tier and can't share them
-with the room."
-
-Source: Act 2. Keep it jargon-free on stage; the $/KB line is the COO's own words.
--->
-
----
-
-<div class="screenshot-slot mt-2">
-  <img :src="'/assets/q3-spend-review.png'" alt="The Q3 AI Spend Review shared doc — on-prem · tailnet and salary · redacted badges, Richard (CEO)'s 2026 Q3 ask, Jared (COO)'s $/KB nuance, and Monica's agent denied on the CEO-salary question (no_grant)" style="max-height: 28rem" />
-</div>
-
-<div v-click class="overlay-line">
-  <span>Agents need context but <b>only what is necessary</b></span>
-</div>
-
-<!--
-🎤 SAY (placeholder — edit me):
-"The obvious fix is one AI that knows everything — but that's the world where an engineer
-can query everyone's salary. The thing that would answer the question is exactly the
-thing you can't allow to exist."
-
-SCREENSHOT: the Q3 AI Spend Review shared-doc capture
-(slides/public/assets/q3-spend-review.png). Badges: on-prem · tailnet, salary · redacted.
-Bottom of the doc: someone asked Monica's analyst agent for the CEO's salary —
-Denied · no_grant, the token carries no grant for that view. That denial is the money
-shot — let it land before moving on.
--->
-
----
-layout: center
-class: text-center
----
-
-# 💻 The CTO's laptop
-
-<img :src="'/cast/dinesh.webp'" alt="Dinesh (CTO)" class="w-44 h-44 rounded-full object-cover mx-auto mt-8" />
-
-<p class="mt-4 text-xl"><b>Dinesh</b> — CTO</p>
-
-<p v-click class="mt-6 text-xl opacity-80">Same room. Same doc. Same question.</p>
-
-<!--
-🎤 SAY (placeholder — edit me):
-"Now I switch laptops. This one is Dinesh's — the CTO. Same room, same shared doc.
-I type the exact same question Monica just asked… and watch what happens."
-
-Stage marker for the laptop switch (demo beat 3), parked here right after the shared-doc
-slide — 'Dinesh is trying…' pays off on his machine. Show this slide while picking up
-the second laptop so the room knows whose machine is on screen; the denial lands in the
-live product, not on the slide.
--->
-
----
-
 # We let agent run a company for our demo
 
 "Pied Pipers" - Compression-as-a-Service SaaS with 100+ employees
@@ -231,6 +125,103 @@ Source: Act 3 demo beat 1 (the context pan) + production notes "Demo data — th
 company". Stripe events are mock data seeded from a Kaggle dataset; Slack chatter is
 generated; agents keep the simulation alive. Realistic surfaces without exposing anything
 real — and it makes the later answers falsifiable rather than canned.
+-->
+
+---
+
+# Context for collaboration matters
+
+<div class="screenshot-slot screenshot-slot--beside-cast mt-2">
+  <img :src="'/assets/q3-spend-review-quotes.png'" alt="The Q3 AI Spend Review shared doc — shared with 5 + 3 agents, Live; Richard (CEO): 'Let's improve AI optimization spending for 2026 Q3.' Jared (COO): 'We need to dive deep on Unit economics — cost per compression ($/KB) at the client.'" style="max-height: 22rem" />
+</div>
+
+<div class="cast cast--side">
+  <figure><img :src="'/cast/richard.webp'" alt="Richard (CEO)" /><figcaption><b>Richard</b>CEO</figcaption></figure>
+  <figure><img :src="'/cast/monica.webp'" alt="Monica (CFO)" /><figcaption><b>Monica</b>CFO</figcaption></figure>
+  <figure><img :src="'/cast/dinesh.webp'" alt="Dinesh (CTO)" /><figcaption><b>Dinesh</b>CTO</figcaption></figure>
+  <p class="cast-caption">Dinesh is trying…</p>
+</div>
+
+<!--
+🎤 SAY (placeholder — edit me):
+"Context for collaboration matters. The CEO writes in the shared doc — let's improve AI
+optimization spending for 2026 Q3. The COO adds the nuance: we're growing, we need unit
+economics — what does a compressed kilobyte actually cost us at the client? Simple
+question, and nobody can answer it alone: engineering knows what the tools are worth but
+not what they cost; finance holds the credits and the discount tier and can't share them
+with the room."
+
+Source: Act 2. Keep it jargon-free on stage; the $/KB line is the COO's own words.
+-->
+
+---
+layout: center
+class: text-center
+---
+
+# 💻 The CTO's laptop
+
+<img :src="'/cast/dinesh.webp'" alt="Dinesh (CTO)" class="w-44 h-44 rounded-full object-cover mx-auto mt-8" />
+
+<p class="mt-4 text-xl"><b>Dinesh</b> — CTO</p>
+
+
+<!--
+🎤 SAY (placeholder — edit me):
+"Now I switch laptops. This one is Dinesh's — the CTO. Same room, same shared doc.
+I type the exact same question Monica just asked… and watch what happens."
+
+Stage marker for the laptop switch (demo beat 3), parked here right after the shared-doc
+slide — 'Dinesh is trying…' pays off on his machine. Show this slide while picking up
+the second laptop so the room knows whose machine is on screen; the denial lands in the
+live product, not on the slide.
+-->
+
+---
+
+<div class="screenshot-slot mt-2">
+  <img :src="'/assets/q3-spend-review.png'" alt="The Q3 AI Spend Review shared doc — on-prem · tailnet and salary · redacted badges, Richard (CEO)'s 2026 Q3 ask, Jared (COO)'s $/KB nuance, and Monica's agent denied on the CEO-salary question (no_grant)" style="max-height: 28rem" />
+</div>
+
+<div v-click class="overlay-line">
+  <span>Agents need context but <b>only what is necessary</b></span>
+</div>
+
+<!--
+🎤 SAY (placeholder — edit me):
+"The obvious fix is one AI that knows everything — but that's the world where an engineer
+can query everyone's salary. The thing that would answer the question is exactly the
+thing you can't allow to exist."
+
+SCREENSHOT: the Q3 AI Spend Review shared-doc capture
+(slides/public/assets/q3-spend-review.png). Badges: on-prem · tailnet, salary · redacted.
+Bottom of the doc: someone asked Monica's analyst agent for the CEO's salary —
+Denied · no_grant, the token carries no grant for that view. That denial is the money
+shot — let it land before moving on.
+-->
+
+---
+layout: center
+class: text-center
+---
+
+# 🖥️ The CFO's on-prem — Mac Studio
+
+<img :src="'/cast/monica.webp'" alt="Monica (CFO)" class="w-44 h-44 rounded-full object-cover mx-auto mt-8" />
+
+<p class="mt-4 text-xl"><b>Monica</b> — CFO</p>
+
+<p v-click class="mt-6 text-xl opacity-80">The host: her brain, on a machine we own.</p>
+
+<!--
+🎤 SAY (placeholder — edit me):
+"First machine: the Mac Studio — this is Monica's, the CFO. It's the host: her brain
+lives here as readable Markdown files, and she's been ingesting Stripe into it for
+months. She types her question live, and her agent answers from those files."
+
+Stage marker for the on-prem host (demo beats 1–2). Show while at the Mac Studio:
+ls ~/.contextful (filesystem proof), then Monica's live typed query answered from the
+cards. The local model on this box is what's answering — say so.
 -->
 
 ---
@@ -360,30 +351,6 @@ layout: center
 class: text-center
 ---
 
-# 🖥️ The CFO's on-prem — Mac Studio
-
-<img :src="'/cast/monica.webp'" alt="Monica (CFO)" class="w-44 h-44 rounded-full object-cover mx-auto mt-8" />
-
-<p class="mt-4 text-xl"><b>Monica</b> — CFO</p>
-
-<p v-click class="mt-6 text-xl opacity-80">The host: her brain, on a machine we own.</p>
-
-<!--
-🎤 SAY (placeholder — edit me):
-"First machine: the Mac Studio — this is Monica's, the CFO. It's the host: her brain
-lives here as readable Markdown files, and she's been ingesting Stripe into it for
-months. She types her question live, and her agent answers from those files."
-
-Stage marker for the on-prem host (demo beats 1–2). Show while at the Mac Studio:
-ls ~/.contextful (filesystem proof), then Monica's live typed query answered from the
-cards. The local model on this box is what's answering — say so.
--->
-
----
-layout: center
-class: text-center
----
-
 # Connectors ingesting from your services
 
 Brings your stack into one capability-scoped brain.
@@ -392,7 +359,7 @@ Brings your stack into one capability-scoped brain.
   <figure><img :src="'/logos/notion.svg'" alt="Notion" /><span class="label">Notion</span></figure>
   <figure><img :src="'/logos/slack.svg'" alt="Slack" /><span class="label">Slack</span></figure>
   <figure><img :src="'/logos/stripe.svg'" alt="Stripe" /><span class="label">Stripe</span></figure>
-  <figure><span class="connector-chip">Exa</span><span class="label">web research</span></figure>
+  <figure><img :src="'/logos/exa.svg'" alt="Exa" /><span class="label">web research</span></figure>
 </div>
 
 <!--
@@ -575,7 +542,7 @@ layout: two-cols
 </div>
 
 Same binary, same policy engine — deployment is a choice, not an architecture change.
-All nodes joined over a **Tailscale zero-trust network** — your network, not the public internet.
+All nodes joined over a **Tailscale zero-trust network**
 
 <v-clicks>
 
@@ -629,27 +596,6 @@ SAMPLE TOPOLOGY: server nodes run `sync serve` (relay + connectors; AWS box and/
 Studio over Tailscale), employee laptops run the menu-bar client.
 -->
 
----
-layout: center
-class: text-center
----
-
-# The ask
-
-<p class="text-2xl mt-8">We're looking for <b>design partners</b>.</p>
-
-<p v-click class="mt-6 text-xl opacity-80">Companies that already <b>blocked AI</b> — and want the upside back.</p>
-
-<!--
-🎤 SAY (placeholder — edit me):
-"Here's what we want. We're looking for design partners — companies that already blocked
-AI because they couldn't trust it with their context, and want the upside back. If that's
-you — or someone you advise — come talk to me."
-
-Source: Act 4 close (PRESENTATION.md table row 12). PLACEHOLDER: replace with the real
-ask once decided — the table row itself says so. This pays off the "Block AI usage?"
-hand-raise from the Do you… slide.
--->
 
 ---
 layout: center
@@ -681,11 +627,11 @@ layout: two-cols
 class: self-center fractalbox
 ---
 
-# I've seen this at many companies
+# I've seen this at many companies.
 
-**👋 I'm Vincent** — fractional CTO / CISO to startups.
+**👋 I'm Vincent** — Fractional CTO / CISO to startups.
 
-<p v-click class="mt-6 text-xl">In order to address this, I built <b>Contextful</b>.</p>
+Let's solve it. Be Contextful.
 
 ::right::
 
