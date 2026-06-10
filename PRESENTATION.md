@@ -113,9 +113,10 @@ no one is allowed to hold all of them:
   CFO.
 
 **The trap:** The "obvious" fix is a single company context store — a SuperAgent —
-where anyone can ask anything. But that's the world where an **engineer can query
-everyone's salary.** The thing that would answer the question is the thing you can't
-allow to exist.
+where anyone can ask anything. But **this is not how organizations work** — organizations
+run on need-to-know boundaries. That single store is the world where an **engineer can
+query everyone's salary.** The thing that would answer the question is the thing you
+can't allow to exist.
 
 ```mermaid
 flowchart TD
@@ -132,10 +133,14 @@ flowchart TD
 
 ## Act 3 — The Solution (the live demo)
 
-**Contextful** is a **company brain with a boundary at every person.** Each member's
-agent holds only *their* context. When an answer needs something across a boundary, the
-request is **routed to the owner's agent, approved, and scoped** — the data crosses the
-line for *that question only*. Everything runs **on the company's own machines.**
+Take a step back: **do you trust ingesting all your company data into someone's
+cloud?** That's what every "company brain" on the market asks you to do.
+
+**Contextful** is a **local-first collaboration workspace for your agents** — your
+data, your rules — with a **boundary at every person.** Each member's agent holds only
+*their* context. When an answer needs something across a boundary, the request is
+**routed to the owner's agent, approved, and scoped** — the data crosses the line for
+*that question only*. Everything runs **on the company's own machines.**
 
 > The whole demo happens inside **one shared Contextful document** — think a meeting
 > room where each person has an agent at the table.
@@ -357,7 +362,7 @@ sync from this table by the **`slidev-deck`** skill → `slides/slides.md`.
 | 1 | **Hook** | "Workspace for Your agents. Your data. Your rules." Cold open: CEO brags → an intern asks the CEO's salary → it answers → *slap*: "why'd you give it all the access?" | Act 1 (one continuous ~12s gag; drop the Nucleus bit) | No |
 | 2 | **The problem** | Too little context → useless. Too much access → dangerous. Today you're forced to pick one. | Act 1 · Beat 4 | No |
 | 3 | **The scenario & the trap** | 50 people, 7 tools, one question — *"is the spend worth it?"* Nobody can answer alone, and the obvious fix (one all-knowing AI) is the one you can't allow. | Act 2 | No |
-| 4 | **Contextful** | A boundary at every person. The brain gets smarter as it gets more careful. | Act 3 intro | No |
+| 4 | **Contextful** | Local-first collaboration workspaces for your agents. **Your data. Your rules.** The brain gets smarter as it gets more careful. (Spoken open: "do you trust ingesting all your company data into someone's cloud?") | Act 3 intro | No |
 | 5 | **Live demo** | The question → a scoped request → a data-scientist agent aggregates product performance on request → approved at the boundary → a sourced answer assembles. **And the engineer still can't see salaries** — the money shot. | Act 3 · Beats 1–7 (anomaly demoted to a one-line flourish) | No |
 | 6 | **How it works** 🔧 | Scoped agents; a **deterministic policy engine** decides the boundary (the agent only *drafts* the request); auto-mode escalates to a human only on a policy breach. | Act 3 architecture | **Technical 1/3** |
 | 7 | **Where it runs** 🔧 | On-prem over Tailscale; Mission Control + guardrails; control plane; the brain grows (learns baselines, flags anomalies); agents research the open web (Exa) — outbound, policy-gated, cited. | Act 3 architecture | **Technical 2/3** |
