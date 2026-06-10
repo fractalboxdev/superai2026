@@ -89,6 +89,15 @@ export const arts = [
       "Real-time collaboration: one shared document card edited simultaneously by two human pointer cursors and one small robot cursor, with live presence dots in indigo, sky and amber. Peers, not hierarchy.",
   },
   {
+    id: "layers",
+    alt: "An isometric stack of three layers: collaborating cursors on a document on top, a key and keyhole gate filtering the flow in the middle, and a glowing memory brain of connected cards at the base, joined by a vertical flow",
+    aspectRatio: "3:2",
+    width: 1248,
+    height: 832,
+    prompt:
+      "An isometric exploded stack of three floating rounded platform layers, vertically aligned and connected by a thin glowing indigo thread passing through all three. Top layer (collaboration): a shared document card edited by two human pointer cursors and one small robot cursor with presence dots in indigo, sky and amber. Middle layer (access control): a large indigo key beside a gate with a keyhole through which only a narrow permitted slice of the flowing thread passes, one small amber padlock locked shut. Bottom layer (memory): a softly glowing brain made of small connected document cards and nodes growing from stacked source blocks, one amber node flagged. Clear vertical hierarchy, each layer distinct yet linked.",
+  },
+  {
     id: "how-banner",
     alt: "Three connected scenes: sharing a document, handing over a scoped key, asking the brain a question",
     aspectRatio: "16:9",

@@ -1,6 +1,6 @@
 ---
 theme: default
-title: Contextful — the company brain you don't have to be afraid of
+title: Contextful — workspace with your agents. Your data. Your rules.
 class: text-center
 transition: slide-left
 mdc: true
@@ -8,17 +8,65 @@ mdc: true
 
 # Contextful
 
-## The company brain you don't have to be afraid of
+## Workspace with your agents. Your data. Your rules.
 
 It knows everything — and lets no one ask everything.
 
 <!--
+🎤 SAY (placeholder — edit me):
+"Last quarter, a CEO stood up at an all-hands and said: we built one AI that knows
+everything about the company. The room applauded. Then an intern typed: 'what's the
+CEO's salary?' — and it answered. This talk is about getting the brain without the leak."
+
 COLD OPEN (~12s, one continuous gag — keep it to a single beat):
 CEO: "Last quarter we gave every employee one AI that knows everything about the company."
 [beat] An intern types: "What's the CEO's salary?" → it answers.
 SLAP (Batman meme): "Why did you give it ALL the access?"
 That slap is the whole talk in one frame: all context in one place = all access in one place.
 -->
+
+---
+layout: image
+image: /assets/001.png
+backgroundSize: contain
+---
+
+<!--
+🎤 COLD OPEN · frame 1 — the brag.
+Launch party. The CEO announces: "Today, we've fully integrated all our context into
+the AGENT!" Banner says "context is king". Everyone applauds. Let the frame breathe —
+no narration needed beyond reading the bubble in a CEO voice.
+-->
+
+---
+layout: image
+image: /assets/002.png
+backgroundSize: contain
+---
+
+<!--
+🎤 COLD OPEN · frame 2 — the innocent ask.
+An engineer asks the all-knowing agent a perfectly reasonable question: "Agent, how can
+we optimize our cloud cost?" The agent eagerly offers $12,180.47 of monthly savings.
+Looks great. What could go wrong.
+-->
+
+---
+layout: image
+image: /assets/003-004-merged.png
+backgroundSize: contain
+---
+
+<!--
+🎤 COLD OPEN · frame 3 — the agent knows too much, and acts on everything.
+One panel, two beats. The dashboard spikes and the agent volunteers: "API costs SPIKED,
+and Mercury can't pay — cash ran out after yesterday's CEO Lamborghini buy." It just
+leaked the CEO's spending to the whole room — because it could see everything. Then it
+acts: "To ensure we have enough to pay the bill, shutting down the CLOUD and our
+building power NOW." Lights out, mid-party. All context + all access = it can say
+anything AND do anything. [beat → slap] "Why did you give it ALL the access?"
+-->
+
 
 ---
 layout: center
@@ -29,42 +77,58 @@ class: text-center
 
 <v-clicks>
 
-🧠 &nbsp; **Too little context** — the AI is *useless*. It can't answer the real question.
+🧠 &nbsp; **Too little context** — useless.
 
-🔓 &nbsp; **Too much access** — the AI is *dangerous*. Anyone can ask anything — including the CEO's salary.
+🔓 &nbsp; **Too much access** — dangerous.
 
 </v-clicks>
 
 <p v-click class="mt-10 text-xl opacity-80">Today you're forced to pick one.</p>
 
 <!--
-Useless OR dangerous. Every "company brain" today sits on one side of this line.
-Contextful refuses the trade-off — that's the promise the rest of the talk pays off.
+🎤 SAY (placeholder — edit me):
+"Every company AI today fails one of two ways. Give it too little context and it's
+useless — it can't answer anything that matters. Give it too much access and it's
+dangerous — anyone can ask anything, including that salary. Today you have to pick one.
+We don't think you should."
+
+Too little context: it can't answer the real question. Too much access: anyone can ask
+anything — including the CEO's salary. Useless OR dangerous — every "company brain" today
+sits on one side of this line. Contextful refuses the trade-off — that's the promise the
+rest of the talk pays off.
 -->
 
 ---
 
 # One question nobody can answer alone
 
-A 50-person company runs on Claude, Notion, Slack, Linear, AWS, Vercel, Stripe.
-
-The question on the table: **"Is all this AI and cloud spend actually worth it?"**
+50 people. 7 tools. **"Is the spend worth it?"**
 
 <v-clicks>
 
-- Engineering knows the **value** — not the real cost.
-- Finance sees the **bill** — not whether it's reasonable.
-- Only the CFO holds the deciding pieces — and won't expose them to everyone.
+- Engineering knows the **value** — not the cost.
+- Finance sees the **bill** — not the why.
+- The CFO holds the rest — and can't share it.
 
 </v-clicks>
 
-<p v-click class="mt-8 font-bold text-2xl">The obvious fix — one AI that knows everything — is the one you can't allow.</p>
+<p v-click class="mt-8 font-bold text-2xl">The obvious fix is the one you can't allow.</p>
 
 <!--
-Simple question, and nobody can answer it alone: each person holds one piece, and no one
-is allowed to hold all of them. The tempting fix is a single all-knowing agent — but that's
-the world where an engineer can query everyone's salary. The thing that would answer the
-question is the thing you can't permit to exist. Keep it jargon-free: no "FinOps" on screen.
+🎤 SAY (placeholder — edit me):
+"Picture a 50-person company on seven tools, and the board asks: is all this AI and cloud
+spend actually worth it? Engineering knows what the tools are worth but not what they cost.
+Finance sees the bill but not the why. The CFO holds the deciding pieces and can't share
+them with the room. The obvious fix is one AI that knows everything — but this is not how
+organizations work. Organizations run on need-to-know boundaries, and the one thing that
+could answer the question is exactly the thing you can't allow to exist."
+
+A 50-person company runs on Claude, Notion, Slack, Linear, AWS, Vercel, Stripe — and the
+question on the table is "is all this AI and cloud spend actually worth it?" Simple question,
+and nobody can answer it alone: each person holds one piece, and no one is allowed to hold
+all of them. The tempting fix is a single all-knowing agent — but that's the world where an
+engineer can query everyone's salary. The thing that would answer the question is the thing
+you can't permit to exist. Keep it jargon-free: no "FinOps" on screen.
 -->
 
 ---
@@ -74,16 +138,22 @@ class: text-center
 
 # Contextful
 
-## A boundary at every person
+## Local-first, privacy-aware workspace on your company brain 
 
-Each person's agent holds only **their** context.
-It crosses a boundary only with the owner's approval — for that one question.
+**Your data. Your rules.**
 
 <p class="mt-10 text-xl opacity-80">The brain gets <b>smarter</b> as it gets more <b>careful</b>.</p>
 
 <!--
+🎤 SAY (placeholder — edit me):
+"Take a step back. Do you trust ingesting all your company data into someone's cloud?
+That's what every 'company brain' on the market asks you to do. Contextful is the
+reframe: not one pool everyone queries — a boundary at every person. Your agent holds
+your context, and nothing crosses a boundary without the owner's approval, scoped to
+that one question. The brain gets smarter precisely because it gets more careful."
+
 This is the reframe: not one pool everyone queries, but a boundary at every person.
-Cross-boundary answers are requested, approved, and scoped — for that question only.
+Cross-boundary answers are requested, approved, and scoped — for that one question only.
 Everything runs on the company's own machines.
 -->
 
@@ -93,18 +163,31 @@ Everything runs on the company's own machines.
 
 <v-clicks>
 
-1. The CIO asks the room: *"Justify the spend."*
-2. Engineering's agent brings the **value** — and checks the **open web** for the going market rate (cited). Then hits a wall on real cost.
-3. It asks the CFO's agent for **one scoped slice**. Approved — just that slice.
-4. A **data-scientist agent** aggregates **per-product performance** on request — revenue, cost, margin — scoped to Stripe + internal data, nothing more.
-5. A **sourced** answer assembles — every claim vouched for by its owner, every web figure cited.
+1. The CIO asks: *"Justify the spend."*
+2. Engineering's agent brings **value** + market rates (cited) — hits a wall on cost.
+3. The CFO's agent approves **one scoped slice**.
+4. A data-scientist agent joins **revenue × cost** — on request, scoped.
+5. A **sourced** answer assembles.
 
 </v-clicks>
 
-<p v-click class="mt-8 font-bold text-2xl text-red-500">And the engineer in the same room still can't see anyone's salary.</p>
+<p v-click class="mt-8 font-bold text-2xl text-red-500">And the engineer still can't see anyone's salary.</p>
 
 <!--
+🎤 SAY (placeholder — edit me):
+"Let me show you, live. The CIO drops the question in the shared doc: justify the spend.
+Engineering's agent brings the value and pulls the going market rate from the open web —
+cited — then hits a wall: it doesn't know the real cost. So it asks the CFO's agent, and
+gets exactly one approved slice — nothing more. A data-scientist agent joins revenue
+against cost on request. And the answer assembles itself, every claim vouched for by its
+owner. [pause] Now watch: the engineer in the same room asks for a salary… denied. Every
+time. That's the whole product in one moment."
+
 MONEY SHOT: the salary denial. Make this the climax and give it air.
+Narration detail: step 2 checks the open web for the going market rate, every figure cited;
+step 3 is approved for just that slice; step 4 aggregates per-product performance — revenue,
+cost, margin — scoped to Stripe + internal data, nothing more; step 5 = every claim vouched
+for by its owner, every web figure cited.
 IMPORTANT: that denial must be a hard-coded, deterministic policy rule — NEVER a live
 model call — so it is 100% reproducible on stage. Demo the agent's reasoning only on the
 safe path. (One-line flourish if there's time: "and it flagged a runaway AWS job humans missed.")
@@ -120,22 +203,30 @@ into per-product performance; it holds NO standing access, only the scoped slice
 # How it works <span class="text-base opacity-50">· technical</span>
 
 ```mermaid
-sequenceDiagram
-    participant A as Member agent
-    participant P as Policy engine (deterministic)
-    participant O as Owner agent (auto-mode)
-    A->>P: Scoped request (drafted, not decided)
-    P->>O: Within policy? scope ok · salary blocked
-    O-->>A: Approved slice — this question only
-    Note over P,O: Escalates to a human only when policy is exceeded
+flowchart LR
+    A["Member agent<br/>drafts a scoped request"] --> P{"Policy engine<br/>deterministic"}
+    P -->|within policy| O["Owner agent<br/>auto-mode"]
+    O --> S["Approved slice<br/>this question only"]
+    P -->|"out of scope<br/>(salary)"| D["Denied"]
+    P -.->|policy exceeded| H["Human"]
+    style P fill:#eef2ff,stroke:#4f46e5
+    style D fill:#fef2f2,stroke:#dc2626
 ```
 
-- **Scoped agents** — partial access per person; nothing holds everything.
-- **Deterministic policy** decides the boundary; the agent only *drafts* the request.
-- **Auto-mode** clears safe requests; raises the rest to a human — no permission fatigue.
+- **Nothing holds everything** — scoped agents, partial access per person.
+- **Deterministic policy** decides — the agent only *drafts*.
+- **Auto-mode** clears safe requests; escalates the rest.
 
 <!--
-TECHNICAL 1/3. The key correction from review: the boundary is enforced by deterministic
+🎤 SAY (placeholder — edit me):
+"For the technical folks: how does that denial actually work? No single agent holds
+everything — each one has partial, scoped access. And the boundary is not an LLM being
+polite — it's a deterministic policy engine. The agent only drafts the request; policy
+decides. Safe requests clear automatically, so there's no permission fatigue — only the
+exceptions reach a human."
+
+TECHNICAL 1/3. Auto-mode means no permission fatigue: safe requests clear automatically,
+only policy-exceeding ones reach a human. The key correction from review: the boundary is enforced by deterministic
 policy, not by an LLM in the trust path. The agent composes/routes the scoped request; the
 policy engine approves or denies. Worst case is a denied request — which still proves the point.
 -->
@@ -146,11 +237,11 @@ layout: two-cols
 
 # Where it runs <span class="text-base opacity-50">· technical</span>
 
-- **On-prem**, over your own **Tailscale** network — data never leaves your machines.
-- **Mission Control** — steer with a prompt *and* pin deterministic guardrails.
-- **Control plane** sets policy & topology once, centrally.
-- The **brain grows** — learns baselines, flags anomalies next month.
-- **Open-web research (Exa)** — the one outbound path: policy-gated and cited; only the *query* leaves.
+- **On-prem, over Tailscale** — data stays home.
+- **Mission Control** — prompts + pinned guardrails.
+- **One control plane** sets policy centrally.
+- The **brain grows** — learns baselines, flags anomalies.
+- **One outbound path** — cited web research; only the *query* leaves.
 
 ::right::
 
@@ -165,6 +256,13 @@ flowchart TD
 ```
 
 <!--
+🎤 SAY (placeholder — edit me):
+"And where does all this run? On your machines, over your own private network — the data
+never leaves. One control plane sets the policy centrally; Mission Control lets you steer
+with a prompt and pin hard guardrails. The brain keeps growing — it learns your baselines
+and flags anomalies. There is exactly one outbound path: web research, policy-gated, where
+only the query leaves and every result comes back cited."
+
 TECHNICAL 2/3. On-prem + Tailscale is the trust story; be ready for the "single coordination
 plane" question. The growing brain = durable, approved reasoning + learned baselines that make
 next month's same question faster. Keep this to ≤3 technical slides total.
@@ -183,33 +281,76 @@ Safety by amputation — they lose all the upside.
 
 <v-clicks>
 
-**Other "company brains" are one shared cloud pool — all-or-nothing.**
+**Others: one shared cloud pool — all-or-nothing.**
 
-**Contextful is boundaried and local-first** — the work runs on your machines; sensitive context stays home.
+**Contextful: boundaried, local-first.**
 
 </v-clicks>
 
-<p v-click class="mt-8 text-lg opacity-80">The local stack is more capable than ever. Workloads are going hybrid — and Contextful is built for it.</p>
+<p v-click class="mt-8 font-bold text-xl">Keep the upside. Scope the risk.</p>
 
 <!--
+🎤 SAY (placeholder — edit me):
+"Most companies looked at this risk and just blocked AI entirely — safety by amputation.
+The alternatives on the market are one shared cloud pool: all-or-nothing. Contextful is
+the third option — boundaried and local-first. You keep the upside and scope the risk."
+
 The third option: keep the upside, scope the risk. Don't name a specific competitor on stage —
-"one shared cloud pool, all-or-nothing" makes the contrast without the swipe.
+"one shared cloud pool, all-or-nothing" makes the contrast without the swipe. Spoken close:
+the work runs on your machines, sensitive context stays home; the local stack is more capable
+than ever, workloads are going hybrid — and Contextful is built for it.
 -->
 
 ---
-layout: center
-class: text-center
+layout: two-cols
 ---
 
-# The ask
+# Bring your own connectors
 
-## We're looking for design partners
+Connector subscriptions today: **$200 × N tools — every month** — to reach *your own data*.
 
-Companies that already blocked AI — and want the upside back, safely.
+<v-clicks>
 
-<p class="mt-10 text-xl">It answers the question. And the brain keeps growing.</p>
+- **Your agent writes the connector once.**
+- **It runs on your machines.**
+
+</v-clicks>
+
+<p v-click class="mt-8 font-bold text-2xl">Stop renting access to your own data.</p>
+
+::right::
+
+<p class="text-sm opacity-60 mt-12">Sample setup — hardware you already own:</p>
+
+```mermaid
+flowchart LR
+    subgraph S["2 server nodes — relay + connectors · synced"]
+        AWS["☁️ AWS box"]
+        MS["🖥️ Mac Studio · office"]
+    end
+    AWS --- L1["💻 laptop"]
+    AWS --- L2["💻 laptop"]
+    MS --- L3["💻 laptop"]
+    MS --- L4["💻 laptop"]
+    style S fill:#eef2ff,stroke:#4f46e5
+```
 
 <!--
-Replace with the REAL ask once decided (pilot / raise / hires). A keynote without an ask is a
-magic trick with no "...and that's why you should act." One slide, one verb.
+🎤 SAY (placeholder — edit me):
+"One more thing about cost. Today, reaching your own data means renting connectors —
+two hundred dollars a tool, every month, multiplied by every tool you run. With
+Contextful, your agent writes the connector once, and it runs on hardware you already
+own. This is a real setup: two server nodes — a small AWS box and the Mac Studio in the
+office — and every employee laptop is just a client. The meter stops. You stop renting
+access to your own data."
+
+BYOC = bring your own connectors. Source: the ad-hoc connectors beat (an agent writes a
+one-off integration connector) + the "aggregators are missing the connectors you actually
+need" line. Two jabs in one: the recurring per-connector tax AND the missing-connector
+problem — your agent writes the long-tail connector nobody sells. Keep numbers honest:
+"$200 × N" is the order of magnitude of managed-connector/ETL pricing, not a quote.
+SAMPLE TOPOLOGY: the diagram is the real product shape — server nodes run `sync serve`
+(relay + connectors; AWS box and/or a Mac Studio over Tailscale), employee laptops run
+the menu-bar client. 2 servers + 3–4 laptop clients is the honest small-company install.
 -->
+

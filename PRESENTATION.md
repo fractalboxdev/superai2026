@@ -113,9 +113,10 @@ no one is allowed to hold all of them:
   CFO.
 
 **The trap:** The "obvious" fix is a single company context store — a SuperAgent —
-where anyone can ask anything. But that's the world where an **engineer can query
-everyone's salary.** The thing that would answer the question is the thing you can't
-allow to exist.
+where anyone can ask anything. But **this is not how organizations work** — organizations
+run on need-to-know boundaries. That single store is the world where an **engineer can
+query everyone's salary.** The thing that would answer the question is the thing you
+can't allow to exist.
 
 ```mermaid
 flowchart TD
@@ -132,10 +133,14 @@ flowchart TD
 
 ## Act 3 — The Solution (the live demo)
 
-**Contextful** is a **company brain with a boundary at every person.** Each member's
-agent holds only *their* context. When an answer needs something across a boundary, the
-request is **routed to the owner's agent, approved, and scoped** — the data crosses the
-line for *that question only*. Everything runs **on the company's own machines.**
+Take a step back: **do you trust ingesting all your company data into someone's
+cloud?** That's what every "company brain" on the market asks you to do.
+
+**Contextful** is a **local-first collaboration workspace for your agents** — your
+data, your rules — with a **boundary at every person.** Each member's agent holds only
+*their* context. When an answer needs something across a boundary, the request is
+**routed to the owner's agent, approved, and scoped** — the data crosses the line for
+*that question only*. Everything runs **on the company's own machines.**
 
 > The whole demo happens inside **one shared Contextful document** — think a meeting
 > room where each person has an agent at the table.
@@ -344,9 +349,9 @@ policy. Contextful is built for that world.
 
 ---
 
-## Slide deck (≤ 9 slides — the deck is built from this)
+## Slide deck (≤ 10 slides — the deck is built from this)
 
-**Slide principles:** keep it simple — **fewer than 10 slides**, **mostly jargon-free**.
+**Slide principles:** keep it simple — **no more than 10 slides**, **mostly jargon-free**.
 Each slide = **one idea + one money line**; the detail lives in the speaker notes, not on
 the slide. Only the **technical breakdown slides (max 3)** may use technical terms — mark
 them. Everything else must read to a non-technical exec. The deck is generated and kept in
@@ -354,15 +359,25 @@ sync from this table by the **`slidev-deck`** skill → `slides/slides.md`.
 
 | # | Slide | One idea on screen | Source | Jargon? |
 | --- | --- | --- | --- | --- |
-| 1 | **Hook** | "The company brain you don't have to be afraid of." Cold open: CEO brags → an intern asks the CEO's salary → it answers → *slap*: "why'd you give it all the access?" | Act 1 (one continuous ~12s gag; drop the Nucleus bit) | No |
+| 1 | **Hook** | "Workspace with your agents. Your data. Your rules." Cold open: CEO brags → an intern asks the CEO's salary → it answers → *slap*: "why'd you give it all the access?" | Act 1 (one continuous ~12s gag; drop the Nucleus bit) | No |
 | 2 | **The problem** | Too little context → useless. Too much access → dangerous. Today you're forced to pick one. | Act 1 · Beat 4 | No |
 | 3 | **The scenario & the trap** | 50 people, 7 tools, one question — *"is the spend worth it?"* Nobody can answer alone, and the obvious fix (one all-knowing AI) is the one you can't allow. | Act 2 | No |
-| 4 | **Contextful** | A boundary at every person. The brain gets smarter as it gets more careful. | Act 3 intro | No |
+| 4 | **Contextful** | Local-first collaboration workspaces for your agents. **Your data. Your rules.** The brain gets smarter as it gets more careful. (Spoken open: "do you trust ingesting all your company data into someone's cloud?") | Act 3 intro | No |
 | 5 | **Live demo** | The question → a scoped request → a data-scientist agent aggregates product performance on request → approved at the boundary → a sourced answer assembles. **And the engineer still can't see salaries** — the money shot. | Act 3 · Beats 1–7 (anomaly demoted to a one-line flourish) | No |
 | 6 | **How it works** 🔧 | Scoped agents; a **deterministic policy engine** decides the boundary (the agent only *drafts* the request); auto-mode escalates to a human only on a policy breach. | Act 3 architecture | **Technical 1/3** |
 | 7 | **Where it runs** 🔧 | On-prem over Tailscale; Mission Control + guardrails; control plane; the brain grows (learns baselines, flags anomalies); agents research the open web (Exa) — outbound, policy-gated, cited. | Act 3 architecture | **Technical 2/3** |
 | 8 | **Why now** | Most companies just *blocked* AI (safety by amputation). Other brains are one shared cloud pool; Contextful is boundaried + local-first. Workloads are going hybrid. | Act 4 (de-named — no "Gbrain") | No |
-| 9 | **The ask** | What we want — design partners (companies that already blocked AI and want the upside back). *Replace with the real ask once decided.* | Act 4 close | No |
+| 9 | **BYOC** | Bring your own connectors — not paying **$200 × N per connector, every month**, to reach your own data. Your agent writes the connector once; it runs on your machines. Sample setup on screen: 2 server nodes (AWS box + office Mac Studio) and 3–4 client nodes on employee laptops. | Act 3 ad-hoc connectors + "why today's tools fail" | No |
+| 10 | **The ask** | What we want — design partners (companies that already blocked AI and want the upside back). *Replace with the real ask once decided.* | Act 4 close | No |
+
+> **Cold-open storyboard:** the comic frames in `assets/` are inserted into the deck as
+> full-bleed image slides right after slide 1, in story order: the brag (001) → the
+> innocent cloud-cost ask (002) → one merged panel for frames 003+004 (the agent leaks
+> the CEO's Lamborghini buy AND shuts down cloud + building power —
+> `slides/public/assets/003-004-merged.png`, AI-merged scene with the bubble text
+> composited deterministically; regenerate via `apps/landing/scripts/merge-comic.mjs`
+> then `apps/landing/scripts/compose-bubbles.py`). They are beats of the slide-1 hook, not separate
+> table rows — the slide-count cap is deliberately ignored while the storyboard is in.
 
 > **Cut from the long narrative for the spoken talk** (kept here as source material / for
 > the investor & appendix version): the separate CEO / Batman / Nucleus slides (now one

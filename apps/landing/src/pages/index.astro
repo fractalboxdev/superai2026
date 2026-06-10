@@ -23,6 +23,7 @@ for (const entry of artManifest) {
 const art = (id: string) => artFiles.get(id) ?? null;
 const heroArt = art("hero");
 const howArt = art("how-banner");
+const layersArt = art("layers");
 const logoArt = art("logo");
 
 const title = "Contextful — local-first company brain";
@@ -393,6 +394,26 @@ const tools = ["Claude", "Notion", "Slack", "Linear", "AWS", "Vercel", "Stripe"]
       <!-- Features -->
       <section id="features" class="section">
         <div class="cf-container">
+          {layersArt && (
+            <figure
+              class="layers__art cf-float"
+              style="--cf-float-dur: 10s; --cf-float-amp: 12px; --cf-float-rot: 2deg; --cf-float-tilt: -0.5deg;"
+            >
+              <img
+                class="cf-art"
+                src={layersArt.src}
+                alt={layersArt.alt}
+                width={layersArt.width}
+                height={layersArt.height}
+                loading="lazy"
+              />
+              <figcaption class="layers__labels">
+                <span class="layers__label layers__label--top">Collaboration</span>
+                <span class="layers__label layers__label--mid">Access control</span>
+                <span class="layers__label layers__label--base">Memory</span>
+              </figcaption>
+            </figure>
+          )}
           <header class="section__head" data-reveal>
             <span class="cf-eyebrow">Why Contextful</span>
             <h2>Context, with consent.</h2>
@@ -874,6 +895,38 @@ const tools = ["Claude", "Notion", "Slack", "Linear", "AWS", "Vercel", "Stripe"]
       /* ============================================================ *
        * Features
        * ============================================================ */
+      /* The layers infographic floats beside the section head, breaking out
+       * of the container's right edge and straddling the boundary with the
+       * capability section above — free-flow per ART-DIRECTION.md. Labels
+       * live in HTML (no text in illustrations), pinned to each layer. */
+      .layers__art {
+        position: absolute;
+        top: -12rem;
+        right: calc(-1 * var(--space-10));
+        width: min(16rem, 23%);
+        z-index: 1;
+        margin: 0;
+      }
+      .layers__art img { width: 100%; height: auto; }
+      .layers__label {
+        position: absolute;
+        padding: var(--space-1) var(--space-3);
+        border-radius: var(--radius-full);
+        border: 1px solid var(--color-border);
+        background: color-mix(in srgb, var(--color-surface) 92%, transparent);
+        backdrop-filter: blur(4px);
+        box-shadow: var(--shadow-sm);
+        font-family: var(--font-mono);
+        font-size: var(--text-xs);
+        font-weight: var(--weight-semibold);
+        color: var(--color-text-muted);
+        white-space: nowrap;
+      }
+      .layers__label--top { top: 9%; left: -14%; }
+      .layers__label--mid { top: 46%; right: -10%; color: var(--color-primary-on-subtle); border-color: color-mix(in srgb, var(--color-primary) 35%, transparent); }
+      .layers__label--base { top: 82%; left: -10%; }
+      @media (max-width: 880px) { .layers__art { display: none; } }
+
       .feature { position: relative; }
       .feature__idx { font-family: var(--font-mono); font-size: var(--text-xs); font-weight: var(--weight-bold); color: var(--color-primary); }
       .feature h3 { margin-top: var(--space-2); }
