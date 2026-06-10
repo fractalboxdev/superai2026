@@ -485,7 +485,13 @@ mod tests {
         let args = build_args(&settings(Role::Host));
         assert_eq!(
             args,
-            ["serve", "--addr", "0.0.0.0:7878", "--with-mcp", "--with-cron"]
+            [
+                "serve",
+                "--addr",
+                "0.0.0.0:7878",
+                "--with-mcp",
+                "--with-cron"
+            ]
         );
     }
 

@@ -68,7 +68,16 @@ fn run_job(job: &str) -> Result<()> {
 }
 
 /// Is `at` (truncated to the minute) a firing minute for `pattern`?
+///
+/// The truncation is load-bearing: croner also matches the SECONDS field, and
+/// a 5-field pattern compiles to "second 0 only" — the 30s tick virtually
+/// never lands on second 0, so an untruncated `now` never fires any job.
 fn matches_minute(pattern: &Cron, at: DateTime<Local>) -> bool {
+    use chrono::Timelike;
+    let at = at
+        .with_second(0)
+        .and_then(|t| t.with_nanosecond(0))
+        .unwrap_or(at);
     pattern.is_time_matching(&at).unwrap_or(false)
 }
 
@@ -144,6 +153,19 @@ mod tests {
         }
     }
 
+    /// Regression: the scheduler tick lands on arbitrary seconds — a matching
+    /// minute must fire regardless (croner would otherwise demand second 0).
+    #[test]
+    fn matching_minute_fires_at_any_second() {
+        let hourly = Cron::new("0 * * * *").parse().unwrap();
+        let at = Local.with_ymd_and_hms(2026, 6, 10, 14, 0, 48).unwrap();
+        assert!(matches_minute(&hourly, at));
+
+        let every_minute = Cron::new("* * * * *").parse().unwrap();
+        let at = Local.with_ymd_and_hms(2026, 6, 10, 14, 7, 31).unwrap();
+        assert!(matches_minute(&every_minute, at));
+    }
+
     #[test]
     fn schedules_file_roundtrip() {
         let root = std::env::temp_dir().join(format!("cron-test-{}", uuid::Uuid::new_v4()));
@@ -153,6 +175,15 @@ mod tests {
         };
         let first = load_schedules(&config).unwrap();
         assert_eq!(first.len(), 3);
+        // the brain-freshness contract: connector ingest, world research,
+        // and the nightly daydream cycle are all scheduled out of the box
+        let jobs: Vec<&str> = first.iter().map(|s| s.job.as_str()).collect();
+        for job in ["stripe", "exa", "daydream"] {
+            assert!(
+                jobs.contains(&job),
+                "default schedules must include '{job}'"
+            );
+        }
         // second load reads the persisted file
         let second = load_schedules(&config).unwrap();
         assert_eq!(second.len(), 3);

@@ -21,9 +21,13 @@ const SPIKE_RATIO: f64 = 1.30;
 /// Run the synthesis pipeline over the current index, writing Markdown cards and
 /// (re)computing memories + anomalies. Returns the number of cards written.
 pub fn synthesize(store: &Store, index: &mut BrainIndex) -> anyhow::Result<usize> {
-    // recompute derived rows from scratch each pass (idempotent synthesis)
-    index.memories.clear();
-    index.provenance.clear();
+    // recompute derived rows from scratch each pass (idempotent synthesis) —
+    // but only the rows THIS pass derives: the spend/finance wiki cards below.
+    // World facts, daydream hypotheses, and agent notes (`brain.remember`)
+    // are owned by other passes and must survive every ingest.
+    index
+        .memories
+        .retain(|m| !(m.kind == MemoryKind::Wiki && (m.topic == "spend" || m.topic == "finance")));
     index.anomalies.clear();
 
     let now = Utc::now().to_rfc3339();
@@ -194,6 +198,19 @@ pub fn synthesize(store: &Store, index: &mut BrainIndex) -> anyhow::Result<usize
     }
 
     detect_anomalies(index, "stripe/spend_by_team", "gross");
+
+    // the rebuilt wiki rows carry fresh ids — drop provenance/links that now
+    // point at removed memories (self-wiring re-resolves topic markers after
+    // every synthesis pass, so surviving cards re-attach to the new rows)
+    let live: std::collections::HashSet<&str> =
+        index.memories.iter().map(|m| m.id.as_str()).collect();
+    index
+        .provenance
+        .retain(|p| live.contains(p.memory_id.as_str()));
+    index
+        .links
+        .retain(|l| live.contains(l.from.as_str()) && live.contains(l.to.as_str()));
+
     Ok(cards_written)
 }
 
