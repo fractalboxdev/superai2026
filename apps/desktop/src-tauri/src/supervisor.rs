@@ -199,6 +199,7 @@ pub fn build_args(s: &AppSettings) -> Vec<String> {
             s.relay_addr.clone(),
             "--with-mcp".into(),
             "--with-cron".into(),
+            "--with-editor-agent".into(),
         ],
         Role::Member => vec![
             "client".into(),
@@ -481,7 +482,7 @@ mod tests {
     }
 
     #[test]
-    fn host_args_serve_with_mcp_and_cron() {
+    fn host_args_serve_with_mcp_cron_and_editor_agent() {
         let args = build_args(&settings(Role::Host));
         assert_eq!(
             args,
@@ -490,7 +491,8 @@ mod tests {
                 "--addr",
                 "0.0.0.0:7878",
                 "--with-mcp",
-                "--with-cron"
+                "--with-cron",
+                "--with-editor-agent"
             ]
         );
     }

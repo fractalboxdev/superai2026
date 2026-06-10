@@ -220,6 +220,15 @@ fn compose_answer(card: &str, m: &Memory) -> String {
     )
 }
 
+/// Loopback dial address for a relay bind address. A co-hosted agent dials its
+/// own relay, so wildcard binds (`0.0.0.0`, `[::]`) become `127.0.0.1`.
+pub fn dial_addr(bind_addr: &str) -> String {
+    match bind_addr.rsplit_once(':') {
+        Some(("0.0.0.0" | "[::]" | "::" | "", port)) => format!("127.0.0.1:{port}"),
+        _ => bind_addr.to_string(),
+    }
+}
+
 fn now_ms() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -384,6 +393,14 @@ mod tests {
 
     fn blocks(xs: &[&str]) -> Vec<String> {
         xs.iter().map(|x| x.to_string()).collect()
+    }
+
+    #[test]
+    fn dial_addr_rewrites_wildcard_binds_to_loopback() {
+        assert_eq!(dial_addr("0.0.0.0:7878"), "127.0.0.1:7878");
+        assert_eq!(dial_addr("[::]:7878"), "127.0.0.1:7878");
+        assert_eq!(dial_addr("127.0.0.1:7878"), "127.0.0.1:7878");
+        assert_eq!(dial_addr("192.168.1.5:9000"), "192.168.1.5:9000");
     }
 
     #[test]
