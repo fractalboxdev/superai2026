@@ -1,6 +1,6 @@
 ---
 theme: default
-title: Contextful — work with your agents, on your data, your infra, your rules
+title: Contextful — your agents. Your data. Your rules.
 class: text-center
 transition: slide-left
 mdc: true
@@ -8,7 +8,7 @@ mdc: true
 
 # Contextful
 
-## Work with your agents, on your data, your infra, your rules
+## Your agents. Your data. Your rules.
 
 It knows everything — and lets no one ask everything.
 
