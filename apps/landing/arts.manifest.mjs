@@ -46,15 +46,6 @@ export const arts = [
       "Inside the rounded square: a bold white letter C, thick rounded stroke. Along and around the C's arc sit several small circular collaborator presence dots in amber #f59e0b, light sky blue #38bdf8, and soft indigo #a5b4fc — like teammate avatars gathered on a shared document, evoking real-time collaboration. The dots vary slightly in size, evenly balanced, touching the C's stroke.",
   },
   {
-    id: "hero",
-    alt: "A glowing indigo brain made of connected document nodes, with small scoped gates filtering what each branch can see",
-    aspectRatio: "3:2",
-    width: 1248,
-    height: 832,
-    prompt:
-      "A stylized company brain: a network of rounded document cards and nodes forming a brain silhouette. Some branches pass through small gate/keyhole shapes that filter the flow, showing only a permitted slice continuing onward. One amber node highlighted as redacted/locked.",
-  },
-  {
     id: "feature-scoped",
     alt: "A key splitting into smaller keys, each opening a smaller door",
     aspectRatio: "1:1",

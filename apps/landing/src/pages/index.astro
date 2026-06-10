@@ -21,7 +21,6 @@ for (const entry of artManifest) {
   });
 }
 const art = (id: string) => artFiles.get(id) ?? null;
-const heroArt = art("hero");
 const howArt = art("how-banner");
 const layersArt = art("layers");
 const logoArt = art("logo");
@@ -135,6 +134,22 @@ const cast = [
   { slug: "dinesh", name: "Dinesh", role: "Lead Engineer" },
   { slug: "agent", name: "The Agent", role: "Scoped, always" },
 ];
+
+// Background-removed cutouts (public/cast/<slug>-cutout.webp) let the
+// portraits float as free silhouettes instead of square panels. Dimensions
+// are read from the trimmed files; a missing cutout falls back to the
+// original framed portrait.
+const castCutouts = new Map();
+for (const m of cast) {
+  const file = new URL(`../../public/cast/${m.slug}-cutout.webp`, import.meta.url);
+  if (!existsSync(file)) continue;
+  const meta = await sharp(fileURLToPath(file)).metadata();
+  castCutouts.set(m.slug, {
+    src: `/cast/${m.slug}-cutout.webp`,
+    width: meta.width,
+    height: meta.height,
+  });
+}
 ---
 
 <!doctype html>
@@ -212,8 +227,21 @@ const cast = [
     </header>
 
     <main>
-      <!-- Hero -->
+      <!-- Hero — the demo film IS the hero: it fills the whole section,
+           with the copy overlaid on a teal scrim for contrast. -->
       <section class="hero">
+        <video
+          class="hero__video"
+          src="/assets/contextful_sv_demo.mp4"
+          poster="/assets/contextful_sv_demo-poster.jpg"
+          autoplay
+          muted
+          loop
+          playsinline
+          preload="metadata"
+          aria-label="Demo film: the Pied Piper team's agents answer a spend question in a shared document — with the salary query denied"
+        ></video>
+        <div class="hero__scrim" aria-hidden="true"></div>
         <div class="cf-container hero__inner">
           <div class="hero__copy">
             <span class="cf-eyebrow" data-reveal>
@@ -233,37 +261,6 @@ const cast = [
             </div>
             <p class="hero__note" data-reveal style="--d:.24s">Runs on-prem over Tailscale · Cloud optional</p>
           </div>
-
-          <!-- Demo film — the story in 27 seconds -->
-          <aside class="hero__visual">
-          {heroArt && (
-            <img
-              class="cf-art hero__art cf-float"
-              style="--cf-float-dur: 9s; --cf-float-amp: 14px; --cf-float-tilt: 0.6deg;"
-              src={heroArt.src}
-              alt=""
-              width={heroArt.width}
-              height={heroArt.height}
-              loading="eager"
-              fetchpriority="high"
-              aria-hidden="true"
-            />
-          )}
-          <video
-            class="cf-comic hero__video"
-            src="/assets/contextful_sv_demo.mp4"
-            poster="/assets/contextful_sv_demo-poster.jpg"
-            width="1280"
-            height="720"
-            autoplay
-            muted
-            loop
-            playsinline
-            controls
-            preload="metadata"
-            aria-label="Demo film: the Pied Piper team's agents answer a spend question in a shared document — with the salary query denied"
-          ></video>
-          </aside>
         </div>
       </section>
 
@@ -338,24 +335,39 @@ const cast = [
             <a href={demoUrl}>Open the full interactive demo →</a>
           </p>
 
-          <!-- The cast — every claim vouched for by its owner -->
+          <!-- The cast — background-removed silhouettes floating in the flow -->
           <div class="cast" data-reveal>
             <p class="cast__label">Starring the team — each agent sees only what its owner allows</p>
-            <ul class="cf-cast">
-              {cast.map((m) => (
-                <li class="cf-cast__member">
-                  <img
-                    class="cf-cast__avatar"
-                    src={`/cast/${m.slug}.webp`}
-                    alt={`Comic portrait of ${m.name} (${m.role})`}
-                    width="480"
-                    height="480"
-                    loading="lazy"
-                  />
-                  <span class="cf-cast__name">{m.name}</span>
-                  <span class="cf-cast__role">{m.role}</span>
-                </li>
-              ))}
+            <ul class="cf-cast cast__strip">
+              {cast.map((m, i) => {
+                const cut = castCutouts.get(m.slug);
+                return (
+                  <li class="cf-cast__member cast__member">
+                    {cut ? (
+                      <img
+                        class="cf-art cast__cutout cf-float"
+                        style={`--cf-float-dur: ${6.5 + i * 0.9}s; --cf-float-delay: -${i * 1.4}s; --cf-float-amp: ${9 + (i % 3) * 4}px; --cf-float-rot: ${i % 2 === 0 ? -3 : 3}deg; --cf-float-tilt: ${i % 2 === 0 ? 1.2 : -1.2}deg;`}
+                        src={cut.src}
+                        alt={`Comic portrait of ${m.name} (${m.role})`}
+                        width={cut.width}
+                        height={cut.height}
+                        loading="lazy"
+                      />
+                    ) : (
+                      <img
+                        class="cf-cast__avatar"
+                        src={`/cast/${m.slug}.webp`}
+                        alt={`Comic portrait of ${m.name} (${m.role})`}
+                        width="480"
+                        height="480"
+                        loading="lazy"
+                      />
+                    )}
+                    <span class="cf-cast__name">{m.name}</span>
+                    <span class="cf-cast__role">{m.role}</span>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         </div>
@@ -705,12 +717,50 @@ const cast = [
       /* ============================================================ *
        * Hero
        * ============================================================ */
-      .hero { position: relative; padding-block: var(--space-24) var(--space-16); }
-      .hero__inner { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: var(--space-12); align-items: center; }
-      .hero__title { font-size: var(--text-6xl); margin-top: var(--space-4); }
-      .hero__sub { margin-top: var(--space-6); font-size: var(--text-lg); color: var(--color-text-muted); max-width: 34rem; }
+      /* The demo film fills the entire hero; copy sits on a teal scrim
+       * that fades out toward the right so the film stays visible. */
+      .hero {
+        position: relative;
+        display: grid;
+        align-items: center;
+        min-height: clamp(34rem, 92svh, 56rem);
+        padding-block: var(--space-24) var(--space-20);
+        overflow: hidden;
+        background: var(--cf-teal-900);
+      }
+      .hero__video {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .hero__scrim {
+        position: absolute;
+        inset: 0;
+        background:
+          linear-gradient(
+            94deg,
+            color-mix(in srgb, var(--cf-teal-900) 94%, transparent) 0%,
+            color-mix(in srgb, var(--cf-teal-900) 72%, transparent) 44%,
+            color-mix(in srgb, var(--cf-teal-900) 16%, transparent) 72%,
+            transparent 100%
+          ),
+          linear-gradient(to top, color-mix(in srgb, var(--cf-teal-900) 80%, transparent) 0%, transparent 32%);
+      }
+      @media (max-width: 760px) {
+        .hero__scrim { background: color-mix(in srgb, var(--cf-teal-900) 78%, transparent); }
+      }
+      .hero__inner { position: relative; }
+      .hero__copy { max-width: 36rem; }
+      .hero__title { font-size: var(--text-6xl); margin-top: var(--space-4); color: var(--cf-slate-50); }
+      .hero .cf-text-gradient {
+        background-image: linear-gradient(110deg, var(--cf-sky-300) 0%, var(--cf-indigo-300) 40%, var(--cf-sky-400) 70%, var(--cf-amber-300) 100%);
+      }
+      .hero__sub { margin-top: var(--space-6); font-size: var(--text-lg); color: var(--cf-slate-200); max-width: 34rem; }
       .hero__cta { margin-top: var(--space-8); display: flex; gap: var(--space-3); flex-wrap: wrap; }
-      .hero__note { margin-top: var(--space-4); font-size: var(--text-sm); color: var(--color-text-subtle); }
+      .hero__note { margin-top: var(--space-4); font-size: var(--text-sm); color: color-mix(in srgb, var(--cf-slate-200) 72%, transparent); }
+      .hero .cf-eyebrow { color: var(--cf-teal-100); }
       .cf-eyebrow .pulse {
         width: 8px; height: 8px; border-radius: var(--radius-full);
         background: var(--color-success);
@@ -724,31 +774,6 @@ const cast = [
       }
 
       main { overflow-x: clip; }
-
-      /* Free-flow hero art: bleeds past the grid column; the demo film
-       * overlaps its lower edge in a comic panel (see ART-DIRECTION.md). */
-      .hero__visual { display: grid; }
-      .hero__art {
-        width: 118%;
-        max-width: none;
-        margin: -4% -12% 0 -6%;
-      }
-      .hero__video {
-        display: block;
-        width: 100%;
-        height: auto;
-        background: var(--cf-teal-900);
-      }
-      .hero__art + .hero__video {
-        margin-top: calc(-1 * var(--space-12));
-        position: relative;
-        z-index: 1;
-      }
-      @media (max-width: 880px) {
-        .hero__inner { grid-template-columns: 1fr; }
-        .hero__art { display: none; }
-        .hero__art + .hero__video { margin-top: 0; }
-      }
 
       /* ============================================================ *
        * Sections (generic)
@@ -883,10 +908,24 @@ const cast = [
       .demo__links { margin-top: var(--space-8); text-align: center; }
       .demo__links a { font-weight: var(--weight-semibold); }
 
-      /* Cast strip — Pied Piper personas, Name (Role) */
+      /* Cast strip — Pied Piper personas, Name (Role).
+       * Background-removed cutouts float free: staggered baselines, varied
+       * sizes and tilts, drifting on cf-float. The silhouette is the shape —
+       * no frame, no border-radius. */
       .cast { margin-top: var(--space-12); }
       .cast__label { text-align: center; font-size: var(--text-sm); color: var(--color-text-subtle); margin-bottom: var(--space-6); }
       .cast .cf-cast { list-style: none; padding: 0; margin: 0; }
+      .cast__strip { align-items: end; gap: var(--space-6) var(--space-10); }
+      .cast__cutout {
+        width: clamp(5.5rem, 9vw, 8rem);
+        height: auto;
+        margin-bottom: var(--space-2);
+      }
+      .cast__member:nth-child(odd) { transform: translateY(calc(-1 * var(--space-4))); }
+      .cast__member:nth-child(2) .cast__cutout,
+      .cast__member:nth-child(5) .cast__cutout { width: clamp(6.5rem, 10.5vw, 9.5rem); }
+      .cast__member:nth-child(4) .cast__cutout { width: clamp(6rem, 10vw, 9rem); }
+      .cast__member:nth-child(6) .cast__cutout { width: clamp(5rem, 8vw, 7rem); }
 
       /* ============================================================ *
        * Stats
