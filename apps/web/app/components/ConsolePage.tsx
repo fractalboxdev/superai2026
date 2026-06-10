@@ -21,6 +21,7 @@ const WeaverSurface = lazy(() =>
 );
 import {
   CFO,
+  CFO_AGENT,
   CFO_ENVELOPE,
   CTO_AGENT,
   DATASETS,
@@ -54,11 +55,17 @@ type LogEntry = { id: number; kind: "ok" | "deny" | "grant" | "block" | "info"; 
 
 let logSeq = 0;
 
-// The scripted editor-agent demo: impersonate the CFO, type this question into
-// the live doc, and let the local `sync agent --watch-doc <doc>` peer answer
-// it from brain memory (~/.contextful) over the relay.
+// The scripted editor-agent demo: impersonate the CFO and tag HER analyst
+// agent in the live doc (a mention ask, spec 04 — Monica expects the reply
+// from her own agent, not an anonymous Q&A bot). The local `sync agent
+// --watch-doc <doc>` peer answers with the asker's token from brain memory
+// (~/.contextful) over the relay; the relay's authenticated `UPDATE.from`
+// stamp is what attributes the typed block to the CFO.
 const DEMO_QUESTION = "Let me share the unit economics of our compression product";
-const DEMO_ANSWER_MARK = "A (cfo · from brain memory)";
+const DEMO_ASK = `@${CFO_AGENT.name} — ${DEMO_QUESTION}`;
+// `A (cfo · for cfo · from brain memory): …` on success; the `· for cfo`
+// prefix also matches a denial/no-match reply so the demo loop always ends.
+const DEMO_ANSWER_MARK = "A (cfo · for cfo";
 
 const demoSleep = (ms: number, signal: AbortSignal) =>
   new Promise<void>((res) => {
@@ -259,8 +266,8 @@ export default function ConsolePage({ docId }: { docId: string }) {
   const runEditorDemo = () => {
     if (demoAsk) return;
     switchActor(CFO.id);
-    setDemoAsk(DEMO_QUESTION);
-    pushLog("info", `Demo · acting as ${CFO.name} — typing the question into the doc`);
+    setDemoAsk(DEMO_ASK);
+    pushLog("info", `Demo · acting as ${CFO.name} — tagging ${CFO_AGENT.name} in the doc`);
   };
 
   // Type the question into the CFO's Weaver editor once its room is ready,
@@ -280,7 +287,7 @@ export default function ConsolePage({ docId }: { docId: string }) {
       await demoSleep(800, ctrl.signal);
       if (ctrl.signal.aborted) return;
 
-      const question = `Q: ${demoAsk}`;
+      const question = demoAsk;
       if (!paragraphs().some((id) => ed.commands.text.read(id).startsWith(question))) {
         const blockId = ed.commands.block.insert({
           parentId: rootId(ed),
@@ -297,7 +304,7 @@ export default function ConsolePage({ docId }: { docId: string }) {
           await demoSleep(35, ctrl.signal);
         }
       }
-      pushLog("ok", `${CFO.name} asked “${DEMO_QUESTION}” — editor agent is reading`);
+      pushLog("ok", `${CFO.name} asked her analyst agent “${DEMO_QUESTION}” — it is reading`);
 
       const deadline = Date.now() + 30_000;
       while (!ctrl.signal.aborted && Date.now() < deadline) {
@@ -305,7 +312,7 @@ export default function ConsolePage({ docId }: { docId: string }) {
           ed.commands.text.read(id).startsWith(DEMO_ANSWER_MARK),
         );
         if (answered) {
-          pushLog("ok", "editor agent answered from brain memory (~/.contextful)");
+          pushLog("ok", "her analyst agent replied from brain memory (~/.contextful)");
           break;
         }
         await demoSleep(500, ctrl.signal);
