@@ -11,6 +11,8 @@ const PresenceState = Schema.Struct({
   principal: Schema.String,
   display_name: Schema.String,
   mode: Schema.Literal("reading", "writing", "idle"),
+  session: Schema.optional(Schema.String),
+  cursor_block: Schema.optional(Schema.String),
   cursor_anchor: Schema.optional(Schema.Number),
   selection_end: Schema.optional(Schema.Number),
   heartbeat: Schema.Number,

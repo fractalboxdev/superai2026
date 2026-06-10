@@ -12,10 +12,13 @@ import {
   type Block,
   type BlockId,
   type BlockKind,
+  BlockKindSchema,
   ROOT_ID,
   blockKindHasInline,
   defaultAttrsFor,
 } from "./block.js";
+import { type EditorEventHub, createEditorEventHub } from "./events.js";
+import type { MentionMarkValue, PrincipalKind } from "./principal.js";
 
 const TREE_NAME = "content";
 const TEXT_KEY = "text";
@@ -45,10 +48,39 @@ const DEFAULT_TEXT_STYLES = {
   // either edge should NOT extend the mark (Lexical's TypeaheadMenuPlugin
   // mention nodes behave the same way).
   mention: { expand: "none" as const },
+  // Comment anchors (Lexical's MarkNode; specs/lexical-parity.md §2) pin a
+  // thread to the exact range the author selected — typing at either edge
+  // must not grow the annotated span. The mark VALUE is `{ threadId }`; the
+  // thread payload lives in a sibling LoroDoc container, not in the mark.
+  "comment-anchor": { expand: "none" as const },
 };
 
-/** Every mark key the editor knows about — used to clear all formatting. */
+/** Every mark key the editor knows about. */
 const MARK_KEYS = Object.keys(DEFAULT_TEXT_STYLES);
+
+/** Marks a paste may carry across documents. Internal marks are excluded:
+ *  `agent-pending` points at a live agent session and `comment-anchor` at a
+ *  thread container — neither exists in the target doc, so transplanting
+ *  them would create dangling references. Unknown keys are dropped too:
+ *  they'd be committed to the CRDT (and replicate to every peer) while being
+ *  invisible to the renderer's allowlist. */
+const PASTEABLE_MARK_KEYS = new Set(
+  MARK_KEYS.filter((k) => k !== "agent-pending" && k !== "comment-anchor"),
+);
+
+/** Block kinds a clipboard payload may materialize. */
+const KNOWN_BLOCK_KINDS: ReadonlySet<string> = new Set(BlockKindSchema.literals);
+
+/** Nesting cap for pasted fragments — a crafted payload with deeper nesting
+ *  is rejected up front (stack-overflow guard; see validateClipboardBlocks). */
+const MAX_PASTE_DEPTH = 32;
+
+/** Mark keys removable by the user-facing clear-formatting command.
+ *  `comment-anchor` is structural, not formatting (block-model.md §3 — "not
+ *  exposed to formatting UI"): stripping bold/italic must not orphan a
+ *  comment thread. Lexical's clear-formatting likewise leaves `MarkNode`
+ *  annotations in place. */
+const FORMAT_MARK_KEYS = MARK_KEYS.filter((k) => k !== "comment-anchor");
 
 /** Marks whose Loro text-style `expand` is "after" — inserting at the trailing
  *  edge of these marks causes the new text to inherit the mark. Used by
@@ -74,7 +106,8 @@ export type MarkKind =
   | "link"
   | "highlight"
   | "agent-pending"
-  | "mention";
+  | "mention"
+  | "comment-anchor";
 
 export type EditorOrigin = "user" | "agent" | "system" | (string & {});
 
@@ -109,17 +142,71 @@ export interface SelectionCommands {
   getBlockIds(): ReadonlyArray<BlockId>;
 }
 
+export interface ClipboardDeltaRun {
+  readonly insert: string;
+  readonly attributes?: Record<string, unknown>;
+}
+
+/**
+ * One block of a clipboard payload: kind + attrs + inline runs (with marks)
+ * + nested children. The structured analog of Lexical's clipboard node JSON
+ * (`application/x-lexical-editor`); the @weaver/dom bridge serializes this
+ * as the `application/x-weaver` clipboard flavor.
+ */
+export interface ClipboardFragment {
+  readonly kind: BlockKind;
+  readonly attrs: Record<string, unknown>;
+  /** Inline runs with marks; absent for non-inline kinds (divider, image…). */
+  readonly delta?: ReadonlyArray<ClipboardDeltaRun>;
+  readonly children: ReadonlyArray<ClipboardFragment>;
+}
+
+export interface ClipboardPayload {
+  /** Plain-text rendering of the fragment, blocks joined by `\n`. */
+  readonly text: string;
+  /** Structured weaver fragment — kinds, attrs, marks, nesting. */
+  readonly blocks: ReadonlyArray<ClipboardFragment>;
+}
+
+export interface ClipboardCommands {
+  /** Serialize the current selection. `null` when collapsed or absent. */
+  copy(): ClipboardPayload | null;
+  /** `copy()` + delete the selected range. */
+  cut(): ClipboardPayload | null;
+  /**
+   * Insert a payload at the current selection, replacing it when
+   * non-collapsed. A payload without structured `blocks` (e.g. text copied
+   * from another app) falls back to `pasteText`.
+   */
+  paste(payload: ClipboardPayload | { readonly text: string }): void;
+  /** Plain-text paste: `\n` splits blocks, mirroring Enter between lines. */
+  pasteText(value: string): void;
+}
+
 export interface Editor {
   readonly doc: LoroDoc;
   readonly tree: LoroTree;
   readonly origin: EditorOrigin;
   readonly commands: EditorCommands;
+  /** Semantic editor events (mentions, …) — see `events.ts`. */
+  readonly events: EditorEventHub;
   setEditable(editable: boolean): void;
   isEditable(): boolean;
   clear(): void;
   focus(): void;
   blur(): void;
   dispose(): void;
+  /**
+   * Change notifications for editor state that lives OUTSIDE the LoroDoc
+   * (selection, editable flag, undo-stack resets) — `doc.subscribe` cannot
+   * observe these. Each returns an unsubscribe function; listeners fire
+   * synchronously after the state change. The React hooks in `@weaver/react`
+   * (`useSelection`, `useEditable`, `useUndoState` — lexical-parity §5)
+   * consume them via `useSyncExternalStore`.
+   */
+  onSelectionChange(listener: () => void): () => void;
+  onEditableChange(listener: () => void): () => void;
+  onHistoryChange(listener: () => void): () => void;
 }
 
 export interface EditorCommands {
@@ -168,6 +255,18 @@ export interface EditorCommands {
       blockId: BlockId;
       range: { start: number; end: number };
     }): void;
+    /**
+     * Replace `[range.start, range.end)` — typically the `@query` trigger
+     * text the user typed — with the principal's mention chip plus one
+     * trailing space, atomically (one commit, one undo step). Returns the
+     * character range of the marked label; the natural caret position is
+     * `end + 1` (after the trailing space). Emits `MentionCreated`.
+     */
+    insertMention(args: {
+      blockId: BlockId;
+      range: { start: number; end: number };
+      principal: { id: string; label: string; kind?: PrincipalKind };
+    }): { start: number; end: number };
     readonly mark: {
       update(args: {
         blockId: BlockId;
@@ -179,6 +278,7 @@ export interface EditorCommands {
   };
   readonly history: HistoryCommands;
   readonly selection: SelectionCommands;
+  readonly clipboard: ClipboardCommands;
 }
 
 interface DeltaRun {
@@ -302,6 +402,17 @@ const applyDeltaMarks = (
   }
 };
 
+/**
+ * Structural equality for mark values (booleans, strings, small plain
+ * objects like `{ threadId }` / `{ href }`). JSON comparison is sufficient:
+ * values are produced by our own commands, so key order is stable.
+ */
+const sameMarkValue = (a: unknown, b: unknown): boolean => {
+  if (a === b) return true;
+  if (typeof a !== "object" || typeof b !== "object" || !a || !b) return false;
+  return JSON.stringify(a) === JSON.stringify(b);
+};
+
 /** Whether `mark` is present anywhere within `[start, end)` of `delta`. */
 const hasMarkInRange = (
   delta: ReadonlyArray<DeltaRun>,
@@ -352,6 +463,14 @@ const validateMarkValue = (mark: MarkKind, value: unknown): void => {
     ) {
       throw new Error(
         "mention mark requires `{ userId, label }` with non-empty strings",
+      );
+    }
+  }
+  if (mark === "comment-anchor") {
+    const v = value as { threadId?: unknown } | undefined;
+    if (!v || typeof v.threadId !== "string" || v.threadId.length === 0) {
+      throw new Error(
+        "comment-anchor mark requires `{ threadId }` with a non-empty string",
       );
     }
   }
@@ -427,12 +546,67 @@ export const createEditor = (options: EditorOptions = {}): Editor => {
   doc.configTextStyle(DEFAULT_TEXT_STYLES);
   const tree = doc.getTree(TREE_NAME);
   const origin: EditorOrigin = options.origin ?? "user";
+  const events = createEditorEventHub();
 
   // `undo` is created after the (optional) seed commit so the empty-doc
   // template is not itself an undo step. History commands close over it.
   let undo: UndoManager | undefined;
   let editable = true;
   let currentSelection: SelectionRange | null = null;
+
+  const selectionListeners = new Set<() => void>();
+  const editableListeners = new Set<() => void>();
+  const historyListeners = new Set<() => void>();
+  // Copy before iterating so a listener unsubscribing (or subscribing a new
+  // listener) mid-notification can't corrupt the iteration.
+  const notify = (listeners: Set<() => void>): void => {
+    for (const fn of [...listeners]) fn();
+  };
+  const subscribe =
+    (listeners: Set<() => void>) =>
+    (listener: () => void): (() => void) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    };
+
+  /** Assign `currentSelection` and notify selection listeners. */
+  const setCurrentSelection = (next: SelectionRange | null): void => {
+    currentSelection = next;
+    notify(selectionListeners);
+  };
+
+  /**
+   * Re-validate the selection against the (changed) document — undo/redo can
+   * remove the selected block or shorten its text, and a stale selection
+   * would point `useSelection` consumers at content that no longer exists.
+   * Missing block → drop the selection; surviving block → clamp offsets.
+   */
+  const reconcileSelectionWithDoc = (): void => {
+    const sel = currentSelection;
+    if (!sel) return;
+    const anchorNode = getNode(tree, sel.anchor.blockId);
+    const focusNode = getNode(tree, sel.focus.blockId);
+    if (
+      !anchorNode ||
+      anchorNode.isDeleted() ||
+      !focusNode ||
+      focusNode.isDeleted()
+    ) {
+      setCurrentSelection(null);
+      return;
+    }
+    const clamp = (p: SelectionRange["anchor"]) => {
+      const len = textLengthOf(p.blockId);
+      return p.offset > len ? { blockId: p.blockId, offset: len } : p;
+    };
+    const anchor = clamp(sel.anchor);
+    const focus = clamp(sel.focus);
+    if (anchor !== sel.anchor || focus !== sel.focus) {
+      setCurrentSelection({ anchor, focus });
+    }
+  };
 
   // Undo-step grouping: consecutive `text.insert`/`text.delete` ops merge into
   // a single step (one undo per typing burst); every other op forces a fresh
@@ -452,6 +626,53 @@ export const createEditor = (options: EditorOptions = {}): Editor => {
     doc.commit({ origin });
     prevMergeable = mergeable;
     return result;
+  };
+
+  /**
+   * Programmatic mention application (`toggleMark` / `mark.update` with
+   * `mark: "mention"`) emits the same `MentionCreated` event as the
+   * `insertMention` flow, so listeners see agent- and API-created mentions
+   * too — not only picker-driven ones.
+   */
+  const emitIfMentionApplied = (
+    blockId: BlockId,
+    range: { start: number; end: number },
+    mark: MarkKind,
+    value: unknown,
+  ): void => {
+    if (mark !== "mention") return;
+    if (range.end <= range.start) return;
+    const v = value as MentionMarkValue | undefined;
+    if (!v || typeof v.userId !== "string" || typeof v.label !== "string") {
+      return;
+    }
+    events.emit({
+      _tag: "MentionCreated",
+      blockId,
+      range: { start: range.start, end: range.end },
+      principal: { id: v.userId, label: v.label, kind: v.kind },
+      origin,
+    });
+  };
+
+  /**
+   * Run a composite mutation (paste, multi-line insert) as ONE undo step.
+   * Each inner `withOrigin` still commits separately — the UndoManager group
+   * coalesces them so Ctrl+Z reverts the whole gesture, mirroring Lexical's
+   * `editor.update()` unit. Re-entrancy guarded: `groupStart` throws inside
+   * an active group.
+   */
+  let grouping = false;
+  const withUndoGroup = <T>(fn: () => T): T => {
+    if (grouping || !undo) return fn();
+    grouping = true;
+    undo.groupStart();
+    try {
+      return fn();
+    } finally {
+      undo.groupEnd();
+      grouping = false;
+    }
   };
 
   const textLengthOf = (blockId: BlockId): number => {
@@ -486,8 +707,11 @@ export const createEditor = (options: EditorOptions = {}): Editor => {
     tree,
     origin,
     commands: undefined as unknown as EditorCommands,
+    events,
     setEditable: (next: boolean) => {
+      if (editable === next) return;
       editable = next;
+      notify(editableListeners);
     },
     isEditable: () => editable,
     clear: () => {
@@ -499,8 +723,11 @@ export const createEditor = (options: EditorOptions = {}): Editor => {
         const fresh = tree.createNode();
         initBlockNode(fresh, "paragraph", {});
       });
-      currentSelection = null;
+      setCurrentSelection(null);
     },
+    onSelectionChange: subscribe(selectionListeners),
+    onEditableChange: subscribe(editableListeners),
+    onHistoryChange: subscribe(historyListeners),
     focus: () => {
       /* DOM concern — no-op at the core layer */
     },
@@ -508,6 +735,7 @@ export const createEditor = (options: EditorOptions = {}): Editor => {
       /* DOM concern — no-op at the core layer */
     },
     dispose: () => {
+      events.dispose();
       try {
         undo?.free();
       } catch {
@@ -587,6 +815,11 @@ export const createEditor = (options: EditorOptions = {}): Editor => {
             }
             applyDeltaMarks(prevText, nextDelta, base);
           }
+          // `tree.delete` removes the whole subtree — adopt `next`'s children
+          // under `prev` first, or nested blocks are silently destroyed.
+          const adopted = next.children() ?? [];
+          const adoptBase = (prev.children() ?? []).length;
+          adopted.forEach((child, i) => child.move(prev, adoptBase + i));
           tree.delete(next.id);
         }),
 
@@ -739,7 +972,8 @@ export const createEditor = (options: EditorOptions = {}): Editor => {
         return text ? text.toDelta() : [];
       },
 
-      toggleMark: ({ blockId, range, mark, value }) =>
+      toggleMark: ({ blockId, range, mark, value }) => {
+        let applied = false;
         withOrigin(() => {
           const node = getNode(tree, blockId);
           if (!node) return;
@@ -749,7 +983,9 @@ export const createEditor = (options: EditorOptions = {}): Editor => {
           const text = ensureText(node);
           const delta = text.toDelta() as DeltaRun[];
           let coverage = 0;
+          let coverageSameValue = 0;
           let cursor = 0;
+          const requested = value ?? true;
           for (const part of delta) {
             if (typeof part.insert !== "string") continue;
             const partStart = cursor;
@@ -757,15 +993,23 @@ export const createEditor = (options: EditorOptions = {}): Editor => {
             const overlapStart = Math.max(partStart, range.start);
             const overlapEnd = Math.min(partEnd, range.end);
             if (overlapEnd > overlapStart) {
-              const isOn =
-                !!part.attributes && part.attributes[mark] !== undefined;
-              if (isOn) coverage += overlapEnd - overlapStart;
+              const existing = part.attributes?.[mark];
+              if (existing !== undefined) {
+                const len = overlapEnd - overlapStart;
+                coverage += len;
+                if (sameMarkValue(existing, requested)) coverageSameValue += len;
+              }
             }
             cursor = partEnd;
           }
           const rangeLen = range.end - range.start;
           const fullyOn = rangeLen > 0 && coverage >= rangeLen;
-          if (fullyOn) {
+          // Fully-covered range: calling with NO value (the plain toggle
+          // gesture) or with the SAME value toggles the mark off. Calling
+          // with a DIFFERENT value (new comment threadId, new highlight
+          // color, new link href) is a REPLACE — the mark() below overwrites
+          // it — never a silent removal.
+          if (fullyOn && (value === undefined || coverageSameValue >= rangeLen)) {
             text.unmark(range, mark);
             return;
           }
@@ -784,7 +1028,10 @@ export const createEditor = (options: EditorOptions = {}): Editor => {
             text.unmark(range, "code");
           }
           text.mark(range, mark, value ?? true);
-        }),
+          applied = true;
+        });
+        if (applied) emitIfMentionApplied(blockId, range, mark, value);
+      },
 
       clearMarks: ({ blockId, range }) =>
         withOrigin(() => {
@@ -792,11 +1039,51 @@ export const createEditor = (options: EditorOptions = {}): Editor => {
           if (!node) return;
           if (range.end <= range.start) return;
           const text = ensureText(node);
-          for (const key of MARK_KEYS) text.unmark(range, key);
+          for (const key of FORMAT_MARK_KEYS) text.unmark(range, key);
         }),
 
+      insertMention: ({ blockId, range, principal }) => {
+        const node = getNode(tree, blockId);
+        if (!node) throw new Error(`block ${blockId} not found`);
+        if (!blockKindHasInline(getKind(node))) {
+          throw new Error(
+            `block ${blockId} (kind ${getKind(node)}) has no inline text`,
+          );
+        }
+        const label = principal.label.startsWith("@")
+          ? principal.label
+          : `@${principal.label}`;
+        const value: MentionMarkValue = {
+          userId: principal.id,
+          label,
+          ...(principal.kind !== undefined ? { kind: principal.kind } : {}),
+        };
+        validateMarkValue("mention", value);
+        const marked = withOrigin(() => {
+          const text = ensureText(node);
+          const len = text.length;
+          const start = Math.max(0, Math.min(range.start, len));
+          const end = Math.max(start, Math.min(range.end, len));
+          if (end > start) text.delete(start, end - start);
+          // Label + one trailing space; `mention` is `expand: "none"` so the
+          // space stays unmarked and the caret can sit after the chip.
+          text.insert(start, `${label} `);
+          text.mark({ start, end: start + label.length }, "mention", value);
+          return { start, end: start + label.length };
+        });
+        events.emit({
+          _tag: "MentionCreated",
+          blockId,
+          range: marked,
+          principal: { id: principal.id, label, kind: principal.kind },
+          origin,
+        });
+        return marked;
+      },
+
       mark: {
-        update: ({ blockId, range, mark, value }) =>
+        update: ({ blockId, range, mark, value }) => {
+          let applied = false;
           withOrigin(() => {
             const node = getNode(tree, blockId);
             if (!node) return;
@@ -804,16 +1091,38 @@ export const createEditor = (options: EditorOptions = {}): Editor => {
             validateMarkValue(mark, value);
             const text = ensureText(node);
             text.mark(range, mark, value ?? true);
-          }),
+            applied = true;
+          });
+          // Guarded so a write that didn't happen (block deleted by a peer,
+          // empty range) can't emit a phantom MentionCreated.
+          if (applied) emitIfMentionApplied(blockId, range, mark, value);
+        },
       },
     },
 
     history: {
-      undo: () => undo?.undo() ?? false,
-      redo: () => undo?.redo() ?? false,
+      undo: () => {
+        const did = undo?.undo() ?? false;
+        if (did) {
+          reconcileSelectionWithDoc();
+          notify(historyListeners);
+        }
+        return did;
+      },
+      redo: () => {
+        const did = undo?.redo() ?? false;
+        if (did) {
+          reconcileSelectionWithDoc();
+          notify(historyListeners);
+        }
+        return did;
+      },
       canUndo: () => undo?.canUndo() ?? false,
       canRedo: () => undo?.canRedo() ?? false,
-      clearHistory: () => undo?.clear(),
+      clearHistory: () => {
+        undo?.clear();
+        notify(historyListeners);
+      },
       flushMergeWindow: () => {
         prevMergeable = false;
       },
@@ -821,10 +1130,10 @@ export const createEditor = (options: EditorOptions = {}): Editor => {
 
     selection: {
       set: (range) => {
-        currentSelection = {
+        setCurrentSelection({
           anchor: { ...range.anchor },
           focus: { ...range.focus },
-        };
+        });
       },
 
       get: () => currentSelection,
@@ -834,21 +1143,21 @@ export const createEditor = (options: EditorOptions = {}): Editor => {
         const first = order[0];
         const last = order[order.length - 1];
         if (first === undefined || last === undefined) {
-          currentSelection = null;
+          setCurrentSelection(null);
           return;
         }
-        currentSelection = {
+        setCurrentSelection({
           anchor: { blockId: first, offset: 0 },
           focus: { blockId: last, offset: textLengthOf(last) },
-        };
+        });
       },
 
       collapse: (blockId, offset) => {
         const clamped = Math.max(0, Math.min(offset, textLengthOf(blockId)));
-        currentSelection = {
+        setCurrentSelection({
           anchor: { blockId, offset: clamped },
           focus: { blockId, offset: clamped },
-        };
+        });
       },
 
       getTextContent: () => {
@@ -886,6 +1195,30 @@ export const createEditor = (options: EditorOptions = {}): Editor => {
 
       insertText: (value) => mutateSelectionRange(value),
       deleteRange: () => mutateSelectionRange(null),
+    },
+
+    clipboard: {
+      copy: () => buildClipboardPayload(),
+      cut: () => {
+        const payload = buildClipboardPayload();
+        if (!payload) return null;
+        mutateSelectionRange(null);
+        return payload;
+      },
+      paste: (payload) => {
+        const blocks = "blocks" in payload ? payload.blocks : undefined;
+        if (!blocks || blocks.length === 0) {
+          withUndoGroup(() => pasteTextImpl(payload.text));
+          return;
+        }
+        // Validate the FULL payload before any mutation starts — a malformed
+        // fragment discovered mid-paste would otherwise leave the doc with a
+        // partial (split + some blocks) state that no error handler can roll
+        // back.
+        validateClipboardBlocks(blocks, 0);
+        withUndoGroup(() => pasteStructured(blocks));
+      },
+      pasteText: (value) => withUndoGroup(() => pasteTextImpl(value)),
     },
   };
 
@@ -963,10 +1296,271 @@ export const createEditor = (options: EditorOptions = {}): Editor => {
     }
 
     const caret = start.offset + (value ? value.length : 0);
-    currentSelection = {
+    setCurrentSelection({
       anchor: { blockId: start.blockId, offset: caret },
       focus: { blockId: start.blockId, offset: caret },
-    };
+    });
+  }
+
+  /**
+   * Serialize the current selection into a `ClipboardPayload`. Nesting is
+   * preserved: a selected block whose parent is also selected becomes a child
+   * fragment; otherwise it surfaces as a top-level fragment.
+   */
+  function buildClipboardPayload(): ClipboardPayload | null {
+    const sel = currentSelection;
+    if (!sel) return null;
+    const order = documentOrder();
+    const ai = order.indexOf(sel.anchor.blockId);
+    const fi = order.indexOf(sel.focus.blockId);
+    if (ai < 0 || fi < 0) return null;
+    if (ai === fi && sel.anchor.offset === sel.focus.offset) return null;
+    const [start, end] = orderEndpoints(sel, ai, fi);
+    const ids = order.slice(Math.min(ai, fi), Math.max(ai, fi) + 1);
+
+    interface MutableFragment {
+      kind: BlockKind;
+      attrs: Record<string, unknown>;
+      delta?: ClipboardDeltaRun[];
+      children: MutableFragment[];
+    }
+    const fragOf = new Map<BlockId, MutableFragment>();
+    const top: MutableFragment[] = [];
+    for (const id of ids) {
+      const node = getNode(tree, id);
+      if (!node) continue;
+      const kind = getKind(node);
+      const frag: MutableFragment = { kind, attrs: getAttrs(node), children: [] };
+      if (blockKindHasInline(kind)) {
+        const text = getText(node);
+        const full = text ? (text.toDelta() as DeltaRun[]) : [];
+        const len = text ? text.length : 0;
+        const from = id === start.blockId ? start.offset : 0;
+        const to = id === end.blockId ? end.offset : len;
+        frag.delta = sliceDelta(full, from, to).map((run) =>
+          run.attributes && Object.keys(run.attributes).length > 0
+            ? { insert: run.insert ?? "", attributes: run.attributes }
+            : { insert: run.insert ?? "" },
+        );
+      }
+      const parent = node.parent();
+      const parentFrag = parent ? fragOf.get(String(parent.id)) : undefined;
+      if (parentFrag) parentFrag.children.push(frag);
+      else top.push(frag);
+      fragOf.set(id, frag);
+    }
+    return { text: commands.selection.getTextContent(), blocks: top };
+  }
+
+  /**
+   * Reject malformed payloads (foreign apps, crafted clipboard contents)
+   * before any doc mutation: unknown kinds, non-string inserts, nesting past
+   * MAX_PASTE_DEPTH (stack-overflow guard for createFragmentBlock).
+   */
+  function validateClipboardBlocks(
+    blocks: ReadonlyArray<ClipboardFragment>,
+    depth: number,
+  ): void {
+    if (depth > MAX_PASTE_DEPTH) {
+      throw new Error(
+        `clipboard payload exceeds max nesting depth ${MAX_PASTE_DEPTH}`,
+      );
+    }
+    for (const frag of blocks) {
+      if (!frag || typeof frag !== "object") {
+        throw new Error("clipboard fragment must be an object");
+      }
+      if (!KNOWN_BLOCK_KINDS.has(frag.kind as string)) {
+        throw new Error(
+          `clipboard fragment has unknown block kind "${String(frag.kind)}"`,
+        );
+      }
+      if (frag.delta !== undefined) {
+        for (const run of frag.delta) {
+          if (typeof run?.insert !== "string") {
+            throw new Error("clipboard delta run must have a string insert");
+          }
+        }
+      }
+      validateClipboardBlocks(frag.children ?? [], depth + 1);
+    }
+  }
+
+  /** Concatenated inline text of a fragment (excluding children). */
+  function fragmentTextLength(frag: ClipboardFragment): number {
+    return (frag.delta ?? []).reduce((n, run) => n + run.insert.length, 0);
+  }
+
+  /** Whether a fragment can merge into surrounding inline text. */
+  function isInlineFragment(frag: ClipboardFragment): boolean {
+    return blockKindHasInline(frag.kind) && frag.delta !== undefined;
+  }
+
+  /**
+   * Insert a fragment's inline runs into `blockId` at `offset`, re-applying
+   * marks and suppressing `expand: "after"` bleed from the character before
+   * the insertion point (same guard as `block.merge`). Returns the inserted
+   * length.
+   */
+  function insertDeltaInline(
+    blockId: BlockId,
+    offset: number,
+    delta: ReadonlyArray<ClipboardDeltaRun>,
+  ): number {
+    const value = delta.map((run) => run.insert).join("");
+    if (!value) return 0;
+    const node = getNode(tree, blockId);
+    if (!node) return 0;
+    withOrigin(() => {
+      const text = ensureText(node);
+      const prevDelta = text.toDelta() as DeltaRun[];
+      const before = sliceDelta(prevDelta, Math.max(0, offset - 1), offset);
+      const bleedKeys = before[0]?.attributes
+        ? Object.keys(before[0].attributes).filter((k) =>
+            EXPAND_AFTER_MARKS.has(k),
+          )
+        : [];
+      text.insert(offset, value);
+      for (const key of bleedKeys) {
+        text.unmark({ start: offset, end: offset + value.length }, key);
+      }
+      // Whitelist marks at the document boundary — see PASTEABLE_MARK_KEYS.
+      const sanitized: DeltaRun[] = delta.map((run) => {
+        if (!run.attributes) return { insert: run.insert };
+        const attributes: Record<string, unknown> = {};
+        for (const [key, v] of Object.entries(run.attributes)) {
+          if (PASTEABLE_MARK_KEYS.has(key)) attributes[key] = v;
+        }
+        return Object.keys(attributes).length > 0
+          ? { insert: run.insert, attributes }
+          : { insert: run.insert };
+      });
+      applyDeltaMarks(text, sanitized, offset);
+    });
+    return value.length;
+  }
+
+  /** Materialize a fragment (and its children) as a new block subtree. */
+  function createFragmentBlock(
+    parentId: BlockId,
+    index: number,
+    frag: ClipboardFragment,
+  ): BlockId {
+    const id = commands.block.insert({
+      parentId,
+      index,
+      kind: frag.kind,
+      attrs: frag.attrs,
+    });
+    if (frag.delta && blockKindHasInline(frag.kind)) {
+      insertDeltaInline(id, 0, frag.delta);
+    }
+    (frag.children ?? []).forEach((child, i) => createFragmentBlock(id, i, child));
+    return id;
+  }
+
+  /**
+   * Structured paste, mirroring Lexical's `$insertNodes` on a range: the
+   * anchor block splits at the caret; the first inline fragment merges into
+   * the anchor head; the last inline childless fragment absorbs the tail;
+   * everything else lands as sibling blocks in between.
+   */
+  function pasteStructured(blocks: ReadonlyArray<ClipboardFragment>): void {
+    const sel = currentSelection;
+    if (!sel) return;
+    const collapsed =
+      sel.anchor.blockId === sel.focus.blockId &&
+      sel.anchor.offset === sel.focus.offset;
+    if (!collapsed) mutateSelectionRange(null);
+    const caret = currentSelection;
+    if (!caret) return;
+    const anchorId = caret.anchor.blockId;
+    const offset = caret.anchor.offset;
+
+    const first = blocks[0]!;
+    if (
+      blocks.length === 1 &&
+      isInlineFragment(first) &&
+      first.children.length === 0
+    ) {
+      const n = insertDeltaInline(anchorId, offset, first.delta!);
+      commands.selection.collapse(anchorId, offset + n);
+      return;
+    }
+
+    const tailId = commands.block.split({ blockId: anchorId, offset });
+    let idx = 0;
+    const mergedIntoAnchor =
+      isInlineFragment(first) && first.children.length === 0;
+    if (mergedIntoAnchor) {
+      insertDeltaInline(anchorId, offset, first.delta!);
+      idx = 1;
+    }
+
+    const anchorNode = getNode(tree, anchorId);
+    const parent = anchorNode?.parent();
+    const parentId = parent ? String(parent.id) : ROOT_ID;
+    let insertIndex = (anchorNode?.index() ?? 0) + 1;
+    let last: { id: BlockId; frag: ClipboardFragment } | null = null;
+    for (; idx < blocks.length; idx++) {
+      const frag = blocks[idx]!;
+      last = { id: createFragmentBlock(parentId, insertIndex, frag), frag };
+      insertIndex += 1;
+    }
+
+    // Mirror of the empty-tail drop below: when nothing merged into the
+    // anchor (first fragment was structural) and the split left it empty —
+    // e.g. pasting a divider at offset 0 — the empty head block is an
+    // artifact of the split, not content.
+    if (
+      !mergedIntoAnchor &&
+      textLengthOf(anchorId) === 0 &&
+      childIds(tree, anchorId).length === 0
+    ) {
+      commands.block.delete({ blockId: anchorId });
+    }
+
+    if (last && isInlineFragment(last.frag) && last.frag.children.length === 0) {
+      const caretOffset = fragmentTextLength(last.frag);
+      commands.block.merge({ prevId: last.id, nextId: tailId });
+      commands.selection.collapse(last.id, caretOffset);
+      return;
+    }
+    // The tail couldn't merge (last fragment is non-inline or has children).
+    // An empty tail is dropped — otherwise pasting at the end of a block
+    // would strand an empty paragraph after the pasted content.
+    if (textLengthOf(tailId) === 0 && childIds(tree, tailId).length === 0) {
+      commands.block.delete({ blockId: tailId });
+      if (last) {
+        commands.selection.collapse(
+          last.id,
+          isInlineFragment(last.frag) ? fragmentTextLength(last.frag) : 0,
+        );
+      }
+      return;
+    }
+    commands.selection.collapse(tailId, 0);
+  }
+
+  /** Plain-text paste: first line via `insertText`, each `\n` via `split`. */
+  function pasteTextImpl(value: string): void {
+    if (!currentSelection) return;
+    if (value === "") return;
+    const lines = value.replace(/\r\n?/g, "\n").split("\n");
+    mutateSelectionRange(lines[0]!);
+    const sel = currentSelection;
+    if (!sel) return;
+    let cur = sel.anchor.blockId;
+    let caretOffset = sel.anchor.offset;
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i]!;
+      cur = commands.block.split({ blockId: cur, offset: caretOffset });
+      if (line.length > 0) {
+        commands.text.insert({ blockId: cur, offset: 0, value: line });
+      }
+      caretOffset = line.length;
+    }
+    commands.selection.collapse(cur, caretOffset);
   }
 
   (editor as { commands: EditorCommands }).commands = commands;

@@ -152,6 +152,29 @@
    contenteditable host (.weaver-surface); these rules give its block +
    mark vocabulary the Contextful design language. */
 .weaver-loading { color: var(--color-text-muted); font-size: var(--text-sm); }
+/* Positioning frame for the presence caret overlay — @weaver/dom appends the
+   layer to the editor host's parent, which must be the offset parent. */
+.weaver-host { position: relative; }
+.weaver-presence-layer { z-index: 5; }
+.weaver-presence-caret {
+  width: 2px;
+  height: 1.4em;
+  border-radius: var(--radius-sm);
+  background: var(--presence-color, var(--color-accent));
+}
+.weaver-presence-label {
+  position: absolute;
+  top: -1.15em;
+  left: 0;
+  white-space: nowrap;
+  background: var(--presence-color, var(--color-accent));
+  color: var(--color-text-on-primary);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  line-height: 1.2;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+}
 .weaver-surface {
   outline: none;
   min-height: 13rem;

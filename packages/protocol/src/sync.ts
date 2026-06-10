@@ -12,6 +12,18 @@ export type PresenceState = {
   principal: string;
   display_name: string;
   mode: PresenceMode;
+  /**
+   * Session discriminator (one per tab/connection) so two sessions of the
+   * same principal don't clobber each other — mirrors upstream Weaver's
+   * `peerId = principal#session` convention (weaver PR #35).
+   */
+  session?: string;
+  /**
+   * Weaver block id (`data-block-id`) the caret sits in; `cursor_anchor` is
+   * the character offset within that block. Enough for peers to draw a live
+   * caret in their editor overlay.
+   */
+  cursor_block?: string;
   cursor_anchor?: number;
   selection_end?: number;
   /** heartbeat ms since epoch */

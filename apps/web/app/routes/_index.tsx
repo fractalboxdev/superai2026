@@ -11,6 +11,7 @@ import {
 } from "@superai2026/protocol/requests";
 import { useWeaverRoom } from "@/lib/weaverRoom";
 import { DOCS, DEFAULT_DOC_ID } from "@/lib/docs";
+import { initialsOf, isScenarioPrincipal, peerColor, peerKey } from "@/lib/presence";
 import DocDebugMenu from "@/components/DocDebugMenu";
 
 // The Weaver editing surface pulls in loro-crdt (WASM) via @weaver/react —
@@ -92,6 +93,17 @@ export default function Home() {
   const activeDoc = DOCS.find((d) => d.id === activeDocId)!;
   const room = useWeaverRoom(actor.id, actor.name, activeDocId);
   const { status: syncStatus, peers: livePeers } = room;
+  // One presence roster (upstream weaver PR #35): scenario agents +
+  // collaborators are always in the room; live sessions light their chip up,
+  // and sessions outside the scenario cast get their own chip per session.
+  const liveByPrincipal = useMemo(
+    () => new Map(livePeers.map((p) => [p.principal, p])),
+    [livePeers],
+  );
+  const guestPeers = useMemo(
+    () => livePeers.filter((p) => !isScenarioPrincipal(p.principal)),
+    [livePeers],
+  );
   const columns = useMemo(
     () => DATASETS.find((d) => viewId(d.view) === viewId(selView))?.columns ?? [],
     [selView],
@@ -248,19 +260,27 @@ export default function Home() {
                     : "◐ local"}
           </span>
           <span className="cf-presence" aria-label="collaborators present">
-            {PRINCIPALS.map((p) => (
-              <span key={p.id} className="cf-presence__dot" style={{ background: dotColor(p.id) }}>
-                {tag(p)}
-              </span>
-            ))}
-            {livePeers.map((p) => (
+            {PRINCIPALS.map((p) => {
+              const live = liveByPrincipal.get(p.id);
+              return (
+                <span
+                  key={p.id}
+                  className={`cf-presence__dot${live ? " cf-presence__dot--live" : ""}`}
+                  style={{ background: dotColor(p.id) }}
+                  title={`${p.name} · in room${live ? ` · ${live.mode}` : ""}`}
+                >
+                  {tag(p)}
+                </span>
+              );
+            })}
+            {guestPeers.map((p) => (
               <span
-                key={`live-${p.principal}`}
-                className="cf-presence__dot"
-                style={{ background: "var(--cf-green-500)" }}
+                key={peerKey(p)}
+                className="cf-presence__dot cf-presence__dot--live"
+                style={{ background: peerColor(p.principal) }}
                 title={`${p.display_name} · ${p.mode}`}
               >
-                ◆
+                {initialsOf(p.display_name) || "◆"}
               </span>
             ))}
           </span>
@@ -357,7 +377,11 @@ export default function Home() {
               <div className="app-editor__body">
                 {room.editor ? (
                   <Suspense fallback={<p className="weaver-loading">Waking the editor…</p>}>
-                    <WeaverSurface editor={room.editor} />
+                    <WeaverSurface
+                      editor={room.editor}
+                      peers={livePeers}
+                      onCursorChange={room.setCursor}
+                    />
                   </Suspense>
                 ) : (
                   <p className="weaver-loading">Waking the editor…</p>

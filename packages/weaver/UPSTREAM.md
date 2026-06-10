@@ -5,7 +5,10 @@ can mount the real editor while replacing its sync backend with the
 Contextful relay (spec `specs/01-room-sync.md` §2 "Integration decision").
 
 - **Upstream repo:** <https://github.com/OpenHackersClub/weaver>
-- **Vendored commit:** `a87da1d579ed511a10163e240e0cec77a144a6a2`
+- **Vendored commit:** `516123478d2eacea4adbcb208819e88ab5154c70`
+  (includes upstream [PR #35](https://github.com/OpenHackersClub/weaver/pull/35):
+  agents + humans share one presence roster, live cursors on the wire,
+  `usePresence`/`PresenceFacepile`, DOM-caret → core-selection mirroring)
 - **License:** MIT — see [`LICENSE`](./LICENSE) (upstream copy).
 
 ## What is vendored
@@ -30,6 +33,11 @@ Contextful relay (spec `specs/01-room-sync.md` §2 "Integration decision").
 - Source files are unmodified upstream copies unless noted here:
   - `dom/src/keymap.ts` — `latestCaret`'s unused `prev` parameter renamed to
     `_prev` (this repo typechecks with `noUnusedParameters`).
+  - `dom/src/bridge.ts` — the document-level `selectionchange` listener (which
+    mirrors the live DOM caret into core selection) is registered
+    unconditionally; upstream gates it on `options.onMentionTrigger`, so a
+    consumer without mentions gets no live `useSelection` and presence
+    cursors never publish. Candidate to upstream.
 
 ## Transport note
 
