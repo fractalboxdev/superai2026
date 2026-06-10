@@ -391,44 +391,33 @@ set. Click through the four cards, land on the lane line.
 -->
 
 ---
+layout: center
+class: text-center
+---
 
-# How it works <span class="text-base opacity-50">· technical</span>
+# Document paired with Sandbox
 
-```mermaid
-flowchart LR
-    A["Member agent<br/>drafts a scoped request"] --> P{"Policy engine<br/>deterministic"}
-    P -->|within policy| O["Owner agent<br/>auto-mode"]
-    O --> S["Approved slice<br/>this question only"]
-    P -->|"out of scope<br/>(salary)"| D["Denied"]
-    P -.->|policy exceeded| H["Human"]
-    style P fill:#eef2ff,stroke:#4f46e5
-    style D fill:#fef2f2,stroke:#dc2626
-```
+<div class="deploy-logos justify-center mt-8">
+  <figure><logos-vercel-icon /><span class="label">Vercel Sandbox</span></figure>
+</div>
 
-- **Nothing holds everything** — scoped agents, partial access per person.
-- **Delegation is attenuation** — an agent can never out-see its grantor; slices only *shrink* down the chain.
-- **Deterministic policy** decides — the agent only *drafts*.
-- **Auto-mode** clears safe requests; escalates the rest.
-- Every document pairs with its own **isolated sandbox** — no ambient authority.
+<p v-click class="mt-8 font-bold text-2xl">Capability access control takes place <em>before</em> data can leak.</p>
 
 <img :src="'/arts/slide-how.png'" alt="Gilfoyle as gatekeeper handing one small key through a gate to Richard" class="slide-art absolute bottom-6 right-8 w-36" />
 
 <!--
 🎤 SAY (placeholder — edit me):
-"For the technical folks: how does that denial actually work? No single agent holds
-everything — each one has partial, scoped access. And the boundary is not an LLM being
-polite — it's a deterministic policy engine. The agent only drafts the request; policy
-decides. Safe requests clear automatically, so there's no permission fatigue — only the
-exceptions reach a human."
+"Every document pairs with its own isolated sandbox — the room's agents run inside it,
+with no ambient authority. And the order matters: capability access control happens
+before anything enters that sandbox. Policy filters the data first; the sandbox only
+ever sees what was already approved — so by construction, there's nothing in there to
+leak."
 
-TECHNICAL 1/3. Auto-mode means no permission fatigue: safe requests clear automatically,
-only policy-exceeding ones reach a human. The key correction from review: the boundary is
-enforced by deterministic policy, not by an LLM in the trust path. The agent composes/routes
-the scoped request; the policy engine approves or denies. Worst case is a denied request —
-which still proves the point.
-Delegation-is-attenuation + per-doc sandbox: from the landing "core idea" section — scopes
-compose by intersection; the room's agents run in the doc's sandbox and nothing enters
-that policy hasn't already filtered.
+TECHNICAL 1/3, simplified after review: one idea per slide. Per-doc sandbox runs on
+Vercel Sandbox (cloud) or Docker/OrbStack (local) — the BYOC slide covers the choices.
+The load-bearing claim: enforcement is BEFORE the agent/sandbox boundary (deterministic
+policy engine, not an LLM being polite), so a compromised or careless agent has nothing
+out-of-scope to exfiltrate.
 -->
 
 ---
@@ -532,27 +521,23 @@ layout: two-cols
   <figure><img :src="'/logos/tailscale.svg'" alt="Tailscale" class="deploy-logo-img" /><span class="label">Tailscale</span></figure>
 </div>
 
-Same binary, same policy engine — deployment is a choice, not an architecture change.
-All nodes joined over a **Tailscale zero-trust network**
+**One binary** that is easy to run locally or deploy to cloud.
 
 <v-clicks>
 
 - **Sandboxes too:** each document's isolated sandbox runs on **Vercel Sandbox**, **Docker**, or **OrbStack** — cloud or fully local, your pick.
-- Connector subscriptions today: **$200 × N tools, every month** — to reach *your own data*.
-- **Your agent writes the connector once. It runs on your machines.**
+- **Agents build connectors and run them locally for you.** Stop paying **$200 × N** to SaaS for *your* data.
 
 </v-clicks>
 
-<p v-click class="mt-6 font-bold text-2xl">Stop renting access to your own data.</p>
-
 ::right::
 
-<p class="text-sm opacity-60 mt-12">Sample setup — hardware you already own:</p>
+<p class="text-sm opacity-60 mt-4">Sample setup — hardware you already own:</p>
 
 ```mermaid
 flowchart LR
     subgraph TS["Tailscale zero-trust network"]
-        subgraph S["2 server nodes — relay + connectors · synced"]
+        subgraph S["2 server nodes · synced"]
             AWS["☁️ AWS box"]
             MS["🖥️ Mac Studio · office"]
         end
@@ -658,7 +643,7 @@ class: text-center
 
 # Appendix — full product demo
 
-<SlidevVideo class="demo-film" controls>
+<SlidevVideo class="demo-film demo-film--appendix" controls>
   <source src="https://contextful-releases.s3.us-west-2.amazonaws.com/demos/contextful-product-demo-2026-06-10.mp4" type="video/mp4" />
   <p>Your browser can't play this video. <a href="https://contextful-releases.s3.us-west-2.amazonaws.com/demos/contextful-product-demo-2026-06-10.mp4">Download the full demo</a>.</p>
 </SlidevVideo>

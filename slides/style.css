@@ -148,6 +148,12 @@ video.demo-film {
   display: inline-block;
 }
 
+/* Appendix film — shorter than the cover film so h1 + caption still fit */
+video.demo-film--appendix,
+.demo-film--appendix video {
+  max-height: 380px;
+}
+
 /* Free-flow comic illustrations (per ART-DIRECTION.md): transparent
  * silhouettes with a soft teal drop shadow, never boxed. */
 .slide-art {
