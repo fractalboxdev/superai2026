@@ -69,16 +69,14 @@ type NavItem = {
 };
 
 const PRIMARY: NavItem[] = [
+  { href: "/inbox", label: "Inbox", icon: "inbox" },
   { href: "/", label: "Documents", icon: "documents", also: "/docs" },
   { href: "/directory", label: "Directory", icon: "directory" },
   { href: "/connectors", label: "Connectors", icon: "connectors" },
   { href: "/memory", label: "Memory", icon: "memory" },
 ];
 
-const ACCESS: NavItem[] = [
-  { href: "/delegate", label: "Delegation", icon: "delegate" },
-  { href: "/inbox", label: "Inbox", icon: "inbox" },
-];
+const ACCESS: NavItem[] = [{ href: "/delegate", label: "Delegation", icon: "delegate" }];
 
 function isActive(item: NavItem, pathname: string): boolean {
   if (item.href === "/") return pathname === "/" || (!!item.also && pathname.startsWith(item.also));
@@ -127,7 +125,11 @@ export function AppSidebar({ inboxCount }: { inboxCount?: number }) {
       <ul className="sb__nav">
         {PRIMARY.map((item) => (
           <li key={item.href}>
-            <NavLink item={item} pathname={pathname} />
+            <NavLink
+              item={item}
+              pathname={pathname}
+              count={item.href === "/inbox" ? inboxCount : undefined}
+            />
             {item.icon === "documents" && (
               <ul className="sb__docs">
                 {DOCS.map((d) => {
@@ -155,11 +157,7 @@ export function AppSidebar({ inboxCount }: { inboxCount?: number }) {
       <ul className="sb__nav">
         {ACCESS.map((item) => (
           <li key={item.href}>
-            <NavLink
-              item={item}
-              pathname={pathname}
-              count={item.href === "/inbox" ? inboxCount : undefined}
-            />
+            <NavLink item={item} pathname={pathname} />
           </li>
         ))}
       </ul>
