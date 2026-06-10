@@ -31,3 +31,5 @@ futures-util = { workspace = true }
 chrono = { workspace = true }
 uuid = { workspace = true }
 thiserror = { workspace = true }
+biscuit-auth = { workspace = true }
+hex = { workspace = true }
