@@ -16,7 +16,7 @@ Reinstall `/Applications/Contextful.app` from the current working tree. Everythi
 
 What it does, in order:
 
-1. **Build** — `pnpm app:build` in `apps/desktop`: stages the release `crates/sync` sidecar (`scripts/prepare-sidecar.sh --release`) then `tauri build`, producing `apps/desktop/src-tauri/target/release/bundle/macos/Contextful.app`. Skipped with `--skip-build`.
+1. **Build** — in `apps/desktop`: stages the release `crates/sync` sidecar (`scripts/prepare-sidecar.sh --release`) then `tauri build --bundles app`, producing `apps/desktop/src-tauri/target/release/bundle/macos/Contextful.app`. The `.app` bundle only — the DMG step (`bundle_dmg.sh`) requires a GUI Finder session and fails headless; it isn't needed for a local reinstall. Skipped with `--skip-build`.
 2. **Unload the LaunchAgent** (`~/Library/LaunchAgents/work.contextful.app.plist`, label `work.contextful.app`) if installed, so launchd doesn't resurrect the app mid-swap.
 3. **Quit** the running app (AppleScript quit, then force-kill `contextful-desktop` and any sidecar still running from `Contextful.app/Contents/MacOS`).
 4. **Swap** the bundle: `rm -rf` the old install, `ditto` the fresh one in.

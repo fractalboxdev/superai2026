@@ -36,8 +36,10 @@ PLIST="$HOME/Library/LaunchAgents/work.contextful.app.plist"
 step() { printf '\n==> %s\n' "$*"; }
 
 if [ "$SKIP_BUILD" -eq 0 ]; then
-  step "Building Contextful.app (sidecar --release + tauri build)"
-  (cd "$DESKTOP_DIR" && pnpm app:build)
+  step "Building Contextful.app (sidecar --release + tauri build --bundles app)"
+  # .app only — the dmg step (bundle_dmg.sh) needs a GUI Finder session and
+  # isn't needed for a local reinstall.
+  (cd "$DESKTOP_DIR" && pnpm sidecar --release && pnpm tauri build --bundles app)
 fi
 
 if [ ! -d "$BUNDLE" ]; then
