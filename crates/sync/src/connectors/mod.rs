@@ -5,6 +5,7 @@
 //! that yields raw events tagged with provenance and an `acl_tag`.
 
 pub mod exa;
+pub mod slack;
 pub mod stripe;
 
 use serde::{Deserialize, Serialize};

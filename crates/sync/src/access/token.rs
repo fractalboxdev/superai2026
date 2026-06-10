@@ -294,10 +294,20 @@ fn authorizer_for(
     params: HashMap<String, Term>,
 ) -> Result<biscuit_auth::Authorizer, TokenError> {
     let sentinels = format!("q_field(\"{SENTINEL}\");\nq_view(\"{SENTINEL}\");\n");
+    // The default Datalog run limit is 1ms of wall time — tight enough that a
+    // loaded host (parallel tests, busy CI) intermittently times out a valid
+    // verification. Keep the fact/iteration caps (they bound memory and
+    // degenerate rules) but give wall time real headroom: a verification that
+    // fails must fail because of the token, never because of the scheduler.
+    let limits = biscuit_auth::AuthorizerLimits {
+        max_time: std::time::Duration::from_millis(250),
+        ..Default::default()
+    };
     AuthorizerBuilder::new()
         .code_with_params(format!("{sentinels}{code}"), params, HashMap::new())
         .map_err(TokenError::from)?
         .time()
+        .set_limits(limits)
         .build(biscuit)
         .map_err(TokenError::from)
 }

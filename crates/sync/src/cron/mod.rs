@@ -8,6 +8,7 @@ use anyhow::{bail, Result};
 use crate::brain::synthesis::synthesize;
 use crate::config::Config;
 use crate::connectors::exa::ExaConnector;
+use crate::connectors::slack::SlackConnector;
 use crate::connectors::stripe::StripeConnector;
 use crate::connectors::{Connector, Cursor};
 use crate::store::Store;
@@ -34,7 +35,8 @@ pub fn ingest_once(source: &str) -> Result<()> {
             )
             .pull(&Cursor::default())?
         }
-        other => bail!("unknown source '{other}' (known: stripe, exa)"),
+        "slack" => SlackConnector::new(config.fixtures_dir()).pull(&Cursor::default())?,
+        other => bail!("unknown source '{other}' (known: stripe, exa, slack)"),
     };
 
     index.raw_events.retain(|e| e.source_id != source);

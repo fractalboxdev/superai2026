@@ -13,6 +13,7 @@
 // auto-discovered from the token's first team/project when unset.
 
 import { Sandbox } from "@vercel/sandbox";
+import { sandboxLogsUrl } from "./dashboard.mjs";
 
 const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000; // bridge default; Rust decides policy
 
@@ -36,15 +37,20 @@ async function vercelApi(path, token) {
   return res.json();
 }
 
-/** Resolve teamId/projectId from env, discovering via the API if missing. */
+/** Resolve teamId/projectId from env, discovering via the API if missing.
+ * Also resolves the dashboard slugs (team slug + project name) so `create`
+ * can hand back a logs URL — best-effort, never fatal. */
 async function auth() {
   const token = process.env.VERCEL_TOKEN;
   if (!token) throw new Error("VERCEL_TOKEN is required");
   let teamId = process.env.VERCEL_TEAM_ID;
   let projectId = process.env.VERCEL_PROJECT_ID;
+  let teamSlug;
+  let projectName;
   if (!teamId) {
     const { teams } = await vercelApi("/v2/teams?limit=1", token);
     teamId = teams?.[0]?.id;
+    teamSlug = teams?.[0]?.slug;
     if (!teamId) throw new Error("no team found for VERCEL_TOKEN — set VERCEL_TEAM_ID");
   }
   if (!projectId) {
@@ -53,15 +59,32 @@ async function auth() {
       token,
     );
     projectId = projects?.[0]?.id;
+    projectName = projects?.[0]?.name;
     if (!projectId) throw new Error("no project found — set VERCEL_PROJECT_ID");
   }
-  return { token, teamId, projectId };
+  // env-provided ids skip discovery above; look the slugs up directly
+  try {
+    if (!teamSlug) {
+      const team = await vercelApi(`/v2/teams/${encodeURIComponent(teamId)}`, token);
+      teamSlug = team?.slug;
+    }
+    if (!projectName) {
+      const project = await vercelApi(
+        `/v9/projects/${encodeURIComponent(projectId)}?teamId=${encodeURIComponent(teamId)}`,
+        token,
+      );
+      projectName = project?.name;
+    }
+  } catch {
+    // slugs are only for the logs URL — sandbox lifecycle must not fail on them
+  }
+  return { token, teamId, projectId, teamSlug, projectName };
 }
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const timeout = Number(args["timeout-ms"]) || DEFAULT_TIMEOUT_MS;
-  const credentials = await auth();
+  const { teamSlug, projectName, ...credentials } = await auth();
 
   switch (args.cmd) {
     case "create": {
@@ -73,6 +96,7 @@ async function main() {
         room: args.room,
         sandboxId: sandbox.sandboxId,
         timeoutMs: timeout,
+        logsUrl: sandboxLogsUrl({ teamSlug, projectName }),
       };
     }
     case "extend": {

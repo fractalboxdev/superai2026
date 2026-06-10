@@ -110,6 +110,36 @@ fn live_available() -> bool {
     crate::config::nonempty_env("VERCEL_TOKEN").is_some()
 }
 
+/// Build the handle from the bridge's `create` reply. `logsUrl` is the
+/// provider dashboard's execution-logs page, best-effort (null offline or
+/// when the bridge couldn't resolve dashboard slugs).
+fn handle_from_reply(room: &str, reply: &serde_json::Value) -> SandboxHandle {
+    let field = |key: &str| {
+        reply
+            .get(key)
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty())
+            .map(str::to_string)
+    };
+    SandboxHandle {
+        kind: "vercel".into(),
+        room: room.to_string(),
+        sandbox_id: field("sandboxId"),
+        logs_url: field("logsUrl"),
+        max_lifetime_secs: MAX_LIFETIME_SECS,
+    }
+}
+
+/// Read-only registry peek for the debug surface (`GET /debug/sandbox/:room`
+/// on the co-hosted MCP HTTP listener): the handle plus its age in seconds.
+pub fn peek(room: &str) -> Option<(SandboxHandle, u64)> {
+    let guard = REGISTRY.lock().expect("registry lock");
+    guard
+        .as_ref()?
+        .get(room)
+        .map(|(handle, created)| (handle.clone(), created.elapsed().as_secs()))
+}
+
 impl Sandbox for VercelSandbox {
     fn kind(&self) -> &str {
         "vercel"
@@ -134,21 +164,14 @@ impl Sandbox for VercelSandbox {
                 "--timeout-ms",
                 &(MAX_LIFETIME_SECS * 1000).to_string(),
             ])?;
-            let sandbox_id = reply
-                .get("sandboxId")
-                .and_then(|v| v.as_str())
-                .filter(|id| !id.is_empty())
-                // a handle with an empty id would poison the registry until
-                // the lifetime cap — fail the call instead
-                .ok_or_else(|| anyhow::anyhow!("bridge reply missing sandboxId: {reply}"))?
-                .to_string();
+            let handle = handle_from_reply(room, &reply);
+            // a handle with no id would poison the registry until the
+            // lifetime cap — fail the call instead
+            let Some(sandbox_id) = handle.sandbox_id.as_deref() else {
+                anyhow::bail!("bridge reply missing sandboxId: {reply}");
+            };
             tracing::info!(room, %sandbox_id, "provisioned Vercel Sandbox");
-            SandboxHandle {
-                kind: "vercel".into(),
-                room: room.to_string(),
-                sandbox_id: Some(sandbox_id),
-                max_lifetime_secs: MAX_LIFETIME_SECS,
-            }
+            handle
         } else {
             tracing::info!(
                 room,
@@ -158,11 +181,62 @@ impl Sandbox for VercelSandbox {
                 kind: "vercel".into(),
                 room: room.to_string(),
                 sandbox_id: None,
+                logs_url: None,
                 max_lifetime_secs: MAX_LIFETIME_SECS,
             }
         };
 
         registry.insert(room.to_string(), (handle.clone(), Instant::now()));
         Ok(handle)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn handle_carries_sandbox_id_and_logs_url() {
+        let reply = json!({
+            "ok": true, "action": "create", "room": "finops",
+            "sandboxId": "sbx_123",
+            "logsUrl": "https://vercel.com/team/project/observability/sandboxes",
+        });
+        let h = handle_from_reply("finops", &reply);
+        assert_eq!(h.kind, "vercel");
+        assert_eq!(h.room, "finops");
+        assert_eq!(h.sandbox_id.as_deref(), Some("sbx_123"));
+        assert_eq!(
+            h.logs_url.as_deref(),
+            Some("https://vercel.com/team/project/observability/sandboxes")
+        );
+    }
+
+    #[test]
+    fn missing_or_null_logs_url_stays_none() {
+        let h = handle_from_reply("finops", &json!({ "sandboxId": "sbx_1" }));
+        assert_eq!(h.logs_url, None);
+        let h = handle_from_reply("finops", &json!({ "sandboxId": "sbx_1", "logsUrl": null }));
+        assert_eq!(h.logs_url, None);
+        let h = handle_from_reply("finops", &json!({ "sandboxId": "sbx_1", "logsUrl": "" }));
+        assert_eq!(h.logs_url, None);
+    }
+
+    #[test]
+    fn peek_reports_registry_entries_and_unknown_rooms() {
+        // unknown room → None
+        assert!(peek("never-subscribed-room").is_none());
+
+        let handle = handle_from_reply("peek-test-room", &json!({ "sandboxId": "sbx_p" }));
+        REGISTRY
+            .lock()
+            .expect("registry lock")
+            .get_or_insert_with(HashMap::new)
+            .insert("peek-test-room".into(), (handle, Instant::now()));
+
+        let (h, age) = peek("peek-test-room").expect("peeked");
+        assert_eq!(h.sandbox_id.as_deref(), Some("sbx_p"));
+        assert!(age < 60);
     }
 }
