@@ -860,6 +860,20 @@ mod tests {
     }
 
     #[test]
+    fn parses_the_consoles_scripted_demo_ask() {
+        // the exact line the web demo types (ConsolePage's DEMO_ASK):
+        // `@<CFO_AGENT.name> — <DEMO_QUESTION>` — em-dash separator included
+        let dir = dir_pairs();
+        let (target, q) = parse_mention_ask(
+            "@Monica (CFO)'s analyst agent — Let me share the unit economics of our compression product",
+            &dir,
+        )
+        .unwrap();
+        assert_eq!(target, "agent:cfo/1");
+        assert_eq!(q, "Let me share the unit economics of our compression product");
+    }
+
+    #[test]
     fn mention_asks_skip_answered_and_carry_block_ids() {
         let dir = dir_pairs();
         let blocks = vec![
