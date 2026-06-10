@@ -338,6 +338,33 @@ layout: center
 class: text-center
 ---
 
+# Connectors ingesting from your services
+
+Brings your stack into one capability-scoped brain.
+
+<div class="connector-logos mt-10">
+  <figure><img :src="'/logos/notion.svg'" alt="Notion" /><span class="label">Notion</span></figure>
+  <figure><img :src="'/logos/slack.svg'" alt="Slack" /><span class="label">Slack</span></figure>
+  <figure><img :src="'/logos/stripe.svg'" alt="Stripe" /><span class="label">Stripe</span></figure>
+  <figure><span class="connector-chip">Exa</span><span class="label">web research</span></figure>
+</div>
+
+<!--
+🎤 SAY (placeholder — edit me):
+"Where does the brain come from? Connectors, ingesting from the services you already
+run — Notion, Slack, Stripe — plus policy-gated web research through Exa. Every ingest
+synthesizes new cards into the brain you're about to see."
+
+Source: landing trust strip ("Brings your stack into one capability-scoped brain" —
+Notion · Slack · Stripe · Exa). Logos copied from apps/landing/public/logos. On stage:
+say "the open web", not "Exa".
+-->
+
+---
+layout: center
+class: text-center
+---
+
 # Growing Brain. Locally
 
 <div class="screenshot-slot mt-4">
@@ -498,6 +525,7 @@ layout: two-cols
   <figure><logos-aws /><span class="label">AWS</span></figure>
   <figure><logos-vercel-icon /><span class="label">Vercel</span></figure>
   <figure><logos-apple /><span class="label">Local · Mac</span></figure>
+  <figure><img :src="'/logos/tailscale.svg'" alt="Tailscale" class="deploy-logo-img" /><span class="label">Tailscale</span></figure>
 </div>
 
 Same binary, same policy engine — deployment is a choice, not an architecture change.
