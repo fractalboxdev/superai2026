@@ -6,7 +6,7 @@
 //!   cron    — scheduled ingest pipelines                        [spec 05]
 //!   mcp     — brain over MCP (stdio)                            [spec 06]
 //!   agent   — agent runtime loop (MCP-only tool surface)        [spec 04]
-//!   ctl     — control plane: seed / mint / revoke / show        [spec 07]
+//!   ctl     — control plane: seed / mint / grant / revoke / show / audit  [spec 07]
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -104,6 +104,13 @@ enum CtlCommand {
     },
     /// Show the seeded control-plane state.
     Show,
+    /// Show the host-persisted audit trail (grants, denials, routing,
+    /// egress blocks; oldest first).
+    Audit {
+        /// how many of the most recent events to show
+        #[arg(long, default_value_t = 20)]
+        tail: usize,
+    },
 }
 
 #[tokio::main]
@@ -153,6 +160,12 @@ fn run_ctl(cmd: CtlCommand) -> Result<()> {
             let keys = controlplane::keys::ensure_root_key(&config, "cfo")?;
             let signed = sync::access::token::sign(&cap, &keys).map_err(anyhow::Error::from)?;
             controlplane::save_capability(&config, &signed)?;
+            controlplane::audit::record(
+                &config,
+                &principal,
+                controlplane::audit::MINT,
+                serde_json::Value::Null,
+            );
             println!("minted + signed initial token for {principal}");
             Ok(())
         }
@@ -168,5 +181,11 @@ fn run_ctl(cmd: CtlCommand) -> Result<()> {
             ttl,
         } => controlplane::grant(&config, &to, &view, &fields, &ttl),
         CtlCommand::Show => controlplane::show(&config),
+        CtlCommand::Audit { tail } => {
+            for e in controlplane::audit::tail(&config, tail) {
+                println!("{}  {:<16} {:<14} {}", e.ts, e.action, e.actor, e.detail);
+            }
+            Ok(())
+        }
     }
 }

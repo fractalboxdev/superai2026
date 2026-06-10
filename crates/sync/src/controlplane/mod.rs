@@ -5,6 +5,7 @@
 //! owners, spec 03 §1). Backed by config files under `~/.contextful/control/`
 //! and issued tokens under `~/.contextful/caps/`.
 
+pub mod audit;
 pub mod envelope;
 pub mod keys;
 pub mod registry;
@@ -157,6 +158,7 @@ pub fn revoke(config: &Config, principal: &str) -> Result<()> {
             std::fs::write(ids_path, serde_json::to_string_pretty(&ids)?)?;
         }
     }
+    audit::record(config, principal, audit::REVOKE, serde_json::Value::Null);
     Ok(())
 }
 
@@ -297,6 +299,17 @@ pub fn grant(config: &Config, to: &str, view_id: &str, fields: &[String], ttl: &
 
     let granted = approve_request(&owner, &req).map_err(anyhow::Error::from)?;
     save_capability(config, &granted)?;
+    audit::record(
+        config,
+        to,
+        audit::GRANT,
+        serde_json::json!({
+            "approver": RESOURCE_OWNER,
+            "view": view_id,
+            "fields": fields,
+            "ttl": ttl,
+        }),
+    );
     println!(
         "granted {to}: {} on {view_id} (ttl {ttl}); all-teams row scope; salary always denied",
         fields.join(", ")
@@ -360,6 +373,31 @@ mod tests {
         let eff = effective_capability(&cap).unwrap();
         assert!(eff.fields.contains("credits"));
         assert!(!eff.fields.contains("employee_salary"));
+    }
+
+    #[test]
+    fn grant_and_revoke_are_audited() {
+        let c = temp();
+        seed(&c).unwrap();
+        grant(
+            &c,
+            "agent:cto/1",
+            "stripe/finance_private",
+            &["gross".into()],
+            "7d",
+        )
+        .unwrap();
+        revoke(&c, "agent:cto/1").unwrap();
+        let events = audit::tail(&c, 10);
+        let granted = events
+            .iter()
+            .find(|e| e.action == audit::GRANT)
+            .expect("grant audited");
+        assert_eq!(granted.actor, "agent:cto/1");
+        assert_eq!(granted.detail["view"], "stripe/finance_private");
+        assert!(events
+            .iter()
+            .any(|e| e.action == audit::REVOKE && e.actor == "agent:cto/1"));
     }
 
     #[test]

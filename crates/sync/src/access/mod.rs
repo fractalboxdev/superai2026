@@ -17,6 +17,7 @@
 pub mod biscuit;
 pub mod egress;
 pub mod request;
+pub mod scrub;
 pub mod token;
 
 #[cfg(test)]

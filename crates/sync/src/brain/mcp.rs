@@ -20,7 +20,7 @@ use crate::access::request::{route_request, AccessRequest, RouteDecision};
 use crate::access::{Capability, View};
 use crate::brain::{retrieval, BrainIndex};
 use crate::config::Config;
-use crate::controlplane::{is_revoked, load_capability};
+use crate::controlplane::{audit, is_revoked, load_capability};
 use crate::scenario;
 use crate::store::Store;
 
@@ -39,9 +39,21 @@ pub fn dispatch(config: &Config, principal: &str, req: &Value) -> Option<Value> 
         "tools/call" => {
             // per-call session auth binding: revocation + verified token
             if is_revoked(config, principal) {
+                audit::record(
+                    config,
+                    principal,
+                    audit::DENIED,
+                    json!({ "reason": "revoked" }),
+                );
                 return Some(tool_error(id, &format!("principal {principal} is revoked")));
             }
             let Some(cap) = load_capability(config, principal) else {
+                audit::record(
+                    config,
+                    principal,
+                    audit::DENIED,
+                    json!({ "reason": "no_verified_capability" }),
+                );
                 return Some(tool_error(
                     id,
                     &format!("no verified capability for '{principal}' — run `ctl seed`"),
@@ -215,7 +227,15 @@ fn handle_tool_call(
             let topic = args.get("topic").and_then(|v| v.as_str()).unwrap_or("");
             match retrieval::get_context(store, index, cap, topic) {
                 Ok(body) => Ok(json!({ "card": body })),
-                Err(deny) => Ok(json!({ "denied": deny })),
+                Err(deny) => {
+                    audit::record(
+                        config,
+                        principal,
+                        audit::DENIED,
+                        json!({ "tool": "brain.get_context", "topic": topic }),
+                    );
+                    Ok(json!({ "denied": deny }))
+                }
             }
         }
         "brain.query" => {
@@ -223,7 +243,16 @@ fn handle_tool_call(
             let select = parse_strings(&args, "select");
             match view {
                 Some(v) => {
-                    Ok(serde_json::to_value(retrieval::query(index, cap, &v, &select)).unwrap())
+                    let result = retrieval::query(index, cap, &v, &select);
+                    if let retrieval::QueryResult::Denied { reason, .. } = &result {
+                        audit::record(
+                            config,
+                            principal,
+                            audit::DENIED,
+                            json!({ "tool": "brain.query", "view": v.id(), "reason": reason }),
+                        );
+                    }
+                    Ok(serde_json::to_value(result).unwrap())
                 }
                 None => Err("missing or malformed 'view'".into()),
             }
@@ -276,6 +305,16 @@ fn handle_tool_call(
                     json!({ "decision": "forbidden", "reason": reason })
                 }
             };
+            audit::record(
+                config,
+                principal,
+                audit::REQUEST_ROUTED,
+                json!({
+                    "view": request.view.id(),
+                    "fields": request.fields,
+                    "routing": routed,
+                }),
+            );
             Ok(json!({ "request": request, "routing": routed }))
         }
         "brain.world_search" => {
@@ -387,4 +426,38 @@ fn tool_error(id: Option<Value>, message: &str) -> Value {
 
 fn err(id: Option<Value>, code: i64, message: &str) -> Value {
     json!({ "jsonrpc": "2.0", "id": id.unwrap_or(Value::Null), "error": { "code": code, "message": message } })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::InferenceBackend;
+
+    fn temp() -> Config {
+        let root = std::env::temp_dir().join(format!("mcp-test-{}", uuid::Uuid::new_v4()));
+        Config {
+            root,
+            inference: InferenceBackend::Stub,
+        }
+    }
+
+    #[test]
+    fn revoked_tool_call_is_refused_and_audited() {
+        let c = temp();
+        crate::controlplane::seed(&c).unwrap();
+        crate::controlplane::revoke(&c, "agent:cto/1").unwrap();
+        let req = json!({
+            "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+            "params": {
+                "name": "brain.query",
+                "arguments": { "view": "stripe/spend_by_team", "select": ["gross"] }
+            }
+        });
+        let resp = dispatch(&c, "agent:cto/1", &req).unwrap();
+        assert_eq!(resp["result"]["isError"], json!(true));
+        let events = audit::tail(&c, 10);
+        assert!(events
+            .iter()
+            .any(|e| e.action == audit::DENIED && e.actor == "agent:cto/1"));
+    }
 }

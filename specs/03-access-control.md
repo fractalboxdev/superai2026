@@ -71,6 +71,8 @@ The brain query layer ([02 §4](./02-brain-memory.md)) authorizes **each field a
 - only `world` / public-tainted terms leave the host; world queries are built from public entities (vendor, product, metric name), **never from a private value**. There is no "ask nicely" path.
 - the allowlist (which term classes count as public) and the Exa cost cap are control-plane config ([07 §3](./07-deployment-iac.md)).
 
+The firewall has a **return path** too: what comes *back* from the web is scanned before it can land in a world card (which is default-readable, [02 §8](./02-brain-memory.md)). Inbound results are scrubbed of anything secret-shaped — the host's own credential values (`EXA_API_KEY`, `STRIPE_SECRET_KEY`, …) and well-known vendor key formats (`sk_live_…`, `AKIA…`, `ghp_…`) — so a scraped page that echoes a live key can never be memorized, cited, or re-served to an agent. Redactions are recorded in the audit trail **by label only** (the env-key name or matched shape), never the value.
+
 ## 5. Permission requests & auto-mode
 
 When an agent is **denied** (no grant, not merely redacted), it raises a structured `access_request`:
@@ -147,7 +149,7 @@ flowchart LR
 - **Egress firewall** — outbound world/daydream queries carry only public terms; a privately-tainted term is blocked before the network (§4, *Egress firewall*), so web enrichment can't exfiltrate a private value.
 - **Daydreaming stays in-bounds** — the background synthesis loop ([02 §9](./02-brain-memory.md)) samples only acl-admissible card pairs and stamps insights with `max(parents)` taint, so it can neither cross owners nor lower an acl_tag; the salary invariant holds under daydreaming too ([09](./09-testing-acceptance.md) Flow B/G).
 - **Confidential transport** — Tailscale WireGuard.
-- **Auditable grants** — every minted/attenuated token and `access_request` recorded under `~/.contextful/caps/`.
+- **Auditable grants** — every minted/attenuated token and `access_request` recorded under `~/.contextful/caps/`; additionally an **append-only audit trail** (`~/.contextful/audit.jsonl`) records every authority-changing or boundary event — grants, mints, revocations, request routing decisions, per-call tool denials, egress blocks, inbound redactions — with labels and counts only, never the blocked value. Read it with `ctl audit --tail N`.
 - **The salary invariant** — no token and no approval path outside the CFO's own root yields `employee_salary` (proven in [09](./09-testing-acceptance.md) Flow B), and the [delegation form](#62-delegation--a-member-grants-their-agent-a-subset) / [inbox](#63-inbox--accept-or-decline-agent-access-requests) never even offer it.
 
 ## 8. Scaffold / Status
@@ -158,10 +160,12 @@ flowchart LR
 | Capability / Resource / Operation / Field / Row | `crates/sync/src/access/mod.rs` ✅ built |
 | mint / attenuate / authorize, field/row authorizer | `crates/sync/src/access/biscuit.rs` ✅ built |
 | `access_request` + grant + auto-mode envelope | `crates/sync/src/access/request.rs` ✅ built |
-| Egress firewall (outbound term taint check) | `crates/sync/src/access/egress.rs` (stub) |
+| Egress firewall (outbound term taint check) | `crates/sync/src/access/egress.rs` ✅ built — wired into `brain::world` on every outbound query |
+| Inbound secret scrubbing (return path) | `crates/sync/src/access/scrub.rs` ✅ built — host credential values + vendor key shapes redacted before world cards / raw events are written |
+| Host-persisted audit trail | `crates/sync/src/controlplane/audit.rs` ✅ built — append-only `audit.jsonl`; written by grant/mint/revoke, MCP denials, request routing, egress blocks, inbound scrubs; `ctl audit --tail N` |
 | Principal registry / root keys / envelopes (`ctl`) | `crates/sync/src/controlplane/` ✅ built |
 | TS types + helper signatures | `packages/protocol/src/access.ts` — `Capability`, `Action`, `Resource`, `PermissionRequest`/`Grant`, `attenuate()`/`authorize()` |
 | Web UI logic — route/approve/delegate | `packages/protocol/src/{requests,access}.ts` — `routeRequest()`, `approveRequest()`, `delegateTo()`, `effectiveCapability()`, `delegableFields()` ✅ built |
 | Web UI surfaces — directory · delegation · inbox | `apps/web/app/routes/{directory,delegate,inbox}.tsx` over a shared `app/lib/accessStore.tsx` ✅ built — each route folds the same `caps(child) ⊆ caps(parent)` result; the `_index.tsx` console keeps its embedded request panel + audit trail |
 
-**Future:** real Biscuit Datalog policies + `Authorizer`, `@biscuit-auth/biscuit-wasm` integration in the web for client-side checks, revocation, and host-persisted audit (the surfaces of [§6](#6-web-access-control-ui) are built but compute against in-browser fixtures; a browser "delegate"/"approve" is still a *request to mint* that the real control plane re-verifies and records).
+**Future:** real Biscuit Datalog policies + `Authorizer`, `@biscuit-auth/biscuit-wasm` integration in the web for client-side checks and revocation (the surfaces of [§6](#6-web-access-control-ui) are built but compute against in-browser fixtures; a browser "delegate"/"approve" is still a *request to mint* that the real control plane re-verifies and records — and the host-side mint/deny is now what lands in `audit.jsonl`).

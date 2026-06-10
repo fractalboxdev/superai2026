@@ -99,16 +99,57 @@ pub fn world_search(
     index: &mut BrainIndex,
     query: &str,
 ) -> Result<Vec<Memory>> {
+    use crate::access::scrub;
+    use crate::controlplane::audit;
+
     let terms = taint_terms(index, query);
-    let allowed = firewall(&terms).map_err(|e| anyhow::anyhow!(e.to_string()))?;
+    let allowed = match firewall(&terms) {
+        Ok(allowed) => allowed,
+        Err(e) => {
+            // tags + count only — the audit trail never echoes blocked terms
+            audit::record(
+                config,
+                "brain",
+                audit::EGRESS_BLOCKED,
+                serde_json::json!({ "count": e.count, "tags": e.tags }),
+            );
+            return Err(anyhow::anyhow!(e.to_string()));
+        }
+    };
     let clean_query = allowed.join(" ");
 
     let cache = config.fixtures_dir().join("exa-cache.json");
     let connector = ExaConnector::with_cache(clean_query, cache);
     let events = connector.pull(&Cursor::default())?;
 
+    let host_secrets = scrub::host_secrets();
     let mut new_memories = Vec::new();
-    for event in events {
+    for mut event in events {
+        // inbound scrub (spec 03 §4 return path): redact anything
+        // secret-shaped before web content can become a default-readable
+        // world card — or sit in the raw-event log
+        let mut redactions: Vec<String> = Vec::new();
+        if let Some(map) = event.payload.as_object_mut() {
+            for key in ["title", "url", "snippet"] {
+                if let Some(serde_json::Value::String(s)) = map.get_mut(key) {
+                    let scrubbed = scrub::scrub(s, &host_secrets);
+                    for label in &scrubbed.redactions {
+                        if !redactions.contains(label) {
+                            redactions.push(label.clone());
+                        }
+                    }
+                    *s = scrubbed.text;
+                }
+            }
+        }
+        if !redactions.is_empty() {
+            audit::record(
+                config,
+                "brain",
+                audit::INBOUND_SCRUBBED,
+                serde_json::json!({ "redactions": redactions }),
+            );
+        }
         let url = event
             .payload
             .get("url")
@@ -317,5 +358,60 @@ mod tests {
         let err = world_search(&config, &store, &mut index, "why is 245000 above market");
         assert!(err.is_err());
         assert!(!err.unwrap_err().to_string().contains("245000"));
+
+        // the block is audited — tags only, never the blocked term
+        let events = crate::controlplane::audit::tail(&config, 10);
+        let blocked = events
+            .iter()
+            .find(|e| e.action == crate::controlplane::audit::EGRESS_BLOCKED)
+            .expect("egress block audited");
+        assert!(!blocked.detail.to_string().contains("245000"));
+    }
+
+    #[test]
+    fn inbound_secret_shaped_content_is_scrubbed_before_carding() {
+        let root = std::env::temp_dir().join(format!("world-test-{}", uuid::Uuid::new_v4()));
+        let config = Config {
+            root,
+            inference: crate::config::InferenceBackend::Stub,
+        };
+        config.ensure_dirs().unwrap();
+        // a cached web result that echoes a key-shaped token (offline path
+        // reads this cache, so the scrub is exercised with zero egress);
+        // hyphenated stand-in keeps registry secret scanners quiet
+        let cache = config.fixtures_dir().join("exa-cache.json");
+        std::fs::write(
+            &cache,
+            serde_json::to_string(&json!([{
+                "title": "Pastebin dump",
+                "url": "https://example.com/dump",
+                "text": "config had sk_test_FAKE-FAKE-FAKE-2026 inside",
+                "summary": null
+            }]))
+            .unwrap(),
+        )
+        .unwrap();
+        let store = Store::new(config.clone());
+        let mut index = BrainIndex::default();
+
+        let memories = world_search(&config, &store, &mut index, "public query").unwrap();
+        assert!(!memories.is_empty());
+        let body = store.read_card(&memories[0].path).unwrap();
+        assert!(
+            !body.contains("sk_test_FAKE"),
+            "card must not carry the key"
+        );
+        assert!(body.contains("[redacted:sk_test_…]"));
+        // the raw-event log is scrubbed too
+        assert!(!serde_json::to_string(&index.raw_events)
+            .unwrap()
+            .contains("sk_test_FAKE"));
+        // and the redaction is audited by label, not value
+        let events = crate::controlplane::audit::tail(&config, 10);
+        let scrubbed = events
+            .iter()
+            .find(|e| e.action == crate::controlplane::audit::INBOUND_SCRUBBED)
+            .expect("scrub audited");
+        assert!(!scrubbed.detail.to_string().contains("FAKE-FAKE"));
     }
 }
