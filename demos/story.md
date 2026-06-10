@@ -59,6 +59,25 @@ video shows them appearing in real time. The peer tab's own recording is discard
 - scroll: text=Dinesh's agent ·
 - pause: 9s
 
+## Scene: Monica (CFO) asks the question
+
+> The demo question comes from Monica (CFO) — one click, and she tags her analyst agent right in the doc.
+
+- click: text=▶ Demo Q by CFO
+- expect: text=Typing as CFO…
+- wait for: text=unit economics of our compression product
+- scroll: text=unit economics of our compression product
+- pause: 1.5s
+
+## Scene: Her agent answers from brain memory
+
+> Her analyst agent is watching the doc. It checks her capability token and answers from the Markdown memory on this machine — live, over the relay.
+
+- pause: 6s
+- wait for: text=A (cfo · for cfo
+- scroll: text=A (cfo · for cfo
+- pause: 3s
+
 ## Scene: Connectors feed the brain
 
 > Context comes from connectors — Stripe and Exa already sync into the brain on this machine.
