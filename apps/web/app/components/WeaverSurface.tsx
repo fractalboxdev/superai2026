@@ -51,8 +51,10 @@ export interface WeaverSurfaceProps {
   mentionPrincipals?: ReadonlyArray<Principal>;
 }
 
+// Wire presence carries no `kind`, so the `agent:` id-scheme prefix (e.g.
+// `agent:cto/1`) is the contract for guests outside the scenario registry.
 const kindOf = (principalId: string): "user" | "agent" =>
-  principalId.startsWith("agent") ? "agent" : "user";
+  principalId.startsWith("agent:") ? "agent" : "user";
 
 const toCursors = (peers: PresenceState[]): PresenceCursor[] =>
   peers
@@ -125,7 +127,14 @@ export default function WeaverSurface({
         cursor: null,
       });
     }
-    for (const p of peers) want.set(peerKey(p), toRecord(p));
+    // Skip wire peers sharing the acting principal (e.g. a second tab): the
+    // self record above is authoritative for the local principal, so the
+    // facepile's last-wins principalId dedup can't let a peer record win our
+    // own face.
+    for (const p of peers) {
+      if (p.principal === self?.id) continue;
+      want.set(peerKey(p), toRecord(p));
+    }
     for (const rec of hub.all()) {
       if (!want.has(rec.peerId)) hub.remove(rec.peerId);
     }
