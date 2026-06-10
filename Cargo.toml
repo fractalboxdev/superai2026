@@ -28,3 +28,5 @@ aws-sdk-bedrockruntime = "1"
 rusqlite = { version = "0.32", features = ["bundled"] }
 croner = "2"
 axum = "0.7"
+# Loro CRDT — binary-compatible with the JS `loro-crdt` peers (apps/web)
+loro = "1"

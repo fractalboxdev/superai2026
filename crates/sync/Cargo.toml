@@ -39,3 +39,4 @@ aws-sdk-bedrockruntime = { workspace = true }
 rusqlite = { workspace = true }
 croner = { workspace = true }
 axum = { workspace = true }
+loro = { workspace = true }

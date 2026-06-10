@@ -1,8 +1,10 @@
 //! Stripe connector — primary demo source (spec 05 §2).
 //!
-//! Stripe-shaped FinOps data mapped to two views:
+//! Stripe-shaped FinOps data mapped to three views:
 //!   - `stripe/spend_by_team`  → team, period, gross, net
 //!   - `stripe/finance_private` → adds discount_tier, credits, employee_salary (CFO-rooted)
+//!   - `stripe/product_economics` → per-product revenue/units/infra (CFO-rooted;
+//!     surfaced only through synthesized cards tagged `finance_private`)
 //!
 //! With `STRIPE_SECRET_KEY` set, `pull` lists real (test-mode) charges from
 //! `api.stripe.com` and aggregates gross/net per team (`metadata.team`, else
@@ -69,6 +71,37 @@ const EMBEDDED: &[TeamRow] = &[
     },
 ];
 
+/// One product line's monthly figures (Stripe subscription revenue side).
+struct ProductRow {
+    product: &'static str,
+    period: &'static str,
+    /// active paid units (subscriptions) in the period.
+    units: i64,
+    gross: i64,
+    credits: i64,
+    /// serving/infra cost attributable to the product.
+    infra_cost: i64,
+}
+
+const EMBEDDED_PRODUCTS: &[ProductRow] = &[
+    ProductRow {
+        product: "compression",
+        period: "2026-05",
+        units: 1_840,
+        gross: 92_000,
+        credits: 9_200,
+        infra_cost: 27_600,
+    },
+    ProductRow {
+        product: "inference",
+        period: "2026-05",
+        units: 3_100,
+        gross: 124_000,
+        credits: 18_600,
+        infra_cost: 74_400,
+    },
+];
+
 pub struct StripeConnector {
     fixtures_dir: std::path::PathBuf,
 }
@@ -83,6 +116,9 @@ impl StripeConnector {
     }
     fn private_view() -> View {
         View::new("stripe", "finance_private")
+    }
+    pub fn product_view() -> View {
+        View::new("stripe", "product_economics")
     }
 
     /// Load rows from `<fixtures>/stripe/finance.csv` if present, else embedded,
@@ -269,6 +305,19 @@ impl Connector for StripeConnector {
                     f("employee_salary", "int", true),
                 ],
             },
+            ViewSchema {
+                view: Self::product_view(),
+                fields: vec![
+                    f("product", "string", false),
+                    f("period", "string", false),
+                    f("units", "int", true),
+                    // gross stays non-private by schema, same convention as the
+                    // team views: aggregated totals may appear in outbound queries
+                    f("gross", "int", false),
+                    f("credits", "int", true),
+                    f("infra_cost", "int", true),
+                ],
+            },
         ]
     }
 
@@ -309,6 +358,30 @@ impl Connector for StripeConnector {
                         "discount_tier".into(),
                         "credits".into(),
                         "employee_salary".into(),
+                    ],
+                },
+            });
+        }
+        // product_economics events (per-product revenue side; CFO-rooted)
+        for r in EMBEDDED_PRODUCTS {
+            events.push(RawEvent {
+                id: uuid::Uuid::new_v4().to_string(),
+                source_id: "stripe".into(),
+                view: Self::product_view(),
+                payload: json!({
+                    "product": r.product, "period": r.period, "units": r.units,
+                    "gross": r.gross, "credits": r.credits, "infra_cost": r.infra_cost,
+                }),
+                ingested_at: now.clone(),
+                acl_tag: AclTag {
+                    view: Self::product_view(),
+                    fields: vec![
+                        "product".into(),
+                        "period".into(),
+                        "units".into(),
+                        "gross".into(),
+                        "credits".into(),
+                        "infra_cost".into(),
                     ],
                 },
             });

@@ -17,6 +17,7 @@
 //   • All imports are lazy (loro-crdt WASM) — nothing reaches the SSR bundle.
 
 import { useEffect } from "react";
+import { resolveSyncUrl } from "./weaverRoom";
 
 const PRINCIPAL = "agent:eng/1";
 const DISPLAY_NAME = "Dinesh (Lead Engineer)'s agent";
@@ -44,7 +45,9 @@ const jitter = (base: number, spread: number) => base + Math.random() * spread;
 
 export function useDemoAgent(docId: string): void {
   useEffect(() => {
-    if (import.meta.env.VITE_SYNC_URL) return;
+    // Off on any relay path (env or `?sync=` override) — there a real peer
+    // (`sync client` / `sync agent --watch-doc`) does the editing.
+    if (resolveSyncUrl()) return;
     const ctrl = new AbortController();
     let dispose: (() => void) | undefined;
 

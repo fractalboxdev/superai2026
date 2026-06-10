@@ -51,10 +51,17 @@ pub fn taint_terms(index: &BrainIndex, query: &str) -> Vec<EgressTerm> {
 }
 
 /// Fields marked `private: true` in the connectors' view schemas. `gross` and
-/// `net` are deliberately absent: aggregated team totals are non-private by
-/// schema (see `StripeConnector::views`) and may appear in outbound queries.
+/// `net` are deliberately absent: aggregated team/product totals are
+/// non-private by schema (see `StripeConnector::views`) and may appear in
+/// outbound queries. `units` / `infra_cost` come from `product_economics`.
 /// Kept in lockstep with the schemas by `private_fields_match_schemas` below.
-const PRIVATE_FIELDS: &[&str] = &["employee_salary", "credits", "discount_tier"];
+const PRIVATE_FIELDS: &[&str] = &[
+    "employee_salary",
+    "credits",
+    "discount_tier",
+    "units",
+    "infra_cost",
+];
 
 /// Values of the private fields currently in the index, paired with the view
 /// they came from.

@@ -54,6 +54,7 @@ Run a script in one workspace: `pnpm --filter landing <script>` or `pnpm --filte
 | Headless peer | `cargo run -p sync -- client --doc finops --principal agent:cto/1` |
 | Brain over MCP (stdio) | `cargo run -p sync -- mcp --principal cfo` |
 | Agent loop | `cargo run -p sync -- agent --principal agent:cto/1 --ask "..."` |
+| Editor agent (answers `Q:` lines in a relay doc) | `cargo run -p sync -- agent --principal cfo --watch-doc finops --addr 127.0.0.1:7878` |
 | Build / Lint / Format | `cargo build -p sync` · `cargo clippy --all-targets -- -D warnings` · `cargo fmt` |
 | Test (all) | `cargo test -p sync` |
 

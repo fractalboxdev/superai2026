@@ -1,4 +1,4 @@
-import { Suspense, lazy, useMemo, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { viewId, type Capability, type View } from "@superai2026/protocol/access";
 import { brainQuery, type BrainResult } from "@superai2026/protocol/brain";
 import {
@@ -51,6 +51,22 @@ const dotColor = (id: string): string =>
 type LogEntry = { id: number; kind: "ok" | "deny" | "grant" | "block" | "info"; text: string };
 
 let logSeq = 0;
+
+// The scripted editor-agent demo: impersonate the CFO, type this question into
+// the live doc, and let the local `sync agent --watch-doc <doc>` peer answer
+// it from brain memory (~/.contextful) over the relay.
+const DEMO_QUESTION = "Unit economics of compression product";
+const DEMO_ANSWER_MARK = "A (cfo · from brain memory)";
+
+const demoSleep = (ms: number, signal: AbortSignal) =>
+  new Promise<void>((res) => {
+    if (signal.aborted) return res();
+    const t = setTimeout(res, ms);
+    signal.addEventListener("abort", () => {
+      clearTimeout(t);
+      res();
+    }, { once: true });
+  });
 
 /** The capability console for one document room — rendered at `/` (default doc) and `/docs/:docId`. */
 export default function ConsolePage({ docId }: { docId: string }) {
@@ -216,6 +232,74 @@ export default function ConsolePage({ docId }: { docId: string }) {
     pushLog("block", `Flow B · salary invariant — no approval path`);
   };
 
+  // ---- editor-agent demo (right panel) ----
+  const [demoAsk, setDemoAsk] = useState<string | null>(null);
+  const demoBusyRef = useRef(false);
+
+  const runEditorDemo = () => {
+    if (demoAsk) return;
+    switchActor(CFO.id);
+    setDemoAsk(DEMO_QUESTION);
+    pushLog("info", `Demo · acting as ${CFO.name} — typing the question into the doc`);
+  };
+
+  // Type the question into the CFO's Weaver editor once its room is ready,
+  // then watch the block tree for the agent's `A (…)` paragraph. The editor
+  // remounts when the actor switches, so this waits for that new instance.
+  const ed = room.editor;
+  useEffect(() => {
+    if (!demoAsk || actorId !== CFO.id || !ed || demoBusyRef.current) return;
+    demoBusyRef.current = true;
+    const ctrl = new AbortController();
+
+    const run = async () => {
+      const { rootId, getChildren, getBlock } = await import("@weaver/core");
+      const paragraphs = () =>
+        getChildren(ed, rootId(ed)).filter((id) => getBlock(ed, id)?.hasInline);
+      // let the relay snapshot / local hydration land first
+      await demoSleep(800, ctrl.signal);
+      if (ctrl.signal.aborted) return;
+
+      const question = `Q: ${demoAsk}`;
+      if (!paragraphs().some((id) => ed.commands.text.read(id).startsWith(question))) {
+        const blockId = ed.commands.block.insert({
+          parentId: rootId(ed),
+          index: getChildren(ed, rootId(ed)).length,
+          kind: "paragraph",
+        });
+        for (const ch of question) {
+          if (ctrl.signal.aborted) return;
+          const offset = ed.commands.text.length(blockId);
+          ed.commands.text.insert({ blockId, offset, value: ch });
+          room.setCursor({ blockId, offset: offset + ch.length });
+          await demoSleep(35, ctrl.signal);
+        }
+      }
+      pushLog("ok", `${CFO.name} asked “${DEMO_QUESTION}” — editor agent is reading`);
+
+      const deadline = Date.now() + 30_000;
+      while (!ctrl.signal.aborted && Date.now() < deadline) {
+        const answered = paragraphs().some((id) =>
+          ed.commands.text.read(id).startsWith(DEMO_ANSWER_MARK),
+        );
+        if (answered) {
+          pushLog("ok", "editor agent answered from brain memory (~/.contextful)");
+          break;
+        }
+        await demoSleep(500, ctrl.signal);
+      }
+      if (!ctrl.signal.aborted) setDemoAsk(null);
+      demoBusyRef.current = false;
+    };
+    void run();
+
+    return () => {
+      ctrl.abort();
+      demoBusyRef.current = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- pushLog/setCursor are stable enough for the scripted demo
+  }, [demoAsk, actorId, ed]);
+
   const resetAll = () => {
     setCaps({
       [CTO_AGENT.id]: initialCapability(CTO_AGENT.id),
@@ -322,6 +406,31 @@ export default function ConsolePage({ docId }: { docId: string }) {
         </section>
 
         <aside className="app-agentpanel" aria-label="Query console">
+          <div>
+            <p className="app-agentpanel__label">Editor agent — live demo</p>
+            <div className="cf-card cf-stack">
+              <p className="cf-text-muted" style={{ fontSize: "var(--text-sm)", margin: 0 }}>
+                Impersonates {CFO.name} and types a question into the doc. The local{" "}
+                <code>sync agent --watch-doc {docId}</code> peer answers it from brain
+                memory — capability-filtered, over the relay.
+              </p>
+              <button
+                className="cf-btn cf-btn--primary cf-btn--sm cf-block"
+                onClick={runEditorDemo}
+                disabled={demoAsk != null}
+              >
+                {demoAsk ? "Typing as CFO…" : `▶ CFO asks: ${DEMO_QUESTION}`}
+              </button>
+              {syncStatus !== "live" && (
+                <p className="cf-text-muted" style={{ fontSize: "var(--text-sm)", margin: 0 }}>
+                  Relay not connected — run <code>sync serve</code> and{" "}
+                  <code>sync agent --principal cfo --watch-doc {docId}</code>, then open this
+                  page with <code>?sync=ws://127.0.0.1:7878</code>.
+                </p>
+              )}
+            </div>
+          </div>
+
           <div>
             <p className="app-agentpanel__label">Acting as</p>
             <div className="cf-actor-switch">

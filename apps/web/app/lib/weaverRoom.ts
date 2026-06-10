@@ -16,6 +16,30 @@ import type { RoomStatus, RoomTransport } from "./weaverTransport";
 
 export type { RoomStatus };
 
+const SYNC_URL_KEY = "contextful:syncUrl";
+
+// Relay URL resolution: `?sync=ws://…` overrides and persists (so the deployed
+// demo can point at a local `sync serve`), `?sync=off` clears the override;
+// otherwise the persisted override, then the build-time VITE_SYNC_URL.
+// Browsers treat loopback as a secure context, so https://demo.contextful.work
+// may open ws://127.0.0.1:7878 directly.
+export function resolveSyncUrl(): string | undefined {
+  try {
+    const param = new URLSearchParams(window.location.search).get("sync");
+    if (param === "off") localStorage.removeItem(SYNC_URL_KEY);
+    else if (param) {
+      localStorage.setItem(SYNC_URL_KEY, param);
+      return param;
+    } else {
+      const stored = localStorage.getItem(SYNC_URL_KEY);
+      if (stored) return stored;
+    }
+  } catch {
+    /* SSR / storage unavailable — fall through to the env default */
+  }
+  return import.meta.env.VITE_SYNC_URL as string | undefined;
+}
+
 export type WeaverRoom = {
   /** The live Weaver editor (client-only; `null` until ready). */
   editor: Editor | null;
@@ -50,7 +74,7 @@ export function useWeaverRoom(
     let disposed = false;
     let cleanup: (() => void) | undefined;
 
-    const relayUrl = import.meta.env.VITE_SYNC_URL as string | undefined;
+    const relayUrl = resolveSyncUrl();
     setEditor(null);
     setPeers([]);
     setStatus(relayUrl ? "connecting" : "local");
