@@ -59,13 +59,33 @@ video shows them appearing in real time. The peer tab's own recording is discard
 - scroll: text=Dinesh's agent ·
 - pause: 9s
 
+## Scene: Over the on-prem relay
+
+> The room hops onto the on-prem relay — synced over Tailscale, the company's own network. Never a third-party pool.
+
+- goto: /?sync=wss://debuggingfutures-macbook-air.tailfccfb1.ts.net
+- wait for: text=▶ Demo Q by CFO
+- pause: 1.5s
+
+## Scene: Dinesh (CTO)'s agent reaches for finance — denied
+
+> First: Dinesh (CTO)'s agent goes for the private finance view, salary included.
+
+- click: text=Flow B · salary invariant
+- wait for: .cf-result--deny
+- expect: text=⛔ Denied
+- pause: 1s
+- caption: off
+- pause: 2.5s
+- caption: And for salary there is no approval path at all — a hard floor, not a setting.
+- scroll: .cf-forbidden
+- expect: .cf-forbidden
+- pause: 2.5s
+
 ## Scene: Monica (CFO) asks the question
 
-> The demo question comes from Monica (CFO) — one click, and she tags her analyst agent right in the doc, over the on-prem relay.
+> Same brain, right person: one click and Monica (CFO) tags her analyst agent in the doc.
 
-- goto: /?sync=ws://127.0.0.1:7878
-- wait for: text=▶ Demo Q by CFO
-- pause: 1s
 - click: text=▶ Demo Q by CFO
 - expect: text=Typing as CFO…
 - wait for: text=unit economics of our compression product
@@ -79,25 +99,6 @@ video shows them appearing in real time. The peer tab's own recording is discard
 - pause: 6s
 - wait for: text=A (cfo · for cfo
 - scroll: text=A (cfo · for cfo
-- pause: 3s
-
-## Scene: Now impersonate Dinesh (CTO)'s agent
-
-> Same room, different badge — now acting as Dinesh (CTO)'s agent, whose token carries no finance grant.
-
-- click: button.cf-actor:has-text("Dinesh (CTO)'s agent")
-- pause: 1.5s
-
-## Scene: The same finance question, denied
-
-> He reaches for the same private finance view Monica just used — and policy denies it before any data moves.
-
-- click: text=stripe / finance_private
-- pause: 1s
-- click: text=Run query as Dinesh (CTO)'s agent
-- wait for: .cf-result--deny
-- expect: text=⛔ Denied
-- scroll: .cf-result--deny
 - pause: 3s
 
 ## Scene: Connectors feed the brain
