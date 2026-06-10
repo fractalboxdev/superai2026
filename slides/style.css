@@ -197,6 +197,86 @@ video.demo-film {
   margin: 0;
 }
 
+/* ---- Feature grid (Context, with consent) — landing feature cards --- */
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.25rem;
+  max-width: 52rem;
+  margin-inline: auto;
+}
+.feature-grid figure {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 0.5rem;
+  margin: 0;
+}
+.feature-grid img {
+  width: 6rem;
+  height: 6rem;
+  object-fit: contain;
+}
+.feature-grid figcaption {
+  font-size: 0.7rem;
+  line-height: 1.35;
+  color: var(--cf-slate-500);
+  text-align: center;
+}
+.feature-grid figcaption b {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--cf-slate-900);
+  margin-bottom: 0.2rem;
+}
+
+/* ---- Steps row (Share → Delegate → Ask) — landing how-it-works ------ */
+.steps-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  font-size: 0.85rem;
+}
+.steps-row .step {
+  background: var(--cf-slate-0);
+  border: 2px solid var(--cf-slate-900);
+  border-radius: var(--radius-md);
+  box-shadow: 3px 3px 0 color-mix(in srgb, var(--cf-teal-900) 25%, transparent);
+  padding: 0.3rem 0.65rem;
+  white-space: nowrap;
+}
+.steps-row .step b {
+  color: var(--cf-indigo-600);
+  margin-right: 0.35rem;
+}
+.steps-row .step-arrow {
+  color: var(--cf-slate-400);
+  font-weight: 700;
+}
+
+/* ---- Stats strip — landing hero stats ------------------------------- */
+.stats-strip {
+  display: flex;
+  justify-content: center;
+  gap: 3rem;
+}
+.stats-strip > div {
+  display: grid;
+  justify-items: center;
+  gap: 0.1rem;
+}
+.stats-strip b {
+  font-size: 1.7rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--cf-indigo-600);
+}
+.stats-strip span {
+  font-size: 0.7rem;
+  color: var(--cf-slate-500);
+}
+
 /* ---- Cast facepile — Pied Piper personas, "Name (Role)" ------------- */
 .cast {
   display: flex;
@@ -228,6 +308,53 @@ video.demo-film {
   display: block;
   font-size: 0.7rem;
   color: var(--cf-slate-900);
+}
+
+/* Side variant — vertical cast column pinned to the slide's right edge,
+ * with room reserved by .screenshot-slot--beside-cast */
+.cast--side {
+  position: absolute;
+  right: 2.2rem;
+  top: 50%;
+  transform: translateY(-50%);
+  flex-direction: column;
+  align-items: center;
+  gap: 0.9rem;
+  margin-top: 0;
+}
+.cast--side .cast-caption {
+  margin: 0;
+  font-size: 0.78rem;
+  font-style: italic;
+  color: var(--cf-slate-700);
+}
+.screenshot-slot--beside-cast {
+  margin-right: 11rem;
+}
+
+/* Big overlay takeaway — comic banner dropped over a screenshot on click */
+.overlay-line {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+.overlay-line span {
+  background: color-mix(in srgb, var(--cf-slate-0) 90%, transparent);
+  border: 3px solid var(--cf-slate-900);
+  border-radius: var(--radius-lg);
+  box-shadow: 8px 8px 0 color-mix(in srgb, var(--cf-teal-900) 35%, transparent);
+  padding: 1rem 1.8rem;
+  max-width: 34rem;
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  text-align: center;
+  color: var(--cf-slate-900);
+  transform: rotate(-2deg);
 }
 
 /* Vincent avatar (Why me) — same comic ring as the cast */
@@ -297,6 +424,9 @@ video.demo-film {
 .dark .slidev-layout b { color: var(--cf-teal-300); }
 .dark .slidev-layout h1 + h2 { color: var(--cf-teal-300); }
 .dark .cast figcaption b { color: var(--cf-slate-50); }
+.dark .feature-grid figcaption b { color: var(--cf-slate-50); }
+.dark .steps-row .step { background: var(--cf-slate-900); color: var(--cf-slate-50); }
+.dark .stats-strip b { color: var(--cf-indigo-300); }
 .dark .slidev-layout blockquote { background: var(--cf-slate-900); }
 .dark .slidev-layout blockquote p { color: var(--cf-slate-200); }
 .dark .slidev-layout .mermaid { background: var(--cf-slate-50); }
