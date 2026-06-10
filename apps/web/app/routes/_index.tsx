@@ -67,6 +67,27 @@ const VIEWS: { view: View; label: string }[] = [
 const PRIVATE_FIELDS = new Set(["discount_tier", "credits", "employee_salary"]);
 const BASE_FIELDS = new Set(["team", "period"]);
 
+// Natural-language sample queries — each maps to a (view, fields) selection so
+// visitors can drive the demo without touching the view/field picker.
+type SampleQuery = { label: string; view: View; fields: string[] };
+const SAMPLE_QUERIES: SampleQuery[] = [
+  {
+    label: "What did each team spend this month?",
+    view: SPEND_BY_TEAM,
+    fields: ["gross", "net"],
+  },
+  {
+    label: "Is our AI spend net-justified after credits?",
+    view: FINANCE_PRIVATE,
+    fields: ["gross", "credits", "discount_tier"],
+  },
+  {
+    label: "How does team comp compare to spend?",
+    view: FINANCE_PRIVATE,
+    fields: ["gross", "employee_salary"],
+  },
+];
+
 const dotColor = (id: string): string =>
   id === CFO.id ? "var(--cf-sky-500)" : id.startsWith("agent:cto") ? "var(--cf-indigo-500)" : "var(--cf-amber-500)";
 
@@ -138,6 +159,17 @@ export default function Home() {
     if (!res.ok) pushLog("deny", `${actor.name} · query ${viewId(selView)} → ${res.reason}`);
     else if (res.redacted.length) pushLog("ok", `${actor.name} · partial: redacted ${res.redacted.join(", ")}`);
     else pushLog("ok", `${actor.name} · query ${viewId(selView)} → ${res.rows.length} row(s)`);
+  };
+
+  const runSample = (q: SampleQuery) => {
+    setSelView(q.view);
+    setSelFields(q.fields);
+    setPending(null);
+    const res = brainQuery(caps[actorId], DATASETS, { view: q.view, fields: q.fields });
+    setResult(res);
+    if (!res.ok) pushLog("deny", `${actor.name} · "${q.label}" → ${res.reason}`);
+    else if (res.redacted.length) pushLog("ok", `${actor.name} · partial: redacted ${res.redacted.join(", ")}`);
+    else pushLog("ok", `${actor.name} · "${q.label}" → ${res.rows.length} row(s)`);
   };
 
   // Fields the actor still needs (denied entirely, or redacted from a partial result).
@@ -396,41 +428,56 @@ export default function Home() {
             <div>
               <p className="app-agentpanel__label">brain.query — capability-filtered</p>
               <div className="cf-card cf-stack">
-                <label className="cf-field-label">View</label>
+                <label className="cf-field-label">Ask as {actor.name}</label>
                 <div className="cf-seg">
-                  {VIEWS.map((v) => (
-                    <button
-                      key={viewId(v.view)}
-                      className={`cf-seg__btn${viewId(v.view) === viewId(selView) ? " cf-seg__btn--on" : ""}`}
-                      onClick={() => switchView(v.view)}
-                    >
-                      {v.label}
+                  {SAMPLE_QUERIES.map((q) => (
+                    <button key={q.label} className="cf-seg__btn cf-sample" onClick={() => runSample(q)}>
+                      {q.label}
                     </button>
                   ))}
                 </div>
 
-                <label className="cf-field-label">Fields</label>
-                <div className="cf-chips">
-                  {columns.map((c) => (
-                    <label key={c} className={`cf-chip${PRIVATE_FIELDS.has(c) ? " cf-chip--private" : ""}`}>
-                      <input
-                        type="checkbox"
-                        checked={selFields.includes(c)}
-                        onChange={() => toggleField(c)}
-                      />
-                      {c}
-                    </label>
-                  ))}
-                </div>
-
-                <button className="cf-btn cf-btn--primary cf-btn--sm cf-block" onClick={runQuery}>
-                  Run query as {actor.name}
-                </button>
                 {canRequest && (
                   <button className="cf-btn cf-btn--secondary cf-btn--sm cf-block" onClick={requestAccess}>
                     Request access · {neededFields.join(", ")}
                   </button>
                 )}
+
+                <details className="cf-advanced">
+                  <summary>Advanced · choose view &amp; fields</summary>
+                  <div className="cf-stack">
+                    <label className="cf-field-label">View</label>
+                    <div className="cf-seg">
+                      {VIEWS.map((v) => (
+                        <button
+                          key={viewId(v.view)}
+                          className={`cf-seg__btn${viewId(v.view) === viewId(selView) ? " cf-seg__btn--on" : ""}`}
+                          onClick={() => switchView(v.view)}
+                        >
+                          {v.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <label className="cf-field-label">Fields</label>
+                    <div className="cf-chips">
+                      {columns.map((c) => (
+                        <label key={c} className={`cf-chip${PRIVATE_FIELDS.has(c) ? " cf-chip--private" : ""}`}>
+                          <input
+                            type="checkbox"
+                            checked={selFields.includes(c)}
+                            onChange={() => toggleField(c)}
+                          />
+                          {c}
+                        </label>
+                      ))}
+                    </div>
+
+                    <button className="cf-btn cf-btn--primary cf-btn--sm cf-block" onClick={runQuery}>
+                      Run query as {actor.name}
+                    </button>
+                  </div>
+                </details>
               </div>
             </div>
 
@@ -507,7 +554,7 @@ function QueryResult({ result, actorName }: { result: BrainResult | null; actorN
   if (!result) {
     return (
       <div className="cf-result cf-result--empty">
-        <p className="cf-text-muted">No query run yet. Use the console on the right.</p>
+        <p className="cf-text-muted">No query run yet. Try a sample query on the right.</p>
       </div>
     );
   }

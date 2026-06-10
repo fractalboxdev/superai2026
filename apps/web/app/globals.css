@@ -350,6 +350,19 @@ hr.weaver-divider { border: none; border-top: 1px solid var(--color-divider); ma
 .cf-chip input { accent-color: var(--color-primary); }
 .cf-chip--private { color: var(--color-danger); border-color: var(--color-danger-subtle); }
 
+.cf-sample { font-family: inherit; color: var(--color-text); }
+.cf-sample:hover { background: var(--color-surface-hover); }
+
+.cf-advanced summary {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--color-text-subtle);
+  cursor: pointer;
+}
+.cf-advanced[open] summary { margin-bottom: var(--space-3); }
+
 /* ---- Query result ------------------------------------------------ */
 .cf-result {
   margin-top: var(--space-8);
