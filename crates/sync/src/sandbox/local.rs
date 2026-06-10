@@ -24,6 +24,7 @@ impl Sandbox for LocalSandbox {
         Ok(SandboxHandle {
             kind: "local".into(),
             room: room.to_string(),
+            sandbox_id: None,
             max_lifetime_secs: u64::MAX, // bounded by room presence, not a hard cap
         })
     }
