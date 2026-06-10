@@ -23,4 +23,4 @@ RUN mkdir -p /data && chmod +x /usr/local/bin/docker-entrypoint.sh
 
 EXPOSE 7878 7979
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
-CMD ["serve", "--addr", "0.0.0.0:7878", "--with-mcp", "--mcp-addr", "0.0.0.0:7979"]
+CMD ["serve", "--addr", "0.0.0.0:7878", "--with-mcp", "--mcp-addr", "0.0.0.0:7979", "--with-editor-agent"]
