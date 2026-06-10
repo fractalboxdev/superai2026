@@ -39,14 +39,14 @@ export const peerColor = (principal: string): string =>
     : GUEST_PALETTE[hashCode(principal) % GUEST_PALETTE.length]!;
 
 // SV-cast comic avatars (PRESENTATION.md "Cast avatars — from `assets/`"):
-// exported from the role-named art in `assets/` to `public/cast/` and used
-// everywhere a persona appears. Principal ids are wire identifiers, display
-// roles are the theme — hence the id → role-file indirection (the `cto` id is
-// Richard (CEO), the `eng` id is Dinesh (CTO)).
+// exported from the art in `assets/` to `public/cast/` and used everywhere a
+// persona appears. Principal ids are wire identifiers, display roles are the
+// theme — hence the id → file indirection (the `cto` id is Richard (CEO), the
+// `eng` id is Dinesh (CTO)).
 const CAST_AVATARS: Record<string, string> = {
   cto: "/cast/ceo.png",
   cfo: "/cast/cfo.png",
-  eng: "/cast/cto.png",
+  eng: "/cast/dinesh.png",
 };
 
 /** Comic avatar for a principal; agents share the robot, guests get none. */
