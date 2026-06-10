@@ -308,14 +308,18 @@ say "the open web", not "Exa".
 -->
 
 ---
-layout: center
-class: text-center
----
 
 # Growing Brain. Locally
 
-<div class="screenshot-slot mt-4">
-  <img :src="'/assets/brain-locally.png'" alt="~/.contextful open in an editor — the brain as readable Markdown: a unit-economics synthesis card with acl_view/acl_fields frontmatter, plus caps/, control keys, and the brain.db index" style="max-height: 24rem" />
+<div class="flex gap-8 mt-4 items-center">
+  <div class="screenshot-slot flex-1">
+    <img :src="'/assets/brain-locally.png'" alt="~/.contextful open in an editor — the brain as readable Markdown: a unit-economics synthesis card with acl_view/acl_fields frontmatter, plus caps/, control keys, and the brain.db index" style="max-height: 22rem" />
+  </div>
+  <div class="flex-1 text-left">
+    <p>📥 &nbsp; Every <b>ingest</b> synthesizes new cards</p>
+    <p v-click>🌙 &nbsp; <b>Daydreams</b> when idle — revisits cards, connects the dots, asks the questions nobody typed</p>
+    <p v-click>🔎 &nbsp; <b>Researches the web with Exa</b> — policy-gated egress; findings land as new cards <img :src="'/logos/exa.svg'" alt="Exa" class="inline-block h-5 ml-1 align-text-bottom" /></p>
+  </div>
 </div>
 
 <div v-click class="overlay-line">
@@ -328,13 +332,18 @@ class: text-center
 Markdown cards — this one is unit economics for May: gross, credits, net, contribution
 margin — with the access policy right in the frontmatter: which view it belongs to, which
 fields a grant can release. Next to it: the capability tokens, the signing keys, and the
-local index. No black box — files you can read, on a machine you own. And it grows: every
-ingest synthesizes new cards."
+local index. No black box — files you can read, on a machine you own. And it grows three
+ways: every ingest synthesizes new cards; when it's idle it daydreams — rereads the brain,
+connects cards, asks the questions nobody typed; and when it's missing world context it
+researches the open web through Exa — behind the egress firewall, so only policy-approved
+queries leave — and the findings come back as cards too."
 
-The filesystem proof, full frame. Point at the frontmatter line — acl_view:
+The filesystem proof beside the growth story. Point at the frontmatter line — acl_view:
 stripe/finance_private, acl_fields: [gross, credits] — that's the policy the denial
 enforces. brain/ = synthesized cards, caps/ = capability grants, control/keys = Biscuit
-keys, brain.db = local FTS index. Asset: slides/public/assets/brain-locally.png.
+keys, brain.db = local FTS index. Daydream loop + Exa world memory are the crates/sync
+features; on stage say "the open web", not "Exa" (the logo on the slide says it).
+Asset: slides/public/assets/brain-locally.png.
 -->
 
 ---
