@@ -117,21 +117,23 @@ const splitArg = (arg) => {
   return [arg.slice(0, i).trim(), arg.slice(i + 2).trim()];
 };
 
-async function runStep(page, scene, { action, arg, line }) {
+async function runStep(page, scene, { action, arg, line }, { isPeer = false } = {}) {
   const loc = (sel) => page.locator(sel).first();
   switch (action) {
     case "goto": {
       await page.goto(new URL(arg, baseUrl).href, { waitUntil: "networkidle" });
-      await showCaption(page, scene.caption);
+      if (!isPeer) await showCaption(page, scene.caption);
       break;
     }
     case "click": {
       const l = loc(arg);
       await l.waitFor({ state: "visible" });
-      await flash(l);
-      await page.waitForTimeout(350);
+      if (!isPeer) {
+        await flash(l);
+        await page.waitForTimeout(350);
+      }
       await l.click();
-      await showCaption(page, scene.caption); // survive same-doc navigations
+      if (!isPeer) await showCaption(page, scene.caption); // survive same-doc navigations
       break;
     }
     case "fill": {
@@ -147,6 +149,7 @@ async function runStep(page, scene, { action, arg, line }) {
       break;
     }
     case "press": await page.keyboard.press(arg); break;
+    case "write": await page.keyboard.type(arg, { delay: 65 }); break; // into the focused element
     case "hover": await loc(arg).hover(); break;
     case "wait for": await loc(arg).waitFor({ state: "visible", timeout: 15000 }); break;
     case "expect": {
@@ -183,13 +186,32 @@ const context = await browser.newContext({
 });
 const page = await context.newPage();
 
+// A second tab in the same context plays the "agent peer": same origin, so
+// cross-tab CRDT sync (BroadcastChannel) carries its edits into the recorded
+// page in real time. Steps prefixed `peer ` run here; it never hosts the
+// caption and its video file is discarded at the end.
+let peerPage = null;
+async function getPeerPage() {
+  if (!peerPage) {
+    peerPage = await context.newPage();
+    await page.bringToFront(); // keep the recorded tab the visible one when headed
+  }
+  return peerPage;
+}
+
 let failed = null;
 try {
   for (const scene of story.scenes) {
     console.log(`  ◆ ${scene.title}`);
+    await showCaption(page, scene.caption); // scenes without a main-page goto still get their caption
     for (const step of scene.steps) {
       console.log(`    · ${step.action}: ${step.arg}`);
-      await runStep(page, scene, step);
+      if (step.action.startsWith("peer ")) {
+        const peerStep = { ...step, action: step.action.slice(5).trim() };
+        await runStep(await getPeerPage(), scene, peerStep, { isPeer: true });
+      } else {
+        await runStep(page, scene, step);
+      }
       await page.waitForTimeout(stepDelay);
     }
   }
@@ -200,11 +222,13 @@ try {
 }
 
 const video = page.video();
+const peerVideo = peerPage?.video();
 await context.close(); // finalizes the recording; must save before browser.close()
 
 const webm = join(outDir, `${slug}-${stamp}.webm`);
 await video.saveAs(webm);
 await video.delete(); // drop playwright's page@<hash>.webm original
+await peerVideo?.delete(); // the peer tab is off-camera — never keep its recording
 await browser.close();
 
 let final = webm;
