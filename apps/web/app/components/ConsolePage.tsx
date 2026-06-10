@@ -10,7 +10,8 @@ import {
 import { useWeaverRoom } from "@/lib/weaverRoom";
 import { useDemoAgent } from "@/lib/demoAgent";
 import { DOCS } from "@/lib/docs";
-import { initialsOf, isScenarioPrincipal, peerColor, peerKey } from "@/lib/presence";
+import { avatarOf, initialsOf, isScenarioPrincipal, peerColor, peerKey } from "@/lib/presence";
+import { AvatarDot } from "@/components/AvatarDot";
 
 // The Weaver editing surface pulls in loro-crdt (WASM) via @weaver/react —
 // lazy-loaded so it ships as a separate client chunk and never renders during
@@ -96,6 +97,7 @@ export default function ConsolePage({ docId }: { docId: string }) {
         kind: p.kind === "human" ? "user" : "agent",
         label: p.name,
         color: peerColor(p.id),
+        avatarUrl: avatarOf(p.id),
       })),
     [],
   );
@@ -253,25 +255,27 @@ export default function ConsolePage({ docId }: { docId: string }) {
             {PRINCIPALS.map((p) => {
               const live = liveByPrincipal.get(p.id);
               return (
-                <span
+                <AvatarDot
                   key={p.id}
-                  className={`cf-presence__dot${live ? " cf-presence__dot--live" : ""}`}
-                  style={{ background: dotColor(p.id) }}
+                  id={p.id}
+                  fallback={tag(p)}
+                  color={dotColor(p.id)}
+                  live={live !== undefined}
                   title={`${p.name} · in room${live ? ` · ${live.mode}` : ""}`}
-                >
-                  {tag(p)}
-                </span>
+                  stacked
+                />
               );
             })}
             {guestPeers.map((p) => (
-              <span
+              <AvatarDot
                 key={peerKey(p)}
-                className="cf-presence__dot cf-presence__dot--live"
-                style={{ background: peerColor(p.principal) }}
+                id={p.principal}
+                fallback={initialsOf(p.display_name) || "◆"}
+                color={peerColor(p.principal)}
+                live
                 title={`${p.display_name} · ${p.mode}`}
-              >
-                {initialsOf(p.display_name) || "◆"}
-              </span>
+                stacked
+              />
             ))}
           </span>
           <button className="cf-btn cf-btn--ghost cf-btn--sm" onClick={resetAll}>
@@ -327,9 +331,7 @@ export default function ConsolePage({ docId }: { docId: string }) {
                   className={`cf-actor${p.id === actorId ? " cf-actor--on" : ""}`}
                   onClick={() => switchActor(p.id)}
                 >
-                  <span className="cf-presence__dot" style={{ background: dotColor(p.id), marginLeft: 0 }}>
-                    {tag(p)}
-                  </span>
+                  <AvatarDot id={p.id} fallback={tag(p)} color={dotColor(p.id)} />
                   <span>
                     <span className="cf-actor__name">{p.name}</span>
                     <span className="cf-actor__sub">
@@ -395,12 +397,11 @@ export default function ConsolePage({ docId }: { docId: string }) {
               <p className="app-agentpanel__label">Permission request</p>
               <div className="cf-card">
                 <p className="app-request__title">
-                  <span
-                    className="cf-presence__dot"
-                    style={{ background: dotColor(pending.req.requester), marginLeft: 0 }}
-                  >
-                    {tag(PRINCIPALS.find((p) => p.id === pending.req.requester)!)}
-                  </span>
+                  <AvatarDot
+                    id={pending.req.requester}
+                    fallback={tag(PRINCIPALS.find((p) => p.id === pending.req.requester)!)}
+                    color={dotColor(pending.req.requester)}
+                  />
                   {PRINCIPALS.find((p) => p.id === pending.req.requester)!.name} wants access
                 </p>
                 <p className="app-request__reason">&ldquo;{pending.req.reason}&rdquo;</p>

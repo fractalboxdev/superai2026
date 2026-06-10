@@ -1,6 +1,7 @@
 import type { MetaFunction } from "react-router";
 import { type RouteDecision } from "@superai2026/protocol/requests";
 import { principal, principalColor, resourceOwnerOf, tag } from "@superai2026/protocol/scenario";
+import { AvatarDot } from "@/components/AvatarDot";
 import { CapChips } from "@/components/CapChips";
 import { useAccess, type InboxItem } from "@/lib/accessStore";
 
@@ -23,9 +24,7 @@ function Requester({ id }: { id: string }) {
   const p = principal(id);
   return (
     <div className="ac-request__who">
-      <span className="cf-presence__dot" style={{ background: principalColor(id), marginLeft: 0 }}>
-        {p ? tag(p) : "◆"}
-      </span>
+      <AvatarDot id={id} fallback={p ? tag(p) : "◆"} color={principalColor(id)} />
       <div className="ac-principal__id">
         <p className="ac-principal__name">{p?.name ?? id}</p>
         <p className="ac-principal__sub ac-mono">{id}</p>

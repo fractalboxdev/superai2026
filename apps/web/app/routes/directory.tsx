@@ -2,6 +2,7 @@ import type { MetaFunction } from "react-router";
 import { Link } from "react-router";
 import { type Principal } from "@superai2026/protocol/access";
 import { humans, ownedAgents, principalColor, tag } from "@superai2026/protocol/scenario";
+import { AvatarDot } from "@/components/AvatarDot";
 import { CapChips } from "@/components/CapChips";
 import { useAccess } from "@/lib/accessStore";
 
@@ -15,11 +16,7 @@ export const meta: MetaFunction = () => [
 ];
 
 function PrincipalDot({ p }: { p: Principal }) {
-  return (
-    <span className="cf-presence__dot" style={{ background: principalColor(p.id), marginLeft: 0 }}>
-      {tag(p)}
-    </span>
-  );
+  return <AvatarDot id={p.id} fallback={tag(p)} color={principalColor(p.id)} />;
 }
 
 /**
