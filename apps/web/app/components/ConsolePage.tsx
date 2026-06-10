@@ -1,5 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { viewId, type Capability, type View } from "@superai2026/protocol/access";
+import { type Capability } from "@superai2026/protocol/access";
 import { brainQuery, type BrainResult } from "@superai2026/protocol/brain";
 import {
   approveRequest,
@@ -31,7 +31,6 @@ import {
   FLOW_B_REQUEST,
   PRINCIPALS,
   REGISTRY,
-  SPEND_BY_TEAM,
   cfoCapability,
   initialCapability,
   tag,
@@ -39,14 +38,6 @@ import {
 // Type-only — erased at build; the WASM-backed runtime import stays inside
 // the lazy WeaverSurface chunk.
 import type { Principal as WeaverPrincipal } from "@weaver/core";
-
-const VIEWS: { view: View; label: string }[] = [
-  { view: SPEND_BY_TEAM, label: "stripe / spend_by_team" },
-  { view: FINANCE_PRIVATE, label: "stripe / finance_private" },
-];
-
-const PRIVATE_FIELDS = new Set(["discount_tier", "credits", "employee_salary"]);
-const BASE_FIELDS = new Set(["team", "period"]);
 
 const dotColor = (id: string): string =>
   id === CFO.id ? "var(--cf-sky-500)" : id.startsWith("agent:cto") ? "var(--cf-indigo-500)" : "var(--cf-amber-500)";
@@ -86,8 +77,6 @@ export default function ConsolePage({ docId }: { docId: string }) {
     [CFO.id]: initialCapability(CFO.id),
   }));
   const [actorId, setActorId] = useState<string>(CTO_AGENT.id);
-  const [selView, setSelView] = useState<View>(FINANCE_PRIVATE);
-  const [selFields, setSelFields] = useState<string[]>(["gross", "credits", "discount_tier"]);
   const [result, setResult] = useState<BrainResult | null>(null);
   const [pending, setPending] = useState<{ req: AccessRequest; route: RouteDecision } | null>(null);
   const [log, setLog] = useState<LogEntry[]>([]);
@@ -124,10 +113,6 @@ export default function ConsolePage({ docId }: { docId: string }) {
     () => livePeers.filter((p) => !isScenarioPrincipal(p.principal)),
     [livePeers],
   );
-  const columns = useMemo(
-    () => DATASETS.find((d) => viewId(d.view) === viewId(selView))?.columns ?? [],
-    [selView],
-  );
   // The @-mention directory: the full org cast (humans + agents), mapped to
   // Weaver's Principal shape with the same colors the roster/carets use.
   const mentionPrincipals = useMemo<WeaverPrincipal[]>(
@@ -155,57 +140,6 @@ export default function ConsolePage({ docId }: { docId: string }) {
     setPending(null);
   };
 
-  const switchView = (v: View) => {
-    setSelView(v);
-    setResult(null);
-    setPending(null);
-    // sensible default field selection per view
-    setSelFields(
-      viewId(v) === viewId(FINANCE_PRIVATE) ? ["gross", "credits", "discount_tier"] : ["gross", "net"],
-    );
-  };
-
-  const toggleField = (f: string) =>
-    setSelFields((fs) => (fs.includes(f) ? fs.filter((x) => x !== f) : [...fs, f]));
-
-  const runQuery = () => {
-    const res = brainQuery(caps[actorId], DATASETS, { view: selView, fields: selFields });
-    setResult(res);
-    setPending(null);
-    if (!res.ok) pushLog("deny", `${actor.name} · query ${viewId(selView)} → ${res.reason}`);
-    else if (res.redacted.length) pushLog("ok", `${actor.name} · partial: redacted ${res.redacted.join(", ")}`);
-    else pushLog("ok", `${actor.name} · query ${viewId(selView)} → ${res.rows.length} row(s)`);
-  };
-
-  // Fields the actor still needs (denied entirely, or redacted from a partial result).
-  const neededFields = useMemo(() => {
-    if (!result) return [];
-    if (!result.ok) return selFields.filter((f) => !BASE_FIELDS.has(f));
-    return result.redacted;
-  }, [result, selFields]);
-
-  const canRequest = result != null && !(result.ok && result.redacted.length === 0) && neededFields.length > 0;
-
-  const requestAccess = () => {
-    const req: AccessRequest = {
-      id: `req-${++logSeq}`,
-      requester: actorId,
-      view: selView,
-      fields: neededFields,
-      rowScope: [{ field: "team", in: ["eng", "ops", "sales", "finance"] }],
-      reason: `${actor.name} needs ${neededFields.join(", ")} to answer net-of-credits.`,
-      doc: "finops",
-      ttl: "7d",
-    };
-    const route = routeRequest(req, CFO_ENVELOPE);
-    setPending({ req, route });
-    if (route.decision === "forbidden") pushLog("block", `${actor.name} → ${req.fields.join(", ")}: ${route.reason}`);
-    else if (route.decision === "auto") {
-      applyGrant(req);
-      pushLog("grant", `auto-approved ${req.fields.join(", ")} (${route.reason})`);
-    } else pushLog("info", `access request raised → Monica (CFO) decides (${req.fields.join(", ")})`);
-  };
-
   const applyGrant = (req: AccessRequest) => {
     try {
       const granted = approveRequest(cfoCapability(), req);
@@ -213,7 +147,7 @@ export default function ConsolePage({ docId }: { docId: string }) {
       setPending(null);
       pushLog("grant", `Monica (CFO) minted scoped token → ${req.requester} (${req.fields.join(", ")}, ttl ${req.ttl})`);
       // agent retries automatically with the new token
-      const res = brainQuery(granted, DATASETS, { view: req.view, fields: selFields });
+      const res = brainQuery(granted, DATASETS, { view: req.view, fields: [...req.fields] });
       setResult(res);
       if (res.ok) pushLog("ok", `${actor.name} retried → answered`);
     } catch (e) {
@@ -230,8 +164,6 @@ export default function ConsolePage({ docId }: { docId: string }) {
   // Scenario shortcuts.
   const runFlowA = () => {
     setActorId(CTO_AGENT.id);
-    setSelView(FINANCE_PRIVATE);
-    setSelFields([...FLOW_A_REQUEST.fields]);
     const res = brainQuery(caps[CTO_AGENT.id] ?? initialCapability(CTO_AGENT.id), DATASETS, {
       view: FINANCE_PRIVATE,
       fields: FLOW_A_REQUEST.fields,
@@ -244,8 +176,6 @@ export default function ConsolePage({ docId }: { docId: string }) {
 
   const runFlowB = () => {
     setActorId(ENG_AGENT.id);
-    setSelView(FINANCE_PRIVATE);
-    setSelFields([...FLOW_B_REQUEST.fields]);
     const res = brainQuery(caps[ENG_AGENT.id] ?? initialCapability(ENG_AGENT.id), DATASETS, {
       view: FINANCE_PRIVATE,
       fields: FLOW_B_REQUEST.fields,
@@ -492,47 +422,6 @@ export default function ConsolePage({ docId }: { docId: string }) {
             </div>
           </div>
 
-          <div>
-            <p className="app-agentpanel__label">brain.query — capability-filtered</p>
-            <div className="cf-card cf-stack">
-              <label className="cf-field-label">View</label>
-              <div className="cf-seg">
-                {VIEWS.map((v) => (
-                  <button
-                    key={viewId(v.view)}
-                    className={`cf-seg__btn${viewId(v.view) === viewId(selView) ? " cf-seg__btn--on" : ""}`}
-                    onClick={() => switchView(v.view)}
-                  >
-                    {v.label}
-                  </button>
-                ))}
-              </div>
-
-              <label className="cf-field-label">Fields</label>
-              <div className="cf-chips">
-                {columns.map((c) => (
-                  <label key={c} className={`cf-chip${PRIVATE_FIELDS.has(c) ? " cf-chip--private" : ""}`}>
-                    <input
-                      type="checkbox"
-                      checked={selFields.includes(c)}
-                      onChange={() => toggleField(c)}
-                    />
-                    {c}
-                  </label>
-                ))}
-              </div>
-
-              <button className="cf-btn cf-btn--primary cf-btn--sm cf-block" onClick={runQuery}>
-                Run query as {actor.name}
-              </button>
-              {canRequest && (
-                <button className="cf-btn cf-btn--secondary cf-btn--sm cf-block" onClick={requestAccess}>
-                  Request access · {neededFields.join(", ")}
-                </button>
-              )}
-            </div>
-          </div>
-
           {pending && (
             <div>
               <p className="app-agentpanel__label">Permission request</p>
@@ -580,7 +469,7 @@ export default function ConsolePage({ docId }: { docId: string }) {
             <div className="cf-card cf-log">
               {log.length === 0 ? (
                 <p className="cf-text-muted" style={{ fontSize: "var(--text-sm)" }}>
-                  Run a query to populate the audit trail.
+                  Run a flow to populate the audit trail.
                 </p>
               ) : (
                 <ul>
@@ -612,7 +501,7 @@ function QueryResult({ result, actorName }: { result: BrainResult | null; actorN
   if (!result) {
     return (
       <div className="cf-result cf-result--empty">
-        <p className="cf-text-muted">No query run yet. Use the console on the right.</p>
+        <p className="cf-text-muted">No query run yet. Run a flow from the panel on the right.</p>
       </div>
     );
   }
