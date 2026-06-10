@@ -8,6 +8,9 @@ bootstrap that lays down `~/.contextful` and runs `sync ctl seed`.
 applying them needs provider credentials and a `pulumi up`. `crates/sync` is
 **not** deployed here — it runs on the host.
 
+> **Exception:** [`ecs/`](./ecs/) is a separate, *applied* Pulumi project that
+> deploys the `sync` server binary to ECS Fargate in a throwaway demo account.
+
 This package is deliberately **outside the pnpm/turbo workspace** (not matched by
 `pnpm-workspace.yaml`) so CI doesn't pull the heavy Pulumi provider SDKs. Treat
 it as a standalone project:

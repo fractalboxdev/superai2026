@@ -1,0 +1,8 @@
+# Keep the Docker build context to the Cargo workspace (see Dockerfile).
+*
+!Cargo.toml
+!Cargo.lock
+!rust-toolchain.toml
+!crates
+!infra/ecs/docker-entrypoint.sh
+crates/**/target

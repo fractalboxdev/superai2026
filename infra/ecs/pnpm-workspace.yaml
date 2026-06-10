@@ -1,0 +1,4 @@
+# Marks infra/ecs as its own pnpm root so `pnpm install` here doesn't walk up
+# into the repo workspace (this package is deliberately outside it).
+packages:
+  - "."
