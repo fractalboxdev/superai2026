@@ -28,11 +28,15 @@ import {
   FLOW_A_REQUEST,
   FLOW_B_REQUEST,
   PRINCIPALS,
+  REGISTRY,
   SPEND_BY_TEAM,
   cfoCapability,
   initialCapability,
   tag,
 } from "@superai2026/protocol/scenario";
+// Type-only — erased at build; the WASM-backed runtime import stays inside
+// the lazy WeaverSurface chunk.
+import type { Principal as WeaverPrincipal } from "@weaver/core";
 
 export const meta: MetaFunction = () => [
   { title: "Contextful — capability-scoped company brain" },
@@ -107,6 +111,22 @@ export default function Home() {
   const columns = useMemo(
     () => DATASETS.find((d) => viewId(d.view) === viewId(selView))?.columns ?? [],
     [selView],
+  );
+  // The @-mention directory: the full org cast (humans + agents), mapped to
+  // Weaver's Principal shape with the same colors the roster/carets use.
+  const mentionPrincipals = useMemo<WeaverPrincipal[]>(
+    () =>
+      REGISTRY.map((p) => ({
+        id: p.id,
+        kind: p.kind === "human" ? "user" : "agent",
+        label: p.name,
+        color: peerColor(p.id),
+      })),
+    [],
+  );
+  const selfIdentity = useMemo(
+    () => ({ id: actor.id, name: actor.name }),
+    [actor.id, actor.name],
   );
 
   const pushLog = (kind: LogEntry["kind"], text: string) =>
@@ -381,6 +401,8 @@ export default function Home() {
                       editor={room.editor}
                       peers={livePeers}
                       onCursorChange={room.setCursor}
+                      self={selfIdentity}
+                      mentionPrincipals={mentionPrincipals}
                     />
                   </Suspense>
                 ) : (

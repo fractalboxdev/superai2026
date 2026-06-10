@@ -6,6 +6,11 @@ import wasm from "vite-plugin-wasm";
 export default defineConfig(({ command }) => ({
   // Vite 8 resolves tsconfig `paths` (the @/* alias) natively.
   resolve: { tsconfigPaths: true },
+  // Allow access via Tailscale MagicDNS hostnames (tailscale serve), and bind
+  // IPv4 loopback explicitly — `tailscale serve` proxies to 127.0.0.1, which a
+  // [::1]-only listener 502s.
+  server: { host: "127.0.0.1", allowedHosts: [".ts.net"] },
+  preview: { host: "127.0.0.1", allowedHosts: [".ts.net"] },
   // wasm + topLevelAwait: loro-crdt (the Weaver editor's CRDT) ships a
   // bundler-style ESM WASM import that the DEV server can't serve natively.
   // Build-time, rolldown bundles the .wasm as a lazy async asset on its own —
