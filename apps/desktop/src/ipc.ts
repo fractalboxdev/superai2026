@@ -76,7 +76,7 @@ export const stopService = () => invoke<void>("stop_service");
 export const restartService = () => invoke<void>("restart_service");
 
 export const getLogs = (limit?: number) =>
-  invoke<string[]>("get_logs", { limit: limit ?? 200 });
+  invoke<string[]>("get_logs", { limit });
 
 export const setAutostart = (enable: boolean) =>
   invoke<boolean>("set_autostart", { enable });
@@ -87,16 +87,11 @@ export const openWebApp = () => invoke<void>("open_web_app");
 export const revealBrain = () => invoke<void>("reveal_brain");
 export const copySyncUrl = () => invoke<string>("copy_sync_url");
 
-export const onSupervisorStatus = (
-  cb: (snapshot: SupervisorSnapshot) => void,
-): Promise<UnlistenFn> =>
-  listen<SupervisorSnapshot>("supervisor:status", (e) => cb(e.payload));
+const on =
+  <T,>(event: string) =>
+  (cb: (payload: T) => void): Promise<UnlistenFn> =>
+    listen<T>(event, (e) => cb(e.payload));
 
-export const onSupervisorLog = (
-  cb: (line: string) => void,
-): Promise<UnlistenFn> =>
-  listen<string>("supervisor:log", (e) => cb(e.payload));
-
-export const onNavigate = (
-  cb: (route: string) => void,
-): Promise<UnlistenFn> => listen<string>("navigate", (e) => cb(e.payload));
+export const onSupervisorStatus = on<SupervisorSnapshot>("supervisor:status");
+export const onSupervisorLog = on<string>("supervisor:log");
+export const onNavigate = on<string>("navigate");

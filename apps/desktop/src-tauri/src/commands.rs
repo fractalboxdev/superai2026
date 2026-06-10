@@ -11,7 +11,7 @@ use crate::identity::{self, IdentityInfo};
 use crate::settings::AppSettings;
 use crate::supervisor::{Snapshot, Supervisor};
 use crate::tailscale::{self, TailscaleInfo};
-use crate::{keychain, launchagent, sidecar};
+use crate::{launchagent, sidecar};
 
 pub struct AppCtx {
     pub supervisor: Arc<Supervisor>,
@@ -58,10 +58,7 @@ pub fn save_settings(patch: serde_json::Value) -> Result<AppSettings, String> {
 
 #[tauri::command]
 pub fn mark_configured() -> Result<AppSettings, String> {
-    let mut s = AppSettings::load();
-    s.configured = true;
-    s.save().map_err(err)?;
-    Ok(s)
+    AppSettings::update(|s| s.configured = true).map_err(err)
 }
 
 #[tauri::command]
@@ -106,49 +103,38 @@ pub fn set_autostart(enable: bool) -> Result<bool, String> {
     } else {
         launchagent::uninstall().map_err(err)?;
     }
-    let mut s = AppSettings::load();
-    s.autostart = enable;
-    s.save().map_err(err)?;
+    AppSettings::update(|s| s.autostart = enable).map_err(err)?;
     Ok(enable)
 }
 
-#[tauri::command]
-pub fn open_web_app(app: AppHandle) {
-    open_web(&app);
-}
+// The three commands below are also called directly by the tray menu — the
+// `#[tauri::command]` macro keeps the plain fn callable.
 
 #[tauri::command]
-pub fn reveal_brain(app: AppHandle) {
-    reveal_brain_dir(&app);
+pub fn open_web_app() {
+    open_target(AppSettings::load().web_app_url);
 }
 
 #[tauri::command]
-pub fn copy_sync_url(app: AppHandle) -> Result<String, String> {
-    copy_sync_url_impl(&app).map_err(err)
-}
-
-#[tauri::command]
-pub fn keychain_present(principal: String) -> bool {
-    keychain::has_key(&principal)
-}
-
-// ---- shared with the tray menu ----------------------------------------
-
-pub fn open_web(_app: &AppHandle) {
-    let url = AppSettings::load().web_app_url;
-    let _ = Command::new("open").arg(url).status();
-}
-
-pub fn reveal_brain_dir(_app: &AppHandle) {
+pub fn reveal_brain() {
     let settings = AppSettings::load();
-    let dir = settings.brain_home_expanded().unwrap_or_else(|| {
-        let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
-        format!("{home}/.contextful")
-    });
-    let _ = Command::new("open").arg(dir).status();
+    let dir = match settings.brain_home_expanded() {
+        Some(d) => std::path::PathBuf::from(d),
+        None => crate::util::home_dir().join(".contextful"),
+    };
+    open_target(dir);
 }
 
-pub fn copy_sync_url_impl(_app: &AppHandle) -> anyhow::Result<String> {
+#[tauri::command]
+pub fn copy_sync_url() -> Result<String, String> {
+    copy_sync_url_impl().map_err(err)
+}
+
+fn open_target(target: impl AsRef<std::ffi::OsStr>) {
+    let _ = Command::new("open").arg(target).status();
+}
+
+fn copy_sync_url_impl() -> anyhow::Result<String> {
     let settings = AppSettings::load();
     let ts = detect_ts(&settings);
     let url = ts
@@ -167,4 +153,41 @@ pub fn copy_sync_url_impl(_app: &AppHandle) -> anyhow::Result<String> {
 
 fn err(e: anyhow::Error) -> String {
     format!("{e:#}")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Drift guard: must match `AppState` in apps/desktop/src/ipc.ts.
+    #[test]
+    fn app_state_keys_mirror_ipc_ts() {
+        let state = AppState {
+            settings: AppSettings::default(),
+            supervisor: Snapshot {
+                status: crate::supervisor::Status::Stopped,
+                detail: "stopped".into(),
+                pid: None,
+                restarts: 0,
+            },
+            tailscale: TailscaleInfo::absent(),
+            known_principals: vec!["cfo".into()],
+            sidecar_path: Some("/Applications/Contextful.app/Contents/MacOS/sync".into()),
+            launch_agent_installed: true,
+        };
+        let v = serde_json::to_value(state).unwrap();
+        let mut keys: Vec<_> = v.as_object().unwrap().keys().cloned().collect();
+        keys.sort();
+        assert_eq!(
+            keys,
+            [
+                "knownPrincipals",
+                "launchAgentInstalled",
+                "settings",
+                "sidecarPath",
+                "supervisor",
+                "tailscale"
+            ]
+        );
+    }
 }

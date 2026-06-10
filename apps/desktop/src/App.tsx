@@ -7,6 +7,7 @@ import {
   onSupervisorStatus,
   type SupervisorSnapshot,
 } from "./ipc";
+import { StatusDot } from "./components";
 import { Wizard } from "./views/Wizard";
 import { Status } from "./views/Status";
 import { Logs } from "./views/Logs";
@@ -61,8 +62,8 @@ export function App() {
       <header className="shell-header">
         <img src={logo} alt="" />
         <strong>Contextful</strong>
-        <span
-          className={`status-dot status-dot--${state.supervisor.status}`}
+        <StatusDot
+          status={state.supervisor.status}
           title={state.supervisor.detail}
         />
         <nav className="shell-tabs">

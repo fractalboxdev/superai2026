@@ -11,6 +11,7 @@ mod sidecar;
 mod supervisor;
 mod tailscale;
 mod tray;
+mod util;
 
 use std::sync::Arc;
 
@@ -39,7 +40,6 @@ fn main() {
             // launchctl unload / system shutdown send SIGTERM: stop the child
             // before dying so it never outlives its supervisor (spec 10 §5).
             {
-                let sup = supervisor.clone();
                 let handle = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
                     use tokio::signal::unix::{signal, SignalKind};
@@ -53,9 +53,7 @@ fn main() {
                         _ = term.recv() => {}
                         _ = int.recv() => {}
                     }
-                    sup.stop();
-                    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-                    handle.exit(0);
+                    supervisor::graceful_shutdown(handle).await;
                 });
             }
 
@@ -90,7 +88,6 @@ fn main() {
             commands::open_web_app,
             commands::reveal_brain,
             commands::copy_sync_url,
-            commands::keychain_present,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Contextful");

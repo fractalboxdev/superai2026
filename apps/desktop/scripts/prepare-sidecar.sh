@@ -40,6 +40,12 @@ build() {
   cargo build -p sync $release_flag "$@"
 }
 
+# Build one triple and stage it under the name tauri-build expects.
+stage_triple() {
+  build --target "$1"
+  cp "target/$1/$mode/sync" "$dest/sync-$1"
+}
+
 dest="apps/desktop/src-tauri/binaries"
 mkdir -p "$dest"
 
@@ -48,27 +54,22 @@ if [[ "$universal" == 1 ]]; then
   # triple it is currently compiling for (host triple during clippy/test,
   # each Apple triple during a universal `tauri build`).
   for t in aarch64-apple-darwin x86_64-apple-darwin; do
-    build --target "$t"
-    cp "target/$t/$mode/sync" "$dest/sync-$t"
+    stage_triple "$t"
   done
   lipo -create \
-    "target/aarch64-apple-darwin/$mode/sync" \
-    "target/x86_64-apple-darwin/$mode/sync" \
+    "$dest/sync-aarch64-apple-darwin" \
+    "$dest/sync-x86_64-apple-darwin" \
     -output "$dest/sync-universal-apple-darwin"
   echo "staged $dest/sync-{aarch64,x86_64,universal}-apple-darwin"
   exit 0
 fi
 
-host_triple="$(rustc -vV | awk '/^host: /{print $2}')"
-triple="${target:-$host_triple}"
-
 if [[ -n "$target" ]]; then
-  build --target "$target"
-  out="target/$target/$mode/sync"
+  stage_triple "$target"
+  echo "staged $dest/sync-$target"
 else
+  host_triple="$(rustc -vV | awk '/^host: /{print $2}')"
   build
-  out="target/$mode/sync"
+  cp "target/$mode/sync" "$dest/sync-$host_triple"
+  echo "staged $dest/sync-$host_triple"
 fi
-
-cp "$out" "$dest/sync-$triple"
-echo "staged $dest/sync-$triple"

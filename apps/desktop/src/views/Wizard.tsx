@@ -15,8 +15,45 @@ import {
   startService,
   type TailscaleInfo,
 } from "../ipc";
+import { Field } from "../components";
+import { useBusy } from "../hooks";
 
 const STEPS = ["Role", "Identity", "Tailscale", "Brain", "Start", "Auto-start"];
+
+function StepActions({
+  busy,
+  disabled,
+  label = "Continue",
+  onClick,
+  secondary,
+}: {
+  busy: boolean;
+  disabled?: boolean;
+  label?: string;
+  onClick: () => void;
+  secondary?: { label: string; onClick: () => void };
+}) {
+  return (
+    <div className="actions">
+      <button
+        className="cf-btn cf-btn--primary"
+        disabled={busy || disabled}
+        onClick={onClick}
+      >
+        {label}
+      </button>
+      {secondary && (
+        <button
+          className="cf-btn cf-btn--ghost"
+          disabled={busy}
+          onClick={secondary.onClick}
+        >
+          {secondary.label}
+        </button>
+      )}
+    </div>
+  );
+}
 
 export function Wizard({
   state,
@@ -31,8 +68,7 @@ export function Wizard({
   const [relayAddr, setRelayAddr] = useState(state.settings.relayAddr);
   const [brainHome, setBrainHome] = useState("");
   const [ts, setTs] = useState<TailscaleInfo>(state.tailscale);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy, error, run } = useBusy();
   const [keychainNote, setKeychainNote] = useState<string | null>(null);
   const [started, setStarted] = useState(false);
 
@@ -43,19 +79,13 @@ export function Wizard({
     return () => clearInterval(t);
   }, [step]);
 
-  const act = async (fn: () => Promise<void>) => {
-    setBusy(true);
-    setError(null);
-    try {
-      await fn();
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const next = () => setStep((s) => s + 1);
+
+  const continueWith = (fn: () => Promise<void>) =>
+    run(async () => {
+      await fn();
+      next();
+    });
 
   return (
     <div className="shell">
@@ -107,23 +137,17 @@ export function Wizard({
                 </p>
               </button>
             </div>
-            <div className="actions">
-              <button
-                className="cf-btn cf-btn--primary"
-                disabled={busy}
-                onClick={() =>
-                  act(async () => {
-                    const addr =
-                      role === "host" ? "0.0.0.0:7878" : relayAddr;
-                    setRelayAddr(addr);
-                    await saveSettings({ role, relayAddr: addr });
-                    next();
-                  })
-                }
-              >
-                Continue
-              </button>
-            </div>
+            <StepActions
+              busy={busy}
+              onClick={() =>
+                continueWith(async () => {
+                  const addr =
+                    role === "host" ? state.settings.relayAddr : relayAddr;
+                  setRelayAddr(addr);
+                  await saveSettings({ role, relayAddr: addr });
+                })
+              }
+            />
           </section>
         )}
 
@@ -134,10 +158,19 @@ export function Wizard({
               Your private key is generated once and stored in the macOS
               Keychain — never written to disk in plain text.
             </p>
-            <div className="field">
-              <label htmlFor="principal">Principal</label>
+            <Field
+              id="principal"
+              label="Principal"
+              hint={
+                <>
+                  e.g. <code>cfo</code> for a person, or{" "}
+                  <code>agent:cto/1</code> for an agent you own.
+                </>
+              }
+            >
               <input
                 id="principal"
+                className="cf-input"
                 list="known-principals"
                 value={principal}
                 onChange={(e) => setPrincipal(e.target.value)}
@@ -147,32 +180,23 @@ export function Wizard({
                   <option key={p} value={p} />
                 ))}
               </datalist>
-              <span className="hint">
-                e.g. <code>cfo</code> for a person, or{" "}
-                <code>agent:cto/1</code> for an agent you own.
-              </span>
-            </div>
+            </Field>
             {keychainNote && <p className="callout">{keychainNote}</p>}
-            <div className="actions">
-              <button
-                className="cf-btn cf-btn--primary"
-                disabled={busy || !principal}
-                onClick={() =>
-                  act(async () => {
-                    const info = await ensureIdentity(principal, role);
-                    await saveSettings({ principal });
-                    setKeychainNote(
-                      info.created
-                        ? `Key created and stored in the Keychain (${info.keychainService}).`
-                        : `Existing Keychain key found (${info.keychainService}).`,
-                    );
-                    next();
-                  })
-                }
-              >
-                Continue
-              </button>
-            </div>
+            <StepActions
+              busy={busy}
+              disabled={!principal}
+              onClick={() =>
+                continueWith(async () => {
+                  const info = await ensureIdentity(principal, role);
+                  await saveSettings({ principal });
+                  setKeychainNote(
+                    info.created
+                      ? `Key created and stored in the Keychain (${info.keychainService}).`
+                      : `Existing Keychain key found (${info.keychainService}).`,
+                  );
+                })
+              }
+            />
           </section>
         )}
 
@@ -211,30 +235,25 @@ export function Wizard({
               </dl>
             )}
             {role === "member" && (
-              <div className="field">
-                <label htmlFor="relay">Host relay address</label>
+              <Field id="relay" label="Host relay address">
                 <input
                   id="relay"
+                  className="cf-input"
                   placeholder="studio.tailnet.ts.net:7878"
                   value={relayAddr}
                   onChange={(e) => setRelayAddr(e.target.value)}
                 />
-              </div>
+              </Field>
             )}
-            <div className="actions">
-              <button
-                className="cf-btn cf-btn--primary"
-                disabled={busy || !ts.running || (role === "member" && !relayAddr)}
-                onClick={() =>
-                  act(async () => {
-                    await saveSettings({ relayAddr });
-                    next();
-                  })
-                }
-              >
-                Continue
-              </button>
-            </div>
+            <StepActions
+              busy={busy}
+              disabled={!ts.running || (role === "member" && !relayAddr)}
+              onClick={() =>
+                continueWith(async () => {
+                  await saveSettings({ relayAddr });
+                })
+              }
+            />
           </section>
         )}
 
@@ -246,16 +265,19 @@ export function Wizard({
                 <p>
                   Everything the brain knows lives in one folder on this Mac.
                 </p>
-                <div className="field">
-                  <label htmlFor="brain">Folder</label>
+                <Field
+                  id="brain"
+                  label="Folder"
+                  hint="Leave empty for the default."
+                >
                   <input
                     id="brain"
+                    className="cf-input"
                     placeholder="~/.contextful"
                     value={brainHome}
                     onChange={(e) => setBrainHome(e.target.value)}
                   />
-                  <span className="hint">Leave empty for the default.</span>
-                </div>
+                </Field>
               </>
             ) : (
               <p>
@@ -263,20 +285,14 @@ export function Wizard({
                 <code>~/.contextful</code> automatically. Nothing to set up.
               </p>
             )}
-            <div className="actions">
-              <button
-                className="cf-btn cf-btn--primary"
-                disabled={busy}
-                onClick={() =>
-                  act(async () => {
-                    await saveSettings({ brainHome: brainHome || null });
-                    next();
-                  })
-                }
-              >
-                Continue
-              </button>
-            </div>
+            <StepActions
+              busy={busy}
+              onClick={() =>
+                continueWith(async () => {
+                  await saveSettings({ brainHome: brainHome || null });
+                })
+              }
+            />
           </section>
         )}
 
@@ -291,20 +307,16 @@ export function Wizard({
             {started ? (
               <StartHealth onHealthy={next} />
             ) : (
-              <div className="actions">
-                <button
-                  className="cf-btn cf-btn--primary"
-                  disabled={busy}
-                  onClick={() =>
-                    act(async () => {
-                      await startService();
-                      setStarted(true);
-                    })
-                  }
-                >
-                  Start now
-                </button>
-              </div>
+              <StepActions
+                busy={busy}
+                label="Start now"
+                onClick={() =>
+                  run(async () => {
+                    await startService();
+                    setStarted(true);
+                  })
+                }
+              />
             )}
           </section>
         )}
@@ -317,33 +329,25 @@ export function Wizard({
               in the menu bar whenever this Mac boots, so the brain stays
               reachable without anyone logging into a terminal.
             </p>
-            <div className="actions">
-              <button
-                className="cf-btn cf-btn--primary"
-                disabled={busy}
-                onClick={() =>
-                  act(async () => {
-                    await setAutostart(true);
+            <StepActions
+              busy={busy}
+              label="Enable auto-start"
+              onClick={() =>
+                run(async () => {
+                  await setAutostart(true);
+                  await markConfigured();
+                  await onDone();
+                })
+              }
+              secondary={{
+                label: "Skip",
+                onClick: () =>
+                  run(async () => {
                     await markConfigured();
                     await onDone();
-                  })
-                }
-              >
-                Enable auto-start
-              </button>
-              <button
-                className="cf-btn cf-btn--ghost"
-                disabled={busy}
-                onClick={() =>
-                  act(async () => {
-                    await markConfigured();
-                    await onDone();
-                  })
-                }
-              >
-                Skip
-              </button>
-            </div>
+                  }),
+              }}
+            />
           </section>
         )}
       </main>
@@ -373,13 +377,7 @@ function StartHealth({ onHealthy }: { onHealthy: () => void }) {
       <p className="callout">
         {healthy ? "Up and running." : detail}
       </p>
-      {healthy && (
-        <div className="actions">
-          <button className="cf-btn cf-btn--primary" onClick={onHealthy}>
-            Continue
-          </button>
-        </div>
-      )}
+      {healthy && <StepActions busy={false} onClick={onHealthy} />}
     </div>
   );
 }

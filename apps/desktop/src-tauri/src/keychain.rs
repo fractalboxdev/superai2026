@@ -3,11 +3,7 @@
 
 use std::process::Command;
 
-const SERVICE: &str = "work.contextful";
-
-pub fn service() -> &'static str {
-    SERVICE
-}
+pub const SERVICE: &str = "work.contextful";
 
 pub fn has_key(principal: &str) -> bool {
     Command::new("/usr/bin/security")
@@ -18,8 +14,8 @@ pub fn has_key(principal: &str) -> bool {
 }
 
 pub fn store_key(principal: &str, secret_hex: &str) -> anyhow::Result<()> {
-    let out = Command::new("/usr/bin/security")
-        .args([
+    crate::util::run_checked(
+        Command::new("/usr/bin/security").args([
             "add-generic-password",
             "-U", // update if present
             "-s",
@@ -30,13 +26,9 @@ pub fn store_key(principal: &str, secret_hex: &str) -> anyhow::Result<()> {
             "Contextful principal key",
             "-w",
             secret_hex,
-        ])
-        .output()?;
-    anyhow::ensure!(
-        out.status.success(),
-        "keychain write failed: {}",
-        String::from_utf8_lossy(&out.stderr).trim()
-    );
+        ]),
+        "keychain write",
+    )?;
     Ok(())
 }
 

@@ -38,7 +38,7 @@ impl Default for AppSettings {
             configured: false,
             role: Role::Host,
             principal: "cfo".into(),
-            relay_addr: "0.0.0.0:7878".into(),
+            relay_addr: Self::DEFAULT_HOST_BIND.into(),
             doc: "finops".into(),
             brain_home: None,
             inference: "stub".into(),
@@ -50,16 +50,16 @@ impl Default for AppSettings {
 }
 
 impl AppSettings {
+    /// Default host bind address for `serve` (spec 10 §1).
+    pub const DEFAULT_HOST_BIND: &str = "0.0.0.0:7878";
+
     /// `~/Library/Application Support/work.contextful.app/config.json`
     /// (`CONTEXTFUL_DESKTOP_HOME` overrides the directory — used by tests).
     pub fn path() -> PathBuf {
         let dir = std::env::var_os("CONTEXTFUL_DESKTOP_HOME")
             .map(PathBuf::from)
             .unwrap_or_else(|| {
-                let home = std::env::var_os("HOME")
-                    .map(PathBuf::from)
-                    .unwrap_or_else(|| PathBuf::from("."));
-                home.join("Library/Application Support/work.contextful.app")
+                crate::util::home_dir().join("Library/Application Support/work.contextful.app")
             });
         dir.join("config.json")
     }
@@ -105,6 +105,32 @@ impl AppSettings {
             }
             raw.clone()
         })
+    }
+
+    /// Env passed to every sidecar invocation (supervised child *and* `ctl`)
+    /// so both see the same brain home and inference mode.
+    pub fn sidecar_envs(&self) -> Vec<(&'static str, String)> {
+        let mut envs = Vec::new();
+        if let Some(home) = self.brain_home_expanded() {
+            envs.push(("CONTEXTFUL_HOME", home));
+        }
+        if self.inference != "stub" {
+            envs.push(("CONTEXTFUL_INFERENCE", self.inference.clone()));
+        }
+        envs
+    }
+
+    /// Load → mutate → save, returning the persisted result.
+    pub fn update(f: impl FnOnce(&mut Self)) -> anyhow::Result<Self> {
+        let mut s = Self::load();
+        f(&mut s);
+        s.save()?;
+        Ok(s)
+    }
+
+    /// `relay_addr` as plain `host:port` — any leading `ws://` stripped.
+    pub fn relay_host_port(&self) -> String {
+        self.relay_addr.trim_start_matches("ws://").to_string()
     }
 }
 

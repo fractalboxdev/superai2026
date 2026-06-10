@@ -25,6 +25,28 @@ pub enum Status {
     Stopped,
 }
 
+impl Status {
+    /// Menu-bar title glyph next to the tray icon (spec 10 §3 status item).
+    pub fn glyph(self) -> &'static str {
+        match self {
+            Status::Healthy => "",
+            Status::Starting => "…",
+            Status::Degraded => "!",
+            Status::Stopped => "·",
+        }
+    }
+
+    /// Tray tooltip mirroring the supervisor state (spec 10 §3).
+    pub fn tooltip(self) -> &'static str {
+        match self {
+            Status::Healthy => "Contextful — running",
+            Status::Starting => "Contextful — starting",
+            Status::Degraded => "Contextful — running, with issues",
+            Status::Stopped => "Contextful — stopped",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Snapshot {
@@ -53,10 +75,7 @@ struct Inner {
 impl Supervisor {
     pub fn new(app: AppHandle) -> Self {
         let (tx, _rx) = watch::channel(false);
-        let log_dir = std::env::var_os("HOME")
-            .map(PathBuf::from)
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join("Library/Logs/Contextful");
+        let log_dir = crate::util::home_dir().join("Library/Logs/Contextful");
         Self {
             inner: Arc::new(Inner {
                 app,
@@ -105,6 +124,14 @@ impl Supervisor {
         tokio::time::sleep(Duration::from_millis(300)).await;
         self.start();
     }
+}
+
+/// Stop the child, drain briefly so it's reaped before we die, then exit.
+/// Shared by the tray Quit item and the SIGTERM/SIGINT handler (spec 10 §5).
+pub async fn graceful_shutdown(app: AppHandle) {
+    crate::commands::supervisor_of(&app).stop();
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    app.exit(0);
 }
 
 /// Exponential backoff, capped at 60s: 1, 2, 4, … 60.
@@ -175,7 +202,7 @@ pub fn build_args(s: &AppSettings) -> Vec<String> {
         Role::Member => vec![
             "client".into(),
             "--addr".into(),
-            s.relay_addr.trim_start_matches("ws://").to_string(),
+            s.relay_host_port(),
             "--doc".into(),
             s.doc.clone(),
             "--principal".into(),
@@ -189,7 +216,17 @@ pub fn build_args(s: &AppSettings) -> Vec<String> {
 pub fn health_addr(s: &AppSettings) -> String {
     match s.role {
         Role::Host => format!("127.0.0.1:{}", crate::tailscale::port_of(&s.relay_addr)),
-        Role::Member => s.relay_addr.trim_start_matches("ws://").to_string(),
+        Role::Member => s.relay_host_port(),
+    }
+}
+
+/// Role-specific status detail for a health-probe outcome.
+fn health_detail(role: Role, ok: bool) -> &'static str {
+    match (role, ok) {
+        (Role::Host, true) => "Relay and brain are up.",
+        (Role::Member, true) => "Connected to the host relay.",
+        (Role::Host, false) => "Running, but the relay port isn’t answering yet.",
+        (Role::Member, false) => "Running, but the host relay is unreachable.",
     }
 }
 
@@ -254,6 +291,16 @@ enum Event {
     HealthTick,
 }
 
+/// Pump one child stdio stream into the shared log ring, line by line.
+fn spawn_line_pump(inner: Arc<Inner>, src: impl tokio::io::AsyncRead + Unpin + Send + 'static) {
+    tauri::async_runtime::spawn(async move {
+        let mut lines = BufReader::new(src).lines();
+        while let Ok(Some(line)) = lines.next_line().await {
+            inner.log_line(line);
+        }
+    });
+}
+
 async fn run_loop(inner: Arc<Inner>) {
     let mut rx = inner.desired.subscribe();
     let mut attempt: u32 = 0;
@@ -294,12 +341,7 @@ async fn run_loop(inner: Arc<Inner>) {
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
             .kill_on_drop(true);
-        if let Some(home) = settings.brain_home_expanded() {
-            cmd.env("CONTEXTFUL_HOME", home);
-        }
-        if settings.inference != "stub" {
-            cmd.env("CONTEXTFUL_INFERENCE", settings.inference.clone());
-        }
+        cmd.envs(settings.sidecar_envs());
 
         let mut child = match cmd.spawn() {
             Ok(c) => c,
@@ -323,22 +365,10 @@ async fn run_loop(inner: Arc<Inner>) {
         inner.set(Status::Starting, "Waiting for first health check…", pid);
 
         if let Some(out) = child.stdout.take() {
-            let inner2 = inner.clone();
-            tauri::async_runtime::spawn(async move {
-                let mut lines = BufReader::new(out).lines();
-                while let Ok(Some(line)) = lines.next_line().await {
-                    inner2.log_line(line);
-                }
-            });
+            spawn_line_pump(inner.clone(), out);
         }
         if let Some(err) = child.stderr.take() {
-            let inner2 = inner.clone();
-            tauri::async_runtime::spawn(async move {
-                let mut lines = BufReader::new(err).lines();
-                while let Ok(Some(line)) = lines.next_line().await {
-                    inner2.log_line(line);
-                }
-            });
+            spawn_line_pump(inner.clone(), err);
         }
 
         let health_target = health_addr(&settings);
@@ -366,20 +396,16 @@ async fn run_loop(inner: Arc<Inner>) {
                     if stopping {
                         continue;
                     }
-                    if tcp_ok(&health_target).await {
+                    let ok = tcp_ok(&health_target).await;
+                    if ok {
                         attempt = 0;
-                        let detail = match settings.role {
-                            Role::Host => "Relay and brain are up.",
-                            Role::Member => "Connected to the host relay.",
-                        };
-                        inner.set(Status::Healthy, detail, pid);
-                    } else {
-                        let detail = match settings.role {
-                            Role::Host => "Running, but the relay port isn’t answering yet.",
-                            Role::Member => "Running, but the host relay is unreachable.",
-                        };
-                        inner.set(Status::Degraded, detail, pid);
                     }
+                    let status = if ok {
+                        Status::Healthy
+                    } else {
+                        Status::Degraded
+                    };
+                    inner.set(status, health_detail(settings.role, ok), pid);
                 }
                 Event::Exited(res) => {
                     clear_pidfile();
@@ -467,6 +493,21 @@ mod tests {
                 "agent:cto/1"
             ]
         );
+    }
+
+    // Drift guard: must match `SupervisorSnapshot` in apps/desktop/src/ipc.ts.
+    #[test]
+    fn snapshot_keys_mirror_ipc_ts() {
+        let snap = Snapshot {
+            status: Status::Healthy,
+            detail: "ok".into(),
+            pid: Some(42),
+            restarts: 1,
+        };
+        let v = serde_json::to_value(snap).unwrap();
+        let mut keys: Vec<_> = v.as_object().unwrap().keys().cloned().collect();
+        keys.sort();
+        assert_eq!(keys, ["detail", "pid", "restarts", "status"]);
     }
 
     #[test]

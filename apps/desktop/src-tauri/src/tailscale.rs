@@ -122,4 +122,19 @@ mod tests {
         assert_eq!(port_of("0.0.0.0:7878"), "7878");
         assert_eq!(port_of("studio.ts.net:9999"), "9999");
     }
+
+    // Drift guard: must match `TailscaleInfo` in apps/desktop/src/ipc.ts.
+    #[test]
+    fn tailscale_info_keys_mirror_ipc_ts() {
+        let info = TailscaleInfo {
+            installed: true,
+            running: true,
+            dns_name: Some("studio.tail1234.ts.net".into()),
+            sync_url: Some("ws://studio.tail1234.ts.net:7878".into()),
+        };
+        let v = serde_json::to_value(info).unwrap();
+        let mut keys: Vec<_> = v.as_object().unwrap().keys().cloned().collect();
+        keys.sort();
+        assert_eq!(keys, ["dnsName", "installed", "running", "syncUrl"]);
+    }
 }

@@ -18,6 +18,7 @@ pub struct IdentityInfo {
 }
 
 /// Seeded demo principals offered by the wizard (spec 07 §3 control plane).
+/// Mirrors `crates/sync/src/scenario.rs` `principals()` — keep the lists in sync.
 pub fn known_principals() -> Vec<String> {
     vec!["cfo".into(), "agent:cto/1".into(), "agent:eng/1".into()]
 }
@@ -35,16 +36,10 @@ pub fn ensure(principal: &str, role: Role, settings: &AppSettings) -> anyhow::Re
     let run_ctl = |args: &[&str]| -> anyhow::Result<()> {
         let mut cmd = Command::new(&bin);
         cmd.arg("ctl").args(args);
-        if let Some(home) = settings.brain_home_expanded() {
-            cmd.env("CONTEXTFUL_HOME", home);
-        }
-        let out = cmd.output()?;
-        anyhow::ensure!(
-            out.status.success(),
-            "sync ctl {} failed: {}",
-            args.join(" "),
-            String::from_utf8_lossy(&out.stderr).trim()
-        );
+        // Same env as the supervised child, so `ctl` and the daemon agree
+        // on the brain home (and inference mode).
+        cmd.envs(settings.sidecar_envs());
+        crate::util::run_checked(&mut cmd, &format!("sync ctl {}", args.join(" ")))?;
         Ok(())
     };
 
@@ -57,7 +52,26 @@ pub fn ensure(principal: &str, role: Role, settings: &AppSettings) -> anyhow::Re
 
     Ok(IdentityInfo {
         principal: principal.to_string(),
-        keychain_service: keychain::service().to_string(),
+        keychain_service: keychain::SERVICE.to_string(),
         created,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Drift guard: must match `IdentityInfo` in apps/desktop/src/ipc.ts.
+    #[test]
+    fn identity_info_keys_mirror_ipc_ts() {
+        let info = IdentityInfo {
+            principal: "cfo".into(),
+            keychain_service: crate::keychain::SERVICE.into(),
+            created: true,
+        };
+        let v = serde_json::to_value(info).unwrap();
+        let mut keys: Vec<_> = v.as_object().unwrap().keys().cloned().collect();
+        keys.sort();
+        assert_eq!(keys, ["created", "keychainService", "principal"]);
+    }
 }

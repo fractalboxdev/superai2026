@@ -8,11 +8,15 @@ use std::process::Command;
 pub const LABEL: &str = "work.contextful.app";
 
 pub fn plist_path() -> PathBuf {
-    let home = std::env::var_os("HOME")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("."));
-    home.join("Library/LaunchAgents")
+    crate::util::home_dir()
+        .join("Library/LaunchAgents")
         .join(format!("{LABEL}.plist"))
+}
+
+/// Best-effort launchctl invocation — the plist alone covers the next login
+/// either way.
+fn launchctl(args: &[&str]) {
+    let _ = Command::new("launchctl").args(args).output();
 }
 
 pub fn render_plist(app_exe: &str) -> String {
@@ -52,21 +56,15 @@ pub fn install() -> anyhow::Result<()> {
     }
     std::fs::write(&path, render_plist(&exe.to_string_lossy()))?;
     // Best-effort (re)load; the plist alone covers the next login either way.
-    let _ = Command::new("launchctl")
-        .args(["unload", &path.to_string_lossy()])
-        .output();
-    let _ = Command::new("launchctl")
-        .args(["load", "-w", &path.to_string_lossy()])
-        .output();
+    launchctl(&["unload", &path.to_string_lossy()]);
+    launchctl(&["load", "-w", &path.to_string_lossy()]);
     Ok(())
 }
 
 pub fn uninstall() -> anyhow::Result<()> {
     let path = plist_path();
     if path.is_file() {
-        let _ = Command::new("launchctl")
-            .args(["unload", "-w", &path.to_string_lossy()])
-            .output();
+        launchctl(&["unload", "-w", &path.to_string_lossy()]);
         std::fs::remove_file(&path)?;
     }
     Ok(())

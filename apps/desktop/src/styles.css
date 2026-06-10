@@ -9,10 +9,6 @@ body,
 }
 
 body {
-  margin: 0;
-  background: var(--color-bg);
-  color: var(--color-text);
-  font-family: var(--font-sans);
   -webkit-user-select: none;
   user-select: none;
 }
@@ -52,16 +48,16 @@ body {
   display: inline-block;
   width: 10px;
   height: 10px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
 }
 .status-dot--healthy {
-  background: var(--color-success, #2da44e);
+  background: var(--color-success);
 }
 .status-dot--starting {
-  background: var(--color-warning, #d4a72c);
+  background: var(--color-warning);
 }
 .status-dot--degraded {
-  background: var(--color-warning, #d4a72c);
+  background: var(--color-warning);
 }
 .status-dot--stopped {
   background: var(--color-text-muted);
@@ -77,17 +73,6 @@ body {
 .field label {
   font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
-}
-
-.field input,
-.field select {
-  padding: var(--space-3);
-  font-size: var(--text-sm);
-  font-family: inherit;
-  color: var(--color-text);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-md);
 }
 
 .field .hint {
@@ -121,14 +106,14 @@ body {
 .wizard-step-pip {
   width: 8px;
   height: 8px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background: var(--color-border-strong);
 }
 .wizard-step-pip--active {
-  background: var(--color-primary, #4f46e5);
+  background: var(--color-primary);
 }
 .wizard-step-pip--done {
-  background: var(--color-success, #2da44e);
+  background: var(--color-success);
 }
 
 .role-grid {
@@ -163,10 +148,10 @@ body {
   padding: var(--space-3) var(--space-4);
   font-size: var(--text-sm);
   border: 1px solid var(--color-border);
-  border-left: 3px solid var(--color-primary, #4f46e5);
+  border-left: 3px solid var(--color-primary);
   border-radius: var(--radius-md);
   background: var(--color-surface);
 }
 .callout--warn {
-  border-left-color: var(--color-warning, #d4a72c);
+  border-left-color: var(--color-warning);
 }

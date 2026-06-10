@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   type AppState,
   copySyncUrl,
@@ -8,13 +7,8 @@ import {
   startService,
   stopService,
 } from "../ipc";
-
-const STATUS_LABEL: Record<string, string> = {
-  starting: "Starting…",
-  healthy: "Running",
-  degraded: "Running, with issues",
-  stopped: "Stopped",
-};
+import { STATUS_LABEL, StatusDot } from "../components";
+import { useBusy, useFlash } from "../hooks";
 
 export function Status({
   state,
@@ -24,24 +18,19 @@ export function Status({
   onChanged: () => Promise<void>;
 }) {
   const { supervisor, settings, tailscale } = state;
-  const [busy, setBusy] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const { busy, error, run } = useBusy();
+  const [copied, flashCopied] = useFlash();
 
-  const run = async (fn: () => Promise<unknown>) => {
-    setBusy(true);
-    try {
+  const act = (fn: () => Promise<unknown>) =>
+    run(async () => {
       await fn();
       await onChanged();
-    } finally {
-      setBusy(false);
-    }
-  };
+    });
 
   return (
     <div>
       <h2>
-        <span className={`status-dot status-dot--${supervisor.status}`} />{" "}
-        {STATUS_LABEL[supervisor.status] ?? supervisor.status}
+        <StatusDot status={supervisor.status} /> {STATUS_LABEL[supervisor.status]}
       </h2>
       <p className="hint">{supervisor.detail}</p>
 
@@ -89,12 +78,14 @@ export function Status({
         </p>
       )}
 
+      {error && <p className="callout callout--warn">{error}</p>}
+
       <div className="actions">
         {supervisor.status === "stopped" ? (
           <button
             className="cf-btn cf-btn--primary"
             disabled={busy}
-            onClick={() => run(startService)}
+            onClick={() => act(startService)}
           >
             Start
           </button>
@@ -103,14 +94,14 @@ export function Status({
             <button
               className="cf-btn cf-btn--secondary"
               disabled={busy}
-              onClick={() => run(stopService)}
+              onClick={() => act(stopService)}
             >
               Stop
             </button>
             <button
               className="cf-btn cf-btn--secondary"
               disabled={busy}
-              onClick={() => run(restartService)}
+              onClick={() => act(restartService)}
             >
               Restart
             </button>
@@ -132,8 +123,7 @@ export function Status({
               disabled={!tailscale.syncUrl}
               onClick={async () => {
                 await copySyncUrl();
-                setCopied(true);
-                setTimeout(() => setCopied(false), 1500);
+                flashCopied();
               }}
             >
               {copied ? "Copied" : "Copy sync URL"}

@@ -23,7 +23,7 @@ all data and capability checks stay in the binary and `~/.contextful`.
 pnpm app:dev          # stage sidecar + tauri dev
 pnpm app:build        # stage release sidecar + package .app/.dmg
 pnpm typecheck        # frontend only
-cd src-tauri && cargo test
+pnpm sidecar && (cd src-tauri && cargo test)   # sidecar must be staged first
 ```
 
 CI packaging (universal binary, signing gated on Developer ID secrets):

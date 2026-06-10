@@ -5,6 +5,8 @@ import {
   saveSettings,
   setAutostart,
 } from "../ipc";
+import { Field } from "../components";
+import { useBusy, useFlash } from "../hooks";
 
 export function Settings({
   state,
@@ -21,8 +23,8 @@ export function Settings({
   const [inference, setInference] = useState(s.inference);
   const [channel, setChannel] = useState(s.updateChannel);
   const [autostart, setAutostartState] = useState(s.autostart);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const { busy: saving, error, run } = useBusy();
+  const [saved, flashSaved] = useFlash();
 
   const dirty =
     role !== s.role ||
@@ -32,9 +34,8 @@ export function Settings({
     inference !== s.inference ||
     channel !== s.updateChannel;
 
-  const save = async () => {
-    setSaving(true);
-    try {
+  const save = () =>
+    run(async () => {
       await saveSettings({
         role,
         relayAddr,
@@ -45,71 +46,74 @@ export function Settings({
       });
       await restartService();
       await onChanged();
-      setSaved(true);
-      setTimeout(() => setSaved(false), 1500);
-    } finally {
-      setSaving(false);
-    }
-  };
+      flashSaved();
+    });
 
   return (
     <div>
       <h2>Settings</h2>
 
-      <div className="field">
-        <label htmlFor="role">Role</label>
+      {error && <p className="callout callout--warn">{error}</p>}
+
+      <Field id="role" label="Role">
         <select
           id="role"
+          className="cf-input"
           value={role}
           onChange={(e) => setRole(e.target.value as typeof role)}
         >
           <option value="host">Host — run the relay and brain here</option>
           <option value="member">Member — sync rooms from a host</option>
         </select>
-      </div>
+      </Field>
 
-      <div className="field">
-        <label htmlFor="relay">
-          {role === "host" ? "Listen address" : "Host relay address"}
-        </label>
+      <Field
+        id="relay"
+        label={role === "host" ? "Listen address" : "Host relay address"}
+        hint={
+          role === "host"
+            ? "Where the relay listens. Members reach it over the tailnet."
+            : "The host's tailnet address, e.g. studio.tailnet.ts.net:7878"
+        }
+      >
         <input
           id="relay"
+          className="cf-input"
           value={relayAddr}
           onChange={(e) => setRelayAddr(e.target.value)}
         />
-        <span className="hint">
-          {role === "host"
-            ? "Where the relay listens. Members reach it over the tailnet."
-            : "The host's tailnet address, e.g. studio.tailnet.ts.net:7878"}
-        </span>
-      </div>
+      </Field>
 
       {role === "member" && (
-        <div className="field">
-          <label htmlFor="doc">Room</label>
-          <input id="doc" value={doc} onChange={(e) => setDoc(e.target.value)} />
-        </div>
+        <Field id="doc" label="Room">
+          <input
+            id="doc"
+            className="cf-input"
+            value={doc}
+            onChange={(e) => setDoc(e.target.value)}
+          />
+        </Field>
       )}
 
       {role === "host" && (
         <>
-          <div className="field">
-            <label htmlFor="brain">Brain home</label>
+          <Field
+            id="brain"
+            label="Brain home"
+            hint="Where the brain, capabilities, and rooms live. Leave empty for the default."
+          >
             <input
               id="brain"
+              className="cf-input"
               placeholder="~/.contextful"
               value={brainHome}
               onChange={(e) => setBrainHome(e.target.value)}
             />
-            <span className="hint">
-              Where the brain, capabilities, and rooms live. Leave empty for
-              the default.
-            </span>
-          </div>
-          <div className="field">
-            <label htmlFor="inference">Inference</label>
+          </Field>
+          <Field id="inference" label="Inference">
             <select
               id="inference"
+              className="cf-input"
               value={inference}
               onChange={(e) => setInference(e.target.value)}
             >
@@ -117,21 +121,21 @@ export function Settings({
               <option value="bedrock">Cloud (Vercel AI Gateway / Bedrock)</option>
               <option value="lmstudio">On-prem (LM Studio)</option>
             </select>
-          </div>
+          </Field>
         </>
       )}
 
-      <div className="field">
-        <label htmlFor="channel">Update channel</label>
+      <Field id="channel" label="Update channel">
         <select
           id="channel"
+          className="cf-input"
           value={channel}
           onChange={(e) => setChannel(e.target.value)}
         >
           <option value="stable">Stable</option>
           <option value="beta">Beta</option>
         </select>
-      </div>
+      </Field>
 
       <div className="field">
         <label>
