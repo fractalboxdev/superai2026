@@ -21,7 +21,6 @@ for (const entry of artManifest) {
   });
 }
 const art = (id: string) => artFiles.get(id) ?? null;
-const howArt = art("how-banner");
 const layersArt = art("layers");
 const logoArt = art("logo");
 
@@ -122,7 +121,16 @@ const compare = {
   },
 };
 
-const tools = ["Claude", "Notion", "Slack", "Linear", "AWS", "Vercel", "Stripe"];
+// Connector logos live in public/logos/<id>.svg (simple-icons / svgl).
+const tools = [
+  { name: "Claude", logo: "claude" },
+  { name: "Notion", logo: "notion" },
+  { name: "Slack", logo: "slack" },
+  { name: "Linear", logo: "linear" },
+  { name: "AWS", logo: "aws" },
+  { name: "Vercel", logo: "vercel" },
+  { name: "Stripe", logo: "stripe" },
+];
 
 // The Pied Piper cast (PRESENTATION.md theme rule: always "Name (Role)").
 // Portraits are pre-staged comic art in public/cast/ — not pipeline-generated.
@@ -388,7 +396,12 @@ for (const m of cast) {
         <div class="cf-container">
           <p class="strip__label" data-reveal>Brings your stack into one capability-scoped brain</p>
           <ul class="strip__tools">
-            {tools.map((t, i) => <li data-reveal style={`--d:${i * 0.04}s`}>{t}</li>)}
+            {tools.map((t, i) => (
+              <li data-reveal style={`--d:${i * 0.04}s`}>
+                <img class="strip__logo" src={`/logos/${t.logo}.svg`} alt="" width="24" height="24" loading="lazy" />
+                {t.name}
+              </li>
+            ))}
           </ul>
         </div>
       </section>
@@ -509,17 +522,6 @@ for (const m of cast) {
       <!-- How it works -->
       <section id="how" class="section section--alt">
         <div class="cf-container">
-          {howArt && (
-            <img
-              class="cf-art how__art cf-float"
-              style="--cf-float-dur: 11s; --cf-float-amp: 10px; --cf-float-tilt: 0.4deg;"
-              src={howArt.src}
-              alt={howArt.alt}
-              width={howArt.width}
-              height={howArt.height}
-              loading="lazy"
-            />
-          )}
           <header class="section__head" data-reveal>
             <span class="cf-eyebrow">How it works</span>
             <h2>Share. Delegate. Ask.</h2>
@@ -738,7 +740,7 @@ for (const m of cast) {
       .hero__inner {
         display: grid;
         grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.28fr);
-        gap: var(--space-10);
+        gap: var(--space-8) 0;
         align-items: center;
       }
       .hero__copy { max-width: 34rem; }
@@ -797,15 +799,6 @@ for (const m of cast) {
       }
       #features article:nth-child(odd) .card__art { --cf-float-tx: -16%; --cf-float-rot: -2.5deg; }
       #features article:nth-child(even) .card__art { --cf-float-tx: 16%; --cf-float-rot: 2.5deg; --cf-float-tilt: -1deg; }
-
-      /* The banner straddles the boundary between the features section and
-       * the how-it-works section — free-flow across sections. */
-      .how__art {
-        position: relative;
-        z-index: 1;
-        width: min(58rem, 94%);
-        margin: calc(-1 * (var(--space-24) + var(--space-16))) auto var(--space-12);
-      }
 
       /* ============================================================ *
        * DEMO stage — the product showing itself
@@ -900,7 +893,7 @@ for (const m of cast) {
       .stage__replay:hover { background: color-mix(in srgb, var(--color-primary) 24%, transparent); }
 
       .demo__links { margin-top: var(--space-8); text-align: center; }
-      .demo__cta { letter-spacing: var(--tracking-wide); padding-inline: var(--space-10); }
+      .demo__cta { letter-spacing: var(--tracking-wide); font-size: var(--text-xl); padding: var(--space-4) var(--space-12); }
 
       /* Cast strip — Pied Piper personas, Name (Role).
        * Background-removed cutouts float free: staggered baselines, varied
@@ -938,8 +931,9 @@ for (const m of cast) {
        * ============================================================ */
       .strip { padding-block: var(--space-12); }
       .strip__label { text-align: center; font-size: var(--text-sm); color: var(--color-text-subtle); }
-      .strip__tools { list-style: none; padding: 0; margin: var(--space-6) 0 0; display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-6); }
-      .strip__tools li { font-weight: var(--weight-semibold); color: var(--color-text-muted); font-size: var(--text-lg); }
+      .strip__tools { list-style: none; padding: 0; margin: var(--space-6) 0 0; display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-6) var(--space-8); }
+      .strip__tools li { display: inline-flex; align-items: center; gap: var(--space-2); font-weight: var(--weight-semibold); color: var(--color-text-muted); font-size: var(--text-lg); }
+      .strip__logo { height: 1.35em; width: auto; }
 
       /* ============================================================ *
        * Capability — animated flow
