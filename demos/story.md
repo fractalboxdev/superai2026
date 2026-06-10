@@ -61,8 +61,11 @@ video shows them appearing in real time. The peer tab's own recording is discard
 
 ## Scene: Monica (CFO) asks the question
 
-> The demo question comes from Monica (CFO) — one click, and she tags her analyst agent right in the doc.
+> The demo question comes from Monica (CFO) — one click, and she tags her analyst agent right in the doc, over the on-prem relay.
 
+- goto: /?sync=ws://127.0.0.1:7878
+- wait for: text=▶ Demo Q by CFO
+- pause: 1s
 - click: text=▶ Demo Q by CFO
 - expect: text=Typing as CFO…
 - wait for: text=unit economics of our compression product
@@ -186,6 +189,6 @@ video shows them appearing in real time. The peer tab's own recording is discard
 
 > The agent kept working the whole time — that's Contextful: local-first context, capability-scoped sharing.
 
-- goto: /
+- goto: /?sync=off
 - wait for: text=Dinesh's agent ·
 - pause: 4s
