@@ -62,6 +62,10 @@ const sg = new aws.ec2.SecurityGroup("sync", {
 const nlb = new aws.lb.LoadBalancer("sync", {
   loadBalancerType: "network",
   subnets: subnets.ids,
+  // One task, many AZs: without cross-zone forwarding the NLB nodes in the
+  // other AZs refuse connections, and CloudFront (which resolves any node)
+  // 502s on the wss relay path.
+  enableCrossZoneLoadBalancing: true,
 });
 
 const makeTarget = (name: string, port: number) => {
@@ -175,6 +179,47 @@ new aws.ecs.Service(
   { dependsOn: [relay.listener, mcp.listener] },
 );
 
+// --- wss:// face for the relay: CloudFront in front of the NLB --------------
+// demo.contextful.work is https, and browsers refuse plain ws:// to
+// non-loopback hosts from a secure page. CloudFront terminates TLS on its
+// default *.cloudfront.net certificate and proxies WebSocket upgrades through
+// to the NLB's plain-WS relay port — a wss:// endpoint with no DNS or ACM
+// work. Caching is disabled and all viewer headers (minus Host) pass through
+// so the upgrade handshake reaches the relay intact. Presence heartbeats keep
+// the socket inside CloudFront's 60s origin read timeout.
+const CACHING_DISABLED_POLICY = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad";
+const ALL_VIEWER_EXCEPT_HOST_POLICY = "b689b0a8-53d0-40ab-baf2-68738e2966ac";
+
+const relayCdn = new aws.cloudfront.Distribution("relay", {
+  enabled: true,
+  comment: "Contextful demo relay — wss:// face for the NLB ws relay",
+  origins: [
+    {
+      originId: "relay-nlb",
+      domainName: nlb.dnsName,
+      customOriginConfig: {
+        httpPort: syncPort,
+        httpsPort: 443,
+        originProtocolPolicy: "http-only",
+        originSslProtocols: ["TLSv1.2"],
+        originReadTimeout: 60,
+        originKeepaliveTimeout: 60,
+      },
+    },
+  ],
+  defaultCacheBehavior: {
+    targetOriginId: "relay-nlb",
+    viewerProtocolPolicy: "redirect-to-https",
+    allowedMethods: ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"],
+    cachedMethods: ["GET", "HEAD"],
+    cachePolicyId: CACHING_DISABLED_POLICY,
+    originRequestPolicyId: ALL_VIEWER_EXCEPT_HOST_POLICY,
+  },
+  priceClass: "PriceClass_100",
+  restrictions: { geoRestriction: { restrictionType: "none" } },
+  viewerCertificate: { cloudfrontDefaultCertificate: true },
+});
+
 // --- Releases: public bucket hosting desktop app downloads -----------------
 // Objects are uploaded out-of-band (aws s3 cp) after `pnpm app:build`; the
 // stack only owns the bucket + public-read policy so the landing page can
@@ -217,6 +262,7 @@ new aws.s3.BucketPolicy(
 export const imageUri = image.imageUri;
 export const nlbDnsName = nlb.dnsName;
 export const relayUrl = pulumi.interpolate`ws://${nlb.dnsName}:${syncPort}`;
+export const relayWssUrl = pulumi.interpolate`wss://${relayCdn.domainName}`;
 export const mcpUrl = pulumi.interpolate`http://${nlb.dnsName}:${mcpPort}/mcp`;
 export const releasesBucket = releases.bucket;
 export const desktopDmgUrl = pulumi.interpolate`https://${releases.bucketRegionalDomainName}/Contextful.dmg`;
