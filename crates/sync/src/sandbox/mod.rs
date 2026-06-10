@@ -20,6 +20,10 @@ pub enum Egress {
 pub struct SandboxHandle {
     pub kind: String,
     pub room: String,
+    /// the provider's sandbox id (None for the modeled/offline lifecycle).
+    pub sandbox_id: Option<String>,
+    /// provider dashboard URL for execution logs (None offline / unknown).
+    pub logs_url: Option<String>,
     /// soft cap; the runtime recreates the sandbox on room re-entry.
     pub max_lifetime_secs: u64,
 }
@@ -41,5 +45,36 @@ pub fn select(offline: bool) -> Box<dyn Sandbox> {
         Box::new(local::LocalSandbox)
     } else {
         Box::new(vercel::VercelSandbox)
+    }
+}
+
+/// Debug status for one room, as served by `GET /debug/sandbox/:room` on the
+/// co-hosted MCP HTTP listener. Read-only: ids, the provider's execution-logs
+/// URL, and age — never document content or capability material.
+pub fn debug_status(room: &str) -> serde_json::Value {
+    match vercel::peek(room) {
+        Some((handle, age_secs)) => serde_json::json!({
+            "room": room,
+            "provisioned": true,
+            "kind": handle.kind,
+            "sandboxId": handle.sandbox_id,
+            "logsUrl": handle.logs_url,
+            "ageSecs": age_secs,
+            "maxLifetimeSecs": handle.max_lifetime_secs,
+        }),
+        None => serde_json::json!({ "room": room, "provisioned": false }),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn debug_status_unprovisioned_room() {
+        let v = debug_status("room-with-no-sandbox");
+        assert_eq!(v["provisioned"], false);
+        assert_eq!(v["room"], "room-with-no-sandbox");
+        assert!(v.get("logsUrl").is_none());
     }
 }

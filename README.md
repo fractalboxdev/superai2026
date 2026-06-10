@@ -5,10 +5,12 @@ documents, and every agent sees **exactly what it is permitted to** — capabili
 attenuable, field/row-enforced. The one-line claim: *"the CTO's agent can't read the
 CEO's salary — provably."* See [`specs/`](./specs) for the full design.
 
+**Live:** [www.contextful.work](https://www.contextful.work) (landing + [docs](https://www.contextful.work/docs/)) · [demo.contextful.work](https://demo.contextful.work) (live collaborative demo)
+
 | Path | What | Stack |
 | --- | --- | --- |
-| `apps/landing` | Marketing / landing page | Astro (static) → Vercel |
-| `apps/web` | Interactive capability console (Flows A & B) + live presence | React Router 7 (Vite), React 19 → Vercel |
+| `apps/landing` | Marketing / landing page — [www.contextful.work](https://www.contextful.work) | Astro (static) → Vercel |
+| `apps/web` | Interactive capability console (Flows A & B) + live presence — [demo.contextful.work](https://demo.contextful.work) | React Router 7 (Vite), React 19 → Vercel |
 | `crates/sync` | Backend: capabilities, brain, MCP, Loro relay, control plane | Rust (7 subcommands) — self-hosted |
 | `packages/protocol` | Capability engine + brain query + wire/MCP mirrors | TypeScript |
 | `tests/acceptance` | End-to-end Flow A/B tests against the binary | vitest |
@@ -17,6 +19,18 @@ CEO's salary — provably."* See [`specs/`](./specs) for the full design.
 The on-host backend is implemented and tested. Cloud edges (Bedrock, Vercel Sandbox,
 Exa HTTP, real Biscuit-WASM, Pulumi `apply`) are interface-complete and feature-gated
 off, so the default build runs fully offline.
+
+## Built on
+
+- [Weaver](https://github.com/OpenHackersClub/weaver) — open-source local-first CRDT
+  editor by the repository author [@debuggingfuture](https://github.com/debuggingfuture);
+  powers the collaborative document editing in `apps/web`.
+- [Loro](https://loro.dev) — the CRDT engine underneath: every document is a live
+  `loro-crdt` room, synced through the Rust relay (`sync serve`).
+- [Biscuit](https://www.biscuitsec.org) — attenuable capability tokens behind the
+  scoped-grant model (real Biscuit-WASM is feature-gated; an offline mirror runs by default).
+- [Model Context Protocol](https://modelcontextprotocol.io) — the brain is exposed to
+  agents over MCP (JSON-RPC stdio via `sync mcp`).
 
 ## Prerequisites
 

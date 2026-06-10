@@ -4,9 +4,13 @@
   "scripts": {
     "dev": "slidev --open",
     "build": "slidev build",
-    "export": "slidev export"
+    "export": "slidev export",
+    "export:pptx": "mkdir -p dist && slidev export --format pptx --output dist/contextful-slides.pptx"
   },
   "devDependencies": {
-    "@slidev/cli": "^0.50.0"
+    "@iconify-json/logos": "^1.2.11",
+    "@slidev/cli": "^52.16.0",
+    "@slidev/theme-default": "^0.25.0",
+    "playwright-chromium": "^1.60.0"
   }
 }

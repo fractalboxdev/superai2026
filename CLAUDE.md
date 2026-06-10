@@ -4,10 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-`superai2026` is a monorepo with three deployable components:
+`superai2026` is a monorepo with four deployable components:
 
 - **`apps/landing`** — Astro **static** landing page. Deploys to Vercel.
 - **`apps/web`** — React Router 7 (framework mode, Vite, React 19) web app: the interactive capability console (Flows A & B) with opt-in live presence against the relay; hosts the Weaver/Loro CRDT editor. Deploys to Vercel.
+- **`apps/desktop`** — Tauri macOS menu-bar app (spec 10): bundles `crates/sync` as a sidecar, supervises it (host `serve --with-mcp` / member `client`), first-run wizard, Keychain identity, Tailscale detection, LaunchAgent auto-start. The Rust shell crate (`apps/desktop/src-tauri`) is a **standalone Cargo workspace** — kept out of the root workspace so ubuntu CI never needs webkit deps; it builds in its own macOS lane (`.github/workflows/desktop.yml`).
 - **`crates/sync`** — Rust library + binary implementing the Contextful backend. Seven subcommands: `serve` (Loro WS relay), `client` (headless peer), `ingest`, `cron`, `mcp` (brain over JSON-RPC), `agent`, `ctl` (control plane).
 - **`packages/protocol`** — `@superai2026/protocol`: TS capability engine + brain query + wire/MCP mirrors.
 - **`tests/acceptance`** — `@superai2026/acceptance`: end-to-end Flow A/B tests against the built binary.
@@ -15,7 +16,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Two toolchains share the repo root: a **pnpm + Turborepo** workspace for JS (`apps/*`, `packages/*`, `tests/*`) and a **Cargo** workspace for Rust (`crates/*`).
 
-> The backend is implemented and tested (capability engine, brain, MCP, relay, control plane). Cloud-integration edges the spec marks "Future" — real Biscuit-WASM, AWS Bedrock / LM Studio inference, Exa HTTP, Vercel Sandbox SDK, Weaver transport, Pulumi `apply` — are interface-complete and feature-gated off, so the default build is offline-capable with no external creds. Grep for `Future` / `feature` before assuming a cloud path is live.
+> The backend is implemented and tested end to end: real Biscuit tokens (`biscuit-auth` signed + Datalog-verified), SQLite+FTS5 brain index, live Exa world memory behind the egress firewall, live Stripe test-mode ingest, real inference (Vercel AI Gateway / AWS Bedrock / LM Studio — runtime-selected by creds), Vercel Sandbox provisioning via `packages/sandbox-bridge`, MCP over stdio + streamable HTTP with per-call auth, cron-expression scheduling, self-wiring links, and the daydream loop. Cloud paths are compiled in and selected at RUNTIME by env/creds (`EXA_API_KEY`, `STRIPE_SECRET_KEY`, `AWS_*`, `AI_GATEWAY_API_KEY`, `VERCEL_TOKEN`); with no creds everything degrades to the on-host cache / deterministic offline floor (Flow D), never to fakes. The web app embeds the real Weaver editor (vendored `@weaver/*`) synced through the relay.
 
 ## Commands
 
@@ -32,6 +33,15 @@ JS commands run from the repo root via Turborepo unless noted.
 | Typecheck all | `pnpm typecheck` |
 
 Run a script in one workspace: `pnpm --filter landing <script>` or `pnpm --filter web <script>`.
+
+### Desktop (`apps/desktop`)
+
+| Task | Command (from `apps/desktop`) |
+| --- | --- |
+| Stage sidecar (required before any src-tauri build) | `pnpm sidecar` (or `./scripts/prepare-sidecar.sh [--release] [--universal]`) |
+| Dev app (sidecar + tauri dev) | `pnpm app:dev` |
+| Package .app/.dmg | `pnpm app:build` |
+| Rust lint/test on the shell crate | `cd src-tauri && cargo clippy --all-targets -- -D warnings && cargo test` |
 
 ### Rust (`crates/sync`)
 
@@ -90,4 +100,5 @@ Set the project Root Directory in the Vercel dashboard; Vercel handles the monor
 - Package manager is **pnpm** (pinned via `packageManager` in the root `package.json`). Do not use npm or yarn.
 - TS apps extend `tsconfig.base.json`. The Astro app instead extends `astro/tsconfigs/strict` (Astro-specific).
 - Rust: edition, version, and shared dependency versions live in the root `Cargo.toml` `[workspace]`; member crates inherit with `*.workspace = true`. Add shared deps there, not per-crate.
-- The parent `/Users/debuggingfuture/workspaces/CLAUDE.md` SEO + agentic-SEO rules apply to `apps/landing` and `apps/web` (per-page metadata, canonical, OG, JSON-LD, `robots.txt`, `llms.txt`, sitemap, Core Web Vitals). Minimal `robots.txt` / `llms.txt` stubs and metadata are scaffolded — extend them, don't remove. `https://example.com` placeholders need the real production domain.
+- The workspace-level parent `CLAUDE.md` SEO + agentic-SEO rules apply to `apps/landing` and `apps/web` (per-page metadata, canonical, OG, JSON-LD, `robots.txt`, `llms.txt`, sitemap, Core Web Vitals). Minimal `robots.txt` / `llms.txt` stubs and metadata are scaffolded — extend them, don't remove. `https://example.com` placeholders need the real production domain.
+- The landing page must follow [PRESENTATION.md](./PRESENTATION.md) (story, messaging, narrative flow) and [apps/landing/ART-DIRECTION.md](./apps/landing/ART-DIRECTION.md) (art direction, free-flow layout, motion, a11y/perf budgets). Illustrations are generated with the `/generate-arts` skill (`.claude/skills/generate-arts/SKILL.md`), which defers to ART-DIRECTION.md for presentation rules.

@@ -9,7 +9,6 @@ import {
 } from "@superai2026/protocol/access";
 import { delegableFields } from "@superai2026/protocol/requests";
 import { DATASETS, humans, ownedAgents } from "@superai2026/protocol/scenario";
-import { AppNav } from "@/components/AppNav";
 import { CapChips } from "@/components/CapChips";
 import { useAccess } from "@/lib/accessStore";
 
@@ -45,9 +44,8 @@ const owners = () => humans().filter((h) => ownedAgents(h.id).length > 0);
  * caps(agent) ⊆ caps(owner) — is shown, not just asserted.
  */
 export default function DelegateRoute() {
-  const { caps, delegate, requests } = useAccess();
+  const { caps, delegate } = useAccess();
   const [params] = useSearchParams();
-  const pending = requests.filter((r) => r.status === "pending").length;
 
   const ownerOpts = owners();
   const initialOwner = ownerOpts.find((h) => h.id === params.get("owner"))?.id ?? ownerOpts[0].id;
@@ -98,7 +96,6 @@ export default function DelegateRoute() {
 
   return (
     <div className="ac-shell">
-      <AppNav inboxCount={pending} />
       <main className="ac-page">
         <header className="ac-page__head">
           <span className="cf-eyebrow">Access control</span>

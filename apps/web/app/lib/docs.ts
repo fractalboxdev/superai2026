@@ -7,9 +7,9 @@ export type DocMeta = { id: string; title: string; seed: string };
 export const DOCS: DocMeta[] = [
   {
     id: "finops",
-    title: "Q3 FinOps Review",
+    title: "Q3 AI Spend Review",
     seed:
-      "Engineering reports Claude Code utilization is up across the platform team. " +
+      "Gilfoyle reports Claude Code utilization is up across the platform team. " +
       "The open question for this review: is the spend justified once credits and our " +
       "discount tier are applied?\n\n" +
       "Each principal queries the same brain but sees only what their capability token " +

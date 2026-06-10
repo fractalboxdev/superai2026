@@ -15,5 +15,4 @@ Allow: /
 User-agent: Google-Extended
 Allow: /
 
-# TODO: reference the sitemap once @astrojs/sitemap is wired up.
-# Sitemap: https://www.contextful.work/sitemap-index.xml
+Sitemap: https://www.contextful.work/sitemap-index.xml

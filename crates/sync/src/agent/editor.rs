@@ -2,24 +2,27 @@
 //! (spec 04 §1 over the spec 01 wire).
 //!
 //! A real Loro peer (the relay still never parses CRDT bytes): it subscribes to
-//! one doc, merges snapshots/updates into a local `LoroDoc`, and when the text
-//! settles it scans the `body` container for `Q:` lines that no `A (…)` line
-//! answers yet. Each question is matched against the brain's Markdown memory
-//! (`~/.contextful/brain/**`), authorized against the agent's capability token
-//! — all-or-nothing per card, same rule as `brain.get_context` — and the answer
-//! is inserted into the document below the question, shipped back as a normal
-//! Loro update. Answers ride the CRDT, never awareness (presence invariant).
+//! one doc, merges snapshots/updates into a local `LoroDoc`, and when the doc
+//! settles it scans the Weaver block tree (`content` LoroTree, one paragraph
+//! per node with a `text` container — the same shape `@weaver/core` edits) for
+//! `Q:` paragraphs that no `A (…)` paragraph answers yet. Each question is
+//! matched against the brain's Markdown memory (`~/.contextful/brain/**`),
+//! authorized against the agent's capability token — all-or-nothing per card,
+//! same rule as `brain.get_context` — and the answer is inserted as a new
+//! paragraph below the question, shipped back as a normal Loro update.
+//! Answers ride the CRDT, never awareness (presence invariant).
 
 use std::collections::HashSet;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::Result;
 use futures_util::{SinkExt, StreamExt};
+use loro::{LoroDoc, LoroMap, LoroText};
 use tokio::time::interval;
 use tokio_tungstenite::tungstenite::Message;
 
 use crate::access::Capability;
-use crate::brain::retrieval::card_authorized;
+use crate::brain::retrieval::card_readable;
 use crate::brain::{BrainIndex, Memory};
 use crate::config::Config;
 use crate::controlplane::load_capability;
@@ -32,55 +35,78 @@ use crate::sync::protocol::SyncMessage;
 /// answer a finished line, not one mid-keystroke.
 const SETTLE_MS: u64 = 900;
 
-/// A `Q:` line with no `A (…)` reply yet. `insert_at` is the unicode-char
-/// position right after the question's line break (Loro text indices are
-/// unicode code points on both the Rust and JS peers).
+/// The Weaver editor's block tree container (`@weaver/core` TREE_NAME).
+const TREE_NAME: &str = "content";
+
+/// A `Q:` paragraph with no `A (…)` reply yet. `insert_index` is the root-level
+/// block index directly below the question.
 #[derive(Debug, PartialEq, Eq)]
 pub struct PendingQuestion {
     pub question: String,
-    pub insert_at: usize,
-    /// true when the question is the last line and has no trailing newline.
-    pub needs_newline: bool,
+    pub insert_index: usize,
 }
 
-/// Scan the body text for unanswered questions. A question is a line whose
-/// trimmed content starts with `Q:`; it counts as answered when the next
-/// non-empty line starts with `A:` or `A (`.
-pub fn find_unanswered(text: &str) -> Vec<PendingQuestion> {
-    let lines: Vec<&str> = text.split('\n').collect();
-    let mut offsets = Vec::with_capacity(lines.len());
-    let mut offset = 0usize;
-    for l in &lines {
-        offsets.push(offset);
-        offset += l.chars().count() + 1; // +1 for the '\n' split away
-    }
+/// Ordered top-level block texts of a Weaver doc (one entry per block node).
+pub fn read_blocks(doc: &LoroDoc) -> Vec<String> {
+    let tree = doc.get_tree(TREE_NAME);
+    tree.children(None)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|id| {
+            tree.get_meta(id)
+                .ok()
+                .and_then(|meta| meta.get("text"))
+                .and_then(|v| v.as_container().cloned())
+                .and_then(|c| c.into_text().ok())
+                .map(|t| t.to_string())
+                .unwrap_or_default()
+        })
+        .collect()
+}
 
-    let mut out = Vec::new();
-    for (i, line) in lines.iter().enumerate() {
-        let Some(q) = line.trim_start().strip_prefix("Q:") else {
-            continue;
-        };
-        let question = q.trim();
-        if question.is_empty() {
-            continue;
-        }
-        let answered = lines
-            .iter()
-            .skip(i + 1)
-            .map(|l| l.trim_start())
-            .find(|l| !l.is_empty())
-            .is_some_and(|l| l.starts_with("A:") || l.starts_with("A ("));
-        if answered {
-            continue;
-        }
-        let has_newline = i + 1 < lines.len();
-        out.push(PendingQuestion {
-            question: question.to_string(),
-            insert_at: offsets[i] + line.chars().count() + usize::from(has_newline),
-            needs_newline: !has_newline,
-        });
-    }
-    out
+/// Scan block texts for unanswered questions. A question is a block whose
+/// trimmed text starts with `Q:`; it counts as answered when the next
+/// non-empty block starts with `A:` or `A (`.
+pub fn find_unanswered(blocks: &[String]) -> Vec<PendingQuestion> {
+    blocks
+        .iter()
+        .enumerate()
+        .filter_map(|(i, block)| {
+            let question = block.trim_start().strip_prefix("Q:")?.trim();
+            if question.is_empty() {
+                return None;
+            }
+            let answered = blocks
+                .iter()
+                .skip(i + 1)
+                .map(|b| b.trim_start())
+                .find(|b| !b.is_empty())
+                .is_some_and(|b| b.starts_with("A:") || b.starts_with("A ("));
+            (!answered).then(|| PendingQuestion {
+                question: question.to_string(),
+                insert_index: i + 1,
+            })
+        })
+        .collect()
+}
+
+/// Insert a paragraph block at a root-level index — the same node shape
+/// `@weaver/core` creates (`kind` / `attrs` / `text` keys), so the web editor
+/// renders it like any human paragraph.
+pub fn insert_paragraph(doc: &LoroDoc, index: usize, content: &str) -> Result<()> {
+    let tree = doc.get_tree(TREE_NAME);
+    let err = |e: loro::LoroError| anyhow::anyhow!("loro tree write: {e}");
+    let index = index.min(tree.children_num(None).unwrap_or(0));
+    let node = tree.create_at(None, index).map_err(err)?;
+    let meta = tree.get_meta(node).map_err(err)?;
+    meta.insert("kind", "paragraph").map_err(err)?;
+    meta.insert_container("attrs", LoroMap::new())
+        .map_err(err)?;
+    let text = meta
+        .insert_container("text", LoroText::new())
+        .map_err(err)?;
+    text.insert(0, content).map_err(err)?;
+    Ok(())
 }
 
 const STOPWORDS: &[&str] = &[
@@ -132,7 +158,7 @@ pub fn answer_for(store: &Store, index: &BrainIndex, cap: &Capability, question:
         .max_by_key(|(s, _)| *s);
     match best {
         Some((score, m)) if score >= 2 => {
-            if !card_authorized(cap, &m.acl_tag) {
+            if !card_readable(cap, &m.acl_tag) {
                 return format!(
                     "Denied — the matching memory requires {} on {}, which this token does not \
                      grant. Raise an access request.",
@@ -235,8 +261,7 @@ pub async fn watch(addr: &str, doc_id: &str, principal: &str) -> Result<()> {
         ))
         .await?;
 
-    let ldoc = loro::LoroDoc::new();
-    let body = ldoc.get_text("body");
+    let ldoc = LoroDoc::new();
     let mut answered: HashSet<String> = HashSet::new();
     let mut dirty_since: Option<Instant> = None;
     let mut scan = interval(Duration::from_millis(250));
@@ -248,6 +273,8 @@ pub async fn watch(addr: &str, doc_id: &str, principal: &str) -> Result<()> {
             principal: principal.into(),
             display_name: format!("{principal} · editor agent"),
             mode,
+            session: None,
+            cursor_block: None,
             cursor_anchor: None,
             selection_end: None,
             heartbeat: now_ms(),
@@ -287,8 +314,8 @@ pub async fn watch(addr: &str, doc_id: &str, principal: &str) -> Result<()> {
                 }
                 dirty_since = None;
 
-                let text = body.to_string();
-                let mut pending: Vec<PendingQuestion> = find_unanswered(&text)
+                let blocks = read_blocks(&ldoc);
+                let mut pending: Vec<PendingQuestion> = find_unanswered(&blocks)
                     .into_iter()
                     .filter(|q| !answered.contains(&q.question))
                     .collect();
@@ -297,17 +324,13 @@ pub async fn watch(addr: &str, doc_id: &str, principal: &str) -> Result<()> {
                 }
                 write.send(Message::Text(presence(PresenceMode::Writing).to_json())).await?;
 
-                // bottom-up so earlier insert positions stay valid
-                pending.sort_by_key(|q| std::cmp::Reverse(q.insert_at));
+                // bottom-up so earlier insert indices stay valid
+                pending.sort_by_key(|q| std::cmp::Reverse(q.insert_index));
                 for q in &pending {
                     let answer = answer_for(&store, &index, &cap, &q.question);
                     tracing::info!(question = %q.question, "answering from brain");
-                    let block = format!(
-                        "{}A ({principal} · from brain memory): {answer}\n",
-                        if q.needs_newline { "\n" } else { "" },
-                    );
-                    body.insert(q.insert_at, &block)
-                        .map_err(|e| anyhow::anyhow!("loro insert: {e}"))?;
+                    let block = format!("A ({principal} · from brain memory): {answer}");
+                    insert_paragraph(&ldoc, q.insert_index, &block)?;
                     answered.insert(q.question.clone());
                 }
                 ldoc.commit();
@@ -359,34 +382,53 @@ mod tests {
         }
     }
 
+    fn blocks(xs: &[&str]) -> Vec<String> {
+        xs.iter().map(|x| x.to_string()).collect()
+    }
+
     #[test]
-    fn finds_unanswered_q_lines_only() {
-        let text =
-            "intro prose, even with a question mark?\n\nQ: Unit economics of compression product\n";
-        let qs = find_unanswered(text);
+    fn finds_unanswered_q_blocks_only() {
+        let b = blocks(&[
+            "intro prose, even with a question mark?",
+            "Q: Unit economics of compression product",
+        ]);
+        let qs = find_unanswered(&b);
         assert_eq!(qs.len(), 1);
         assert_eq!(qs[0].question, "Unit economics of compression product");
-        assert!(!qs[0].needs_newline);
-        // insert position is right after the Q line's newline (end of text here)
-        assert_eq!(qs[0].insert_at, text.chars().count());
+        assert_eq!(qs[0].insert_index, 2);
     }
 
     #[test]
     fn answered_questions_are_skipped() {
-        let text = "Q: one\nA (cfo · from brain memory): done\n\nQ: two";
-        let qs = find_unanswered(text);
+        let b = blocks(&["Q: one", "A (cfo · from brain memory): done", "", "Q: two"]);
+        let qs = find_unanswered(&b);
         assert_eq!(qs.len(), 1);
         assert_eq!(qs[0].question, "two");
-        assert!(qs[0].needs_newline); // last line, no trailing newline
-        assert_eq!(qs[0].insert_at, text.chars().count());
+        assert_eq!(qs[0].insert_index, 4);
     }
 
     #[test]
-    fn unicode_offsets_are_char_based() {
-        let text = "héllo wörld — naïve\nQ: economics of compression\n";
-        let qs = find_unanswered(text);
+    fn weaver_tree_roundtrip_reads_and_inserts_blocks() {
+        // build a doc the way the web's deterministic seed does
+        let doc = LoroDoc::new();
+        for (i, para) in ["notes.", "Q: economics of compression"].iter().enumerate() {
+            insert_paragraph(&doc, i, para).unwrap();
+        }
+        doc.commit();
+        assert_eq!(
+            read_blocks(&doc),
+            blocks(&["notes.", "Q: economics of compression"])
+        );
+
+        let qs = find_unanswered(&read_blocks(&doc));
         assert_eq!(qs.len(), 1);
-        assert_eq!(qs[0].insert_at, text.chars().count());
+        insert_paragraph(&doc, qs[0].insert_index, "A (cfo · from brain memory): …").unwrap();
+        doc.commit();
+
+        let after = read_blocks(&doc);
+        assert_eq!(after.len(), 3);
+        assert!(after[2].starts_with("A (cfo"));
+        assert!(find_unanswered(&after).is_empty());
     }
 
     #[test]
@@ -407,12 +449,12 @@ mod tests {
         assert!(match_score(&toks, &compression) > match_score(&toks, &inference));
 
         // CFO's token grants finance_private{gross,credits,…} → authorized
-        assert!(card_authorized(
+        assert!(card_readable(
             &crate::scenario::cfo_capability(),
             &compression.acl_tag
         ));
-        // CTO agent's token is spend_by_team only → all-or-nothing denial
-        assert!(!card_authorized(
+        // Richard's agent's token is spend_by_team only → all-or-nothing denial
+        assert!(!card_readable(
             &crate::scenario::cto_agent_capability(),
             &compression.acl_tag
         ));

@@ -8,17 +8,24 @@
   },
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build",
+    "build": "astro build && node scripts/build-slides.mjs",
+    "build:slides": "node scripts/build-slides.mjs",
     "preview": "astro preview",
+    "arts:generate": "node scripts/generate-arts.mjs",
     "lint": "astro check",
     "typecheck": "astro check",
     "clean": "rm -rf dist .astro"
   },
   "dependencies": {
+    "@astrojs/sitemap": "^3.7.3",
     "@superai2026/design-system": "workspace:*",
-    "astro": "^5.2.5"
+    "astro": "^5.2.5",
+    "marked": "^18.0.5",
+    "mermaid": "^11.15.0"
   },
   "devDependencies": {
-    "@astrojs/check": "^0.9.4"
+    "@astrojs/check": "^0.9.4",
+    "ai": "^5.0.0",
+    "sharp": "^0.34.5"
   }
 }

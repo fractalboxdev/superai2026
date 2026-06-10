@@ -1,0 +1,9 @@
+{
+  "name": "product-demo-skill",
+  "private": true,
+  "type": "module",
+  "description": "Self-contained Playwright runner for the /product-demo skill. Install with `pnpm install --ignore-workspace` from this directory — intentionally NOT part of the pnpm workspace.",
+  "dependencies": {
+    "playwright": "^1.53.0"
+  }
+}

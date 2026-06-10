@@ -20,9 +20,11 @@ pub fn run(principal: &str, ask: Option<&str>) -> Result<()> {
     let config = Config::load();
     let store = Store::new(config.clone());
     let index = store.load_index()?;
-    let cap = load_capability(&config, principal)
-        .or_else(|| scenario::initial_capability(principal))
-        .ok_or_else(|| anyhow::anyhow!("no capability for principal '{principal}'"))?;
+    // verified token only — an unsigned in-memory fallback would bypass the
+    // signature check (run `ctl seed` first)
+    let cap = load_capability(&config, principal).ok_or_else(|| {
+        anyhow::anyhow!("no verified capability for principal '{principal}' — run `ctl seed`")
+    })?;
     let llm = inference::from_config(config.inference);
 
     println!(

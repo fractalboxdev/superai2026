@@ -11,6 +11,8 @@ const PresenceState = Schema.Struct({
   principal: Schema.String,
   display_name: Schema.String,
   mode: Schema.Literal("reading", "writing", "idle"),
+  session: Schema.optional(Schema.String),
+  cursor_block: Schema.optional(Schema.String),
   cursor_anchor: Schema.optional(Schema.Number),
   selection_end: Schema.optional(Schema.Number),
   heartbeat: Schema.Number,
@@ -62,5 +64,18 @@ const decodeJson = Schema.decodeUnknownEither(Schema.parseJson(SyncMessage));
 /** Runtime-validated decode of a wire frame; `null` if malformed or unknown. */
 export function decodeWire(data: string): WireMessage | null {
   const result = decodeJson(data);
+  return result._tag === "Right" ? result.right : null;
+}
+
+const decodePresenceUnknown = Schema.decodeUnknownEither(PresenceState);
+
+/**
+ * Runtime-validated decode of a bare presence payload (BroadcastChannel
+ * frames carry presence outside a wire envelope); `null` if malformed.
+ */
+export function decodePresence(
+  data: unknown,
+): Schema.Schema.Type<typeof PresenceState> | null {
+  const result = decodePresenceUnknown(data);
   return result._tag === "Right" ? result.right : null;
 }

@@ -1,0 +1,47 @@
+---
+import { marked } from "marked";
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import { docs } from "../../docs";
+
+export function getStaticPaths() {
+  return docs.map((doc) => ({ params: { slug: doc.slug }, props: { doc } }));
+}
+
+const { doc } = Astro.props;
+const html = await marked.parse(doc.body);
+const markdownPath = `/docs/${doc.slug}.md`;
+const others = docs.filter((d) => d.slug !== doc.slug);
+---
+
+<DocsLayout
+  title={doc.title}
+  description={doc.description}
+  pageName={doc.title}
+  markdownPath={markdownPath}
+>
+  <nav class="docs-crumbs" aria-label="Breadcrumb">
+    <a href="/docs/">Docs</a> <span aria-hidden="true">/</span> {doc.title}
+  </nav>
+  <h1>{doc.title}</h1>
+  <article set:html={html} />
+
+  <aside class="docs-meta">
+    <p>
+      Prefer plain text? <a href={markdownPath}>This page as Markdown</a> · everything
+      in one fetch: <a href="/llms-full.txt">/llms-full.txt</a>
+    </p>
+    <p class="docs-meta__next">
+      Keep reading: {others.map((d, i) => (
+        <>
+          <a href={`/docs/${d.slug}/`}>{d.navLabel}</a>{i < others.length - 1 && " · "}
+        </>
+      ))}
+    </p>
+  </aside>
+
+  <style>
+    .docs-crumbs { font-size: var(--text-sm); color: var(--color-text-subtle); margin-bottom: var(--space-4); }
+    .docs-crumbs a { color: var(--color-text-muted); }
+    .docs-meta { margin-top: var(--space-12); border-top: 1px solid var(--color-border); padding-top: var(--space-6); font-size: var(--text-sm); }
+  </style>
+</DocsLayout>

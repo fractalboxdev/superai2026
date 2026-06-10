@@ -122,6 +122,34 @@ export async function startServer(env: Env, port: number): Promise<ChildProcess>
   return child;
 }
 
+/** Spawn `sync serve --with-mcp` and resolve once BOTH endpoints accept connections. */
+export async function startServerWithMcp(env: Env, relayPort: number, mcpPort: number): Promise<ChildProcess> {
+  const child = spawn(
+    BIN,
+    ["serve", "--addr", `127.0.0.1:${relayPort}`, "--with-mcp", "--mcp-addr", `127.0.0.1:${mcpPort}`],
+    { env },
+  );
+  try {
+    await waitForPort(relayPort, 8000);
+    await waitForPort(mcpPort, 8000);
+  } catch (e) {
+    child.kill();
+    throw e;
+  }
+  return child;
+}
+
+/** POST one JSON-RPC message to the streamable-HTTP MCP endpoint as `principal`. */
+export async function mcpHttp(mcpPort: number, principal: string | null, rpc: JsonRpc): Promise<Response> {
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  if (principal != null) headers["x-contextful-principal"] = principal;
+  return fetch(`http://127.0.0.1:${mcpPort}/mcp`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(rpc),
+  });
+}
+
 export function waitForPort(port: number, timeoutMs: number): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   return new Promise((res, rej) => {

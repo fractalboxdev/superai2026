@@ -4,17 +4,21 @@
 //! (mint / attenuate / authorize) lives in [`biscuit`]; the permission-request
 //! and auto-mode envelope flow in [`request`].
 //!
-//! This is a faithful Rust port of the proven TS prototype
-//! (`packages/protocol/src/access.ts`). It is a deliberate stand-in for real
-//! Biscuit Datalog (`biscuit-auth`); the block algebra here guarantees the same
-//! three properties, computed rather than trusted:
+//! The block algebra in [`biscuit`] computes the scope; the *proof* is a real
+//! `biscuit-auth` signed token ([`token`]) carried in [`Capability::token`]:
+//! signature-verified against the resource root's public key, attenuated by
+//! appending real Biscuit blocks, and re-authorized per field through a
+//! Datalog authorizer. Three properties hold, cryptographically:
 //!
 //!   1. `caps(child) ⊆ caps(parent)` — attenuation can only narrow.
 //!   2. No capability super-root — one resource-root key per token.
 //!   3. Field/row enforcement before any data leaves the brain query layer.
 
 pub mod biscuit;
+pub mod egress;
 pub mod request;
+pub mod scrub;
+pub mod token;
 
 #[cfg(test)]
 mod tests;
@@ -50,6 +54,12 @@ impl View {
     pub fn id(&self) -> String {
         format!("{}/{}", self.source, self.view)
     }
+
+    /// The `world/public` pseudo-view (spec 02 §8): the floor of the taint
+    /// lattice — readable by every principal, never authority.
+    pub fn is_world_public(&self) -> bool {
+        self.source == "world" && self.view == "public"
+    }
 }
 
 /// A row-level predicate: `field IN [...]`. Empty list matches nothing.
@@ -71,6 +81,10 @@ pub struct AuthorityBlock {
     pub fields: Vec<String>,
     #[serde(default)]
     pub rows: Vec<RowScope>,
+    /// document ids (or "*") the holder may read/write through the sync relay
+    /// (spec 01 §4 per-message authorization).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub docs: Vec<String>,
 }
 
 /// An append-only attenuation block. Every field here can only narrow.
@@ -97,11 +111,19 @@ pub enum Block {
 }
 
 /// A capability token: an authority block followed by 0+ attenuations.
+///
+/// `blocks` is the human-readable mirror; `token` is the signed Biscuit that
+/// *proves* it. Production loads verify the token and derive the effective
+/// scope from it (see [`token::verify_token`]) — tampering with the JSON
+/// mirror can never widen access.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Capability {
     /// principal id currently holding the token.
     pub holder: String,
     pub blocks: Vec<Block>,
+    /// base64 signed Biscuit (None only for unsigned in-memory test values).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub token: Option<String>,
 }
 
 /// A resource-root key. Holding one is the authority to mint over its views.
@@ -111,6 +133,10 @@ pub struct RootKey {
     pub id: String,
     pub owner: String,
     pub views: Vec<View>,
+    /// hex-encoded ed25519 public key (the private half lives in the owner's
+    /// keystore under `control/keys/`, never in the registry).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub public_key: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

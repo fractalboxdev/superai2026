@@ -1,0 +1,302 @@
+/* Contextful deck theme — shares the design system with apps/landing.
+ * Color values are mirrored from packages/design-system/tokens.css (the
+ * source of truth); update there first, then sync here. The illustration
+ * language is the halftone-teal comic theme (HBO Silicon Valley homage)
+ * documented in apps/landing/ART-DIRECTION.md. */
+
+:root {
+  /* Primitives (mirrored) */
+  --cf-indigo-50: #eef2ff;
+  --cf-indigo-100: #e0e7ff;
+  --cf-indigo-300: #a5b4fc;
+  --cf-indigo-500: #6366f1;
+  --cf-indigo-600: #4f46e5;
+  --cf-indigo-700: #4338ca;
+  --cf-sky-400: #38bdf8;
+  --cf-sky-500: #0ea5e9;
+  --cf-amber-100: #fef3c7;
+  --cf-amber-400: #fbbf24;
+  --cf-amber-500: #f59e0b;
+  --cf-amber-600: #d97706;
+  --cf-teal-100: #d8efe7;
+  --cf-teal-300: #6fc7a8;
+  --cf-teal-500: #2f9e77;
+  --cf-teal-700: #14534a;
+  --cf-teal-900: #0b3a33;
+  --cf-slate-0: #ffffff;
+  --cf-slate-50: #f8fafc;
+  --cf-slate-100: #f1f5f9;
+  --cf-slate-200: #e2e8f0;
+  --cf-slate-400: #94a3b8;
+  --cf-slate-500: #64748b;
+  --cf-slate-700: #334155;
+  --cf-slate-900: #0f172a;
+  --cf-red-600: #dc2626;
+
+  /* Semantic (mirrored) */
+  --gradient-comic: radial-gradient(120% 120% at 50% 35%, var(--cf-teal-700) 0%, var(--cf-teal-900) 100%);
+  --gradient-brand: linear-gradient(135deg, var(--cf-indigo-600) 0%, var(--cf-sky-500) 100%);
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --shadow-lg: 0 12px 32px -8px rgba(15, 23, 42, 0.16), 0 4px 12px -4px rgba(15, 23, 42, 0.08);
+}
+
+/* ---- Slide canvas — landing-page atmosphere on every slide ---------- *
+ * slate-50 base + drifting-orb glows (static here) + faint teal halftone */
+.slidev-layout {
+  color: var(--cf-slate-900);
+  background-color: var(--cf-slate-50);
+  background-image:
+    radial-gradient(34rem 30rem at 10% -12%, color-mix(in srgb, var(--cf-indigo-500) 12%, transparent) 0%, transparent 70%),
+    radial-gradient(28rem 26rem at 108% 4%, color-mix(in srgb, var(--cf-sky-500) 10%, transparent) 0%, transparent 70%),
+    radial-gradient(26rem 24rem at 88% 112%, color-mix(in srgb, var(--cf-amber-400) 8%, transparent) 0%, transparent 72%),
+    radial-gradient(color-mix(in srgb, var(--cf-teal-300) 14%, transparent) 1.5px, transparent 1.5px);
+  background-size: auto, auto, auto, 14px 14px;
+}
+
+/* Cover/center slides: stronger halftone — the comic texture reads */
+.slidev-layout.text-center {
+  background-image:
+    radial-gradient(36rem 32rem at 50% -16%, color-mix(in srgb, var(--cf-indigo-500) 14%, transparent) 0%, transparent 70%),
+    radial-gradient(26rem 24rem at -6% 100%, color-mix(in srgb, var(--cf-teal-500) 10%, transparent) 0%, transparent 72%),
+    radial-gradient(26rem 24rem at 106% 100%, color-mix(in srgb, var(--cf-amber-400) 9%, transparent) 0%, transparent 72%),
+    radial-gradient(color-mix(in srgb, var(--cf-teal-300) 20%, transparent) 1.5px, transparent 1.5px);
+  background-size: auto, auto, auto, 12px 12px;
+}
+
+/* ---- Typography — match the landing page ---------------------------- */
+.slidev-layout h1 {
+  color: var(--cf-slate-900);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.slidev-layout h1 + h2,
+.slidev-layout h1 + p > strong {
+  color: var(--cf-teal-700);
+}
+.slidev-layout h2 {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.slidev-layout strong,
+.slidev-layout b {
+  color: var(--cf-teal-700);
+}
+.slidev-layout a {
+  color: var(--cf-indigo-600);
+  border-bottom: none;
+}
+.slidev-layout a:hover {
+  color: var(--cf-indigo-700);
+}
+
+/* Inline code — indigo chip, like landing kbd/code accents */
+.slidev-layout :not(pre) > code {
+  color: var(--cf-indigo-700);
+  background: var(--cf-indigo-50);
+  border: 1px solid var(--cf-indigo-100);
+  border-radius: 6px;
+  padding: 0.1em 0.4em;
+}
+
+/* Ordered/unordered list markers in brand indigo */
+.slidev-layout ul > li::marker,
+.slidev-layout ol > li::marker {
+  color: var(--cf-indigo-600);
+  font-weight: 700;
+}
+
+/* Blockquotes — the in-doc thread reads as a comic-bordered doc card */
+.slidev-layout blockquote {
+  background: var(--cf-slate-0);
+  border: 2px solid var(--cf-slate-900);
+  border-left: 6px solid var(--cf-teal-500);
+  border-radius: var(--radius-md);
+  box-shadow: 5px 5px 0 color-mix(in srgb, var(--cf-teal-900) 25%, transparent);
+  padding: 0.6em 1em;
+  opacity: 1;
+}
+.slidev-layout blockquote p {
+  color: var(--cf-slate-700);
+}
+
+/* ---- Demo film — comic panel frame (mirrors .cf-comic) -------------- */
+.demo-film video,
+video.demo-film {
+  border: 3px solid var(--cf-slate-900);
+  border-radius: var(--radius-lg);
+  background: var(--gradient-comic);
+  box-shadow: 8px 8px 0 color-mix(in srgb, var(--cf-teal-900) 35%, transparent),
+    var(--shadow-lg);
+  max-height: 480px;
+  margin-inline: auto;
+}
+
+/* Mermaid diagrams sit on a comic-light card so they pop off the texture */
+.slidev-layout .mermaid {
+  background: var(--cf-slate-0);
+  border: 2px solid var(--cf-slate-900);
+  border-radius: var(--radius-md);
+  box-shadow: 5px 5px 0 color-mix(in srgb, var(--cf-teal-900) 22%, transparent);
+  padding: 0.5rem 0.75rem;
+  display: inline-block;
+}
+
+/* Free-flow comic illustrations (per ART-DIRECTION.md): transparent
+ * silhouettes with a soft teal drop shadow, never boxed. */
+.slide-art {
+  filter: drop-shadow(0 10px 22px color-mix(in srgb, var(--cf-teal-900) 28%, transparent));
+  pointer-events: none;
+}
+
+/* Screenshot slot — comic panel when filled, dashed placeholder until then */
+.screenshot-slot {
+  max-width: 46rem;
+  margin-inline: auto;
+}
+.screenshot-slot img {
+  border: 3px solid var(--cf-slate-900);
+  border-radius: var(--radius-lg);
+  box-shadow: 8px 8px 0 color-mix(in srgb, var(--cf-teal-900) 35%, transparent), var(--shadow-lg);
+  max-height: 22rem;
+  margin-inline: auto;
+}
+.screenshot-slot .screenshot-slot__hint { display: none; }
+.screenshot-slot.empty {
+  border: 3px dashed color-mix(in srgb, var(--cf-teal-700) 50%, transparent);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--cf-teal-100) 40%, transparent);
+  padding: 3.5rem 2rem;
+}
+.screenshot-slot.empty .screenshot-slot__hint {
+  display: block;
+  color: var(--cf-teal-700);
+  font-size: 0.9rem;
+  text-align: center;
+  margin: 0;
+}
+
+/* Deployment logos row (BYOC) — AWS · Vercel · Local (Apple) */
+.deploy-logos {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  font-size: 2.4rem;
+  margin-top: 0.75rem;
+}
+.deploy-logos span.label {
+  font-size: 0.7rem;
+  color: var(--cf-slate-500);
+  display: block;
+  text-align: center;
+}
+.deploy-logos figure {
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+  margin: 0;
+}
+
+/* ---- Cast facepile — Pied Piper personas, "Name (Role)" ------------- */
+.cast {
+  display: flex;
+  justify-content: center;
+  gap: 1.25rem;
+  margin-top: 1.5rem;
+}
+.cast figure {
+  display: grid;
+  justify-items: center;
+  gap: 0.25rem;
+  margin: 0;
+}
+.cast img {
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 9999px;
+  border: 2px solid var(--cf-slate-900);
+  background: var(--cf-teal-100);
+  box-shadow: 3px 3px 0 color-mix(in srgb, var(--cf-teal-900) 30%, transparent);
+  object-fit: cover;
+}
+.cast figcaption {
+  font-size: 0.65rem;
+  line-height: 1.2;
+  color: var(--cf-slate-500);
+}
+.cast figcaption b {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--cf-slate-900);
+}
+
+/* Vincent avatar (Why me) — same comic ring as the cast */
+.slidev-layout img.rounded-full {
+  border: 3px solid var(--cf-slate-900);
+  background: var(--cf-teal-100);
+  box-shadow: 5px 5px 0 color-mix(in srgb, var(--cf-teal-900) 30%, transparent);
+}
+
+/* Money line — danger red from the design system, give it air */
+.slidev-layout .text-red-500 {
+  color: var(--cf-red-600) !important;
+}
+
+/* ---- FractalBox slide (Why me) — Vincent's studio brand ------------- *
+ * Mirrors https://fractalbox.dev/: near-black canvas, mint accent,
+ * "Fractal" + boxed mint "Box" wordmark. A deliberate one-slide theme
+ * break — it's the presenter's brand, not Contextful's. */
+.slidev-layout.fractalbox {
+  --fb-bg: #0a0a0a;
+  --fb-fg: #fafafa;
+  --fb-mint: #9debdd;
+  --fb-green: #0a7c4a;
+  color: var(--fb-fg);
+  background-color: var(--fb-bg);
+  background-image:
+    radial-gradient(30rem 26rem at 85% 15%, color-mix(in srgb, var(--fb-mint) 7%, transparent) 0%, transparent 70%),
+    radial-gradient(color-mix(in srgb, var(--fb-mint) 9%, transparent) 1px, transparent 1px);
+  background-size: auto, 22px 22px;
+}
+.slidev-layout.fractalbox h1 { color: var(--fb-fg); }
+.slidev-layout.fractalbox strong,
+.slidev-layout.fractalbox b { color: var(--fb-mint); }
+.slidev-layout.fractalbox a { color: var(--fb-mint); }
+.slidev-layout.fractalbox .fb-link { color: var(--fb-mint); opacity: 0.85; }
+.slidev-layout.fractalbox img.rounded-full {
+  border: 3px solid var(--fb-mint);
+  background: var(--fb-bg);
+  box-shadow: 0 0 0 1px var(--fb-bg), 6px 6px 0 color-mix(in srgb, var(--fb-mint) 25%, transparent);
+}
+.fb-lockup {
+  display: block;
+  text-decoration: none;
+  border-bottom: none !important;
+}
+.fb-wordmark {
+  display: inline-flex;
+  align-items: baseline;
+  font-weight: 800;
+  font-size: 1.6rem;
+  letter-spacing: -0.04em;
+  color: var(--fb-fg);
+}
+.fb-wordmark .fb-box { color: var(--fb-mint); }
+.fb-tagline {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  color: color-mix(in srgb, var(--fb-fg) 60%, transparent);
+}
+
+/* ---- Dark fallbacks (deck is light-first like the landing) ---------- */
+.dark .slidev-layout { color: var(--cf-slate-50); background-color: #020617; }
+.dark .slidev-layout h1 { color: var(--cf-slate-50); }
+.dark .slidev-layout strong,
+.dark .slidev-layout b { color: var(--cf-teal-300); }
+.dark .slidev-layout h1 + h2 { color: var(--cf-teal-300); }
+.dark .cast figcaption b { color: var(--cf-slate-50); }
+.dark .slidev-layout blockquote { background: var(--cf-slate-900); }
+.dark .slidev-layout blockquote p { color: var(--cf-slate-200); }
+.dark .slidev-layout .mermaid { background: var(--cf-slate-50); }

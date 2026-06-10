@@ -40,6 +40,7 @@
   /* Amber — collaboration / presence accent */
   --cf-amber-50:  #fffbeb;
   --cf-amber-100: #fef3c7;
+  --cf-amber-200: #fde68a;
   --cf-amber-300: #fcd34d;
   --cf-amber-400: #fbbf24;
   --cf-amber-500: #f59e0b;
@@ -64,6 +65,15 @@
   --cf-green-600: #16a34a;
   --cf-red-500:   #ef4444;
   --cf-red-600:   #dc2626;
+
+  /* Teal — "halftone teal" comic theme (HBO Silicon Valley homage).
+   * Used for illustration backdrops, comic panels, video frames, and the
+   * demo cast — never as a text/UI primary. */
+  --cf-teal-100: #d8efe7;
+  --cf-teal-300: #6fc7a8;
+  --cf-teal-500: #2f9e77;
+  --cf-teal-700: #14534a;
+  --cf-teal-900: #0b3a33;
 
   /* ================================================================ *
    * 2. SEMANTIC — role tokens (consume these)
@@ -113,6 +123,13 @@
   --color-warning-subtle: var(--cf-amber-100);
   --color-danger:         var(--cf-red-600);
   --color-danger-subtle:  #fee2e2;
+
+  /* Comic theme — illustration backdrops / cast / video frames */
+  --color-comic:        var(--cf-teal-500);
+  --color-comic-deep:   var(--cf-teal-900);
+  --color-comic-subtle: var(--cf-teal-100);
+  --gradient-comic: radial-gradient(120% 120% at 50% 35%,
+    var(--cf-teal-700) 0%, var(--cf-teal-900) 100%);
 
   /* Focus ring */
   --color-focus: var(--cf-indigo-500);
@@ -212,6 +229,7 @@
   --duration-fast:   120ms;
   --duration-normal: 200ms;
   --duration-slow:   320ms;
+  --duration-entrance: 640ms; /* scroll-reveal entrances */
 
   /* ---------------------------------------------------------------- *
    * Layout & z-index
@@ -308,5 +326,6 @@
     --duration-fast:   0ms;
     --duration-normal: 0ms;
     --duration-slow:   0ms;
+    --duration-entrance: 0ms;
   }
 }

@@ -12,11 +12,10 @@ use crate::access::biscuit::{authorize, effective_capability, row_allowed};
 use crate::access::{
     AuthDecision, Capability, DenyReason, Operation, QueryRequest, RowScope, View,
 };
-use crate::brain::markdown::{render_card, slug, CardMeta};
+use crate::brain::markdown::slug;
 use crate::brain::{BrainIndex, Memory, MemoryKind};
 use crate::connectors::AclTag;
 use crate::store::Store;
-use chrono::Utc;
 
 #[derive(Debug, Serialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
@@ -170,13 +169,30 @@ pub fn get_context(
     store.read_card(&mem.path).map_err(|e| e.to_string())
 }
 
-/// Keyword search over cards, each independently authorized (spec 06 `brain.search`).
-pub fn search(index: &BrainIndex, cap: &Capability, q: &str) -> Vec<Value> {
+/// Full-text search over card bodies (SQLite FTS5), each hit independently
+/// authorized (spec 06 `brain.search`). Topic substring match is the
+/// fallback so an empty/no-hit query still lists readable cards.
+pub fn search(store: &Store, index: &BrainIndex, cap: &Capability, q: &str) -> Vec<Value> {
+    let fts_ids = store.search_cards(q).unwrap_or_default();
     let needle = q.to_lowercase();
-    index
-        .memories
-        .iter()
-        .filter(|m| m.topic.to_lowercase().contains(&needle) || needle.is_empty())
+    let mut seen = std::collections::BTreeSet::new();
+    let mut hits: Vec<&Memory> = Vec::new();
+    // FTS hits first (already ranked)
+    for id in &fts_ids {
+        if let Some(m) = index.memories.iter().find(|m| &m.id == id) {
+            if seen.insert(m.id.clone()) {
+                hits.push(m);
+            }
+        }
+    }
+    for m in index.memories.iter() {
+        if (m.topic.to_lowercase().contains(&needle) || needle.is_empty())
+            && seen.insert(m.id.clone())
+        {
+            hits.push(m);
+        }
+    }
+    hits.into_iter()
         .filter(|m| card_authorized(cap, &m.acl_tag))
         .map(|m| {
             json!({
@@ -253,32 +269,37 @@ pub fn remember(
     doc: &str,
     read_acl: AclTag,
 ) -> anyhow::Result<String> {
-    let meta = CardMeta {
-        topic: doc,
-        kind: "wiki",
-        period: None,
-        confidence: 0.6,
-        acl_tag: &read_acl,
-    };
     let slug_name = slug(&format!("note-{}", &uuid::Uuid::new_v4().to_string()[..8]));
-    let path = store.write_card(doc, &slug_name, &render_card(&meta, "Agent note", fact))?;
-    let id = uuid::Uuid::new_v4().to_string();
-    index.memories.push(Memory {
-        id: id.clone(),
-        kind: MemoryKind::Wiki,
-        topic: doc.to_string(),
-        path: path.display().to_string(),
-        acl_tag: read_acl,
-        confidence: 0.6,
-        period: None,
-        supersedes: None,
-        created_at: Utc::now().to_rfc3339(),
-    });
-    Ok(id)
+    let memory = crate::brain::write_memory(
+        store,
+        index,
+        crate::brain::CardWrite {
+            kind: MemoryKind::Wiki,
+            topic: doc,
+            index_topic: None,
+            slug: &slug_name,
+            title: "Agent note",
+            body: fact,
+            confidence: 0.6,
+            acl_tag: read_acl,
+        },
+    )?;
+    Ok(memory.id)
+}
+
+/// Public card-readability check (used by the daydream loop's admissibility
+/// sampling, spec 02 §9).
+pub fn card_readable(cap: &Capability, tag: &AclTag) -> bool {
+    card_authorized(cap, tag)
 }
 
 /// A caller can read a card iff its token grants every field in the card's tag.
-pub(crate) fn card_authorized(cap: &Capability, tag: &AclTag) -> bool {
+/// World cards (`world/public`) are default-readable by every principal —
+/// public, cited knowledge is never authority (spec 02 §8).
+fn card_authorized(cap: &Capability, tag: &AclTag) -> bool {
+    if tag.view.is_world_public() {
+        return true;
+    }
     matches!(
         authorize(
             cap,

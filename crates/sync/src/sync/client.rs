@@ -87,6 +87,8 @@ pub async fn run(addr: &str, doc: &str, principal: &str) -> Result<()> {
             principal: principal.into(),
             display_name: principal.into(),
             mode,
+            session: None,
+            cursor_block: None,
             cursor_anchor: Some(0),
             selection_end: None,
             heartbeat: now_ms(),

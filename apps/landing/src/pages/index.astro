@@ -1,5 +1,28 @@
 ---
 import "@superai2026/design-system/styles.css";
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import sharp from "sharp";
+import { arts as artManifest } from "../../arts.manifest.mjs";
+
+// Build-time lookup: an art slot renders only once its file has been
+// generated into public/arts/ (see scripts/generate-arts.mjs). Dimensions
+// come from the file itself — generated arts are trimmed to their silhouette.
+const artFiles = new Map();
+for (const entry of artManifest) {
+  const file = new URL(`../../public/arts/${entry.id}.png`, import.meta.url);
+  if (!existsSync(file)) continue;
+  const meta = await sharp(fileURLToPath(file)).metadata();
+  artFiles.set(entry.id, {
+    src: `/arts/${entry.id}.png`,
+    alt: entry.alt,
+    width: meta.width,
+    height: meta.height,
+  });
+}
+const art = (id: string) => artFiles.get(id) ?? null;
+const layersArt = art("layers");
+const logoArt = art("logo");
 
 const title = "Contextful — local-first company brain";
 const description =
@@ -10,7 +33,7 @@ const ogImage = new URL("/og.svg", site).toString();
 
 const demoUrl = "https://demo.contextful.work";
 // TODO: replace with the published Google Slides deck URL.
-const slidesUrl = "https://docs.google.com/presentation/";
+const slidesUrl = "/slides/";
 
 const jsonLd = {
   "@context": "https://schema.org",
@@ -43,25 +66,29 @@ const jsonLd = {
 
 const stats = [
   { to: 100, suffix: "%", label: "On-device by default" },
-  { to: 0, suffix: "", label: "Bytes leave without consent" },
-  { to: 48, suffix: "ms", label: "Scoped-query median" },
-  { to: 7, suffix: "+", label: "Tools in one brain" },
+  { to: 6, suffix: "+", label: "Connectors" },
+  { to: 50, suffix: "ms", label: "Local network latency" },
+  { to: 3, suffix: "", label: "Deploy targets" },
 ];
 
 const features = [
   {
+    art: "feature-scoped",
     title: "Capability-scoped access",
     body: "Agents inherit a subset of your permissions — never more. The CTO's agent can't read the CEO's salary, provably. Delegation is attenuation, not trust.",
   },
   {
+    art: "feature-brain",
     title: "A brain that grows",
     body: "Contextful ingests your tools, synthesizes context, flags anomalies, and learns from last month's mistakes — then answers questions over MCP.",
   },
   {
+    art: "feature-local",
     title: "Local-first & on-prem",
     body: "Runs on your machine over Tailscale. Cloud is optional — used only for sync transport and LLM inference. Your context stays yours.",
   },
   {
+    art: "feature-collab",
     title: "Real-time collaboration",
     body: "Humans and agents edit the same document together as peers, with live presence — powered by CRDT sync that works offline.",
   },
@@ -94,7 +121,44 @@ const compare = {
   },
 };
 
-const tools = ["Claude", "Notion", "Slack", "Linear", "AWS", "Vercel", "Stripe"];
+// Connector logos live in public/logos/<id>.svg (simple-icons / svgl).
+const tools = [
+  { name: "Claude", logo: "claude" },
+  { name: "Notion", logo: "notion" },
+  { name: "Slack", logo: "slack" },
+  { name: "Linear", logo: "linear" },
+  { name: "AWS", logo: "aws" },
+  { name: "Vercel", logo: "vercel" },
+  { name: "Stripe", logo: "stripe" },
+];
+
+// The Pied Piper cast (PRESENTATION.md theme rule: always "Name (Role)").
+// Portraits are pre-staged comic art in public/cast/ — not pipeline-generated.
+const cast = [
+  { slug: "richard", name: "Richard", role: "CEO" },
+  { slug: "monica", name: "Monica", role: "CFO" },
+  { slug: "agent-monica", name: "Monica's Agent", role: "Scoped to finance" },
+  { slug: "jared", name: "Jared", role: "COO" },
+  { slug: "gilfoyle", name: "Gilfoyle", role: "Systems Architect" },
+  { slug: "dinesh", name: "Dinesh", role: "Lead Engineer" },
+  { slug: "agent-dinesh", name: "Dinesh's Agent", role: "Scoped to engineering" },
+];
+
+// Background-removed cutouts (public/cast/<slug>-cutout.webp) let the
+// portraits float as free silhouettes instead of square panels. Dimensions
+// are read from the trimmed files; a missing cutout falls back to the
+// original framed portrait.
+const castCutouts = new Map();
+for (const m of cast) {
+  const file = new URL(`../../public/cast/${m.slug}-cutout.webp`, import.meta.url);
+  if (!existsSync(file)) continue;
+  const meta = await sharp(fileURLToPath(file)).metadata();
+  castCutouts.set(m.slug, {
+    src: `/cast/${m.slug}-cutout.webp`,
+    width: meta.width,
+    height: meta.height,
+  });
+}
 ---
 
 <!doctype html>
@@ -144,30 +208,36 @@ const tools = ["Claude", "Notion", "Slack", "Linear", "AWS", "Vercel", "Stripe"]
     <header class="nav">
       <div class="cf-container nav__inner">
         <a class="brand" href="/" aria-label="Contextful home">
-          <svg class="brand__mark" viewBox="0 0 32 32" aria-hidden="true">
-            <defs>
-              <linearGradient id="navmark" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-                <stop offset="0" stop-color="#6366f1" />
-                <stop offset="1" stop-color="#0ea5e9" />
-              </linearGradient>
-            </defs>
-            <rect width="32" height="32" rx="8" fill="url(#navmark)" />
-            <path d="M22 11.4a7 7 0 1 0 0 9.2" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" />
-            <circle cx="22.6" cy="16" r="2.6" fill="#f59e0b" />
-          </svg>
+          {logoArt ? (
+            <img class="brand__mark" src={logoArt.src} alt="" width={logoArt.width} height={logoArt.height} />
+          ) : (
+            <svg class="brand__mark" viewBox="0 0 32 32" aria-hidden="true">
+              <defs>
+                <linearGradient id="navmark" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+                  <stop offset="0" stop-color="#6366f1" />
+                  <stop offset="1" stop-color="#0ea5e9" />
+                </linearGradient>
+              </defs>
+              <rect width="32" height="32" rx="8" fill="url(#navmark)" />
+              <path d="M22 11.4a7 7 0 1 0 0 9.2" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" />
+              <circle cx="22.6" cy="16" r="2.6" fill="#f59e0b" />
+            </svg>
+          )}
           <span class="brand__name">Contextful</span>
         </a>
         <nav class="nav__links" aria-label="Primary">
           <a href="#demo">Demo</a>
           <a href="#capability">How it's safe</a>
           <a href="#how">How it works</a>
+          <a href="/docs/">Docs</a>
           <a class="cf-btn cf-btn--primary cf-btn--sm" href="#demo">See it live ↓</a>
         </nav>
       </div>
     </header>
 
     <main>
-      <!-- Hero -->
+      <!-- Hero — copy on the left; the demo film on the right, inside the
+           container, tilted slightly in the comic language. -->
       <section class="hero">
         <div class="cf-container hero__inner">
           <div class="hero__copy">
@@ -175,37 +245,28 @@ const tools = ["Claude", "Notion", "Slack", "Linear", "AWS", "Vercel", "Stripe"]
               <span class="pulse"></span> Local-first company brain
             </span>
             <h1 class="hero__title" data-reveal style="--d:.06s">
-              The company brain that keeps <span class="cf-text-gradient">every agent in its lane.</span>
+              Workspace with your agents. <span class="cf-text-gradient">Your Data. Your Rules.</span>
             </h1>
-            <p class="hero__sub" data-reveal style="--d:.12s">
-              Contextful gives every teammate — and every AI agent — exactly the context they're
-              permitted to see. No omniscient SuperAgent. No accidental leaks. Local-first,
-              collaborative, scoped by capability.
-            </p>
-            <div class="hero__cta" data-reveal style="--d:.18s">
+            <div class="hero__cta" data-reveal style="--d:.12s">
               <a class="cf-btn cf-btn--primary cf-btn--lg" href="#demo">▶ Watch it think</a>
               <a class="cf-btn cf-btn--secondary cf-btn--lg" href={slidesUrl}>See the deck</a>
             </div>
-            <p class="hero__note" data-reveal style="--d:.24s">Runs on-prem over Tailscale · Cloud optional</p>
+            <p class="hero__note" data-reveal style="--d:.18s">Runs on-prem over Tailscale · Cloud optional</p>
           </div>
-
-          <!-- Product glimpse -->
-          <aside class="glimpse cf-card cf-card--raised" aria-hidden="true">
-            <div class="glimpse__head">
-              <span class="glimpse__title">Q3 FinOps Review</span>
-              <span class="cf-presence">
-                <span class="cf-presence__dot" style="background:var(--cf-indigo-500)">CT</span>
-                <span class="cf-presence__dot" style="background:var(--cf-sky-500)">CF</span>
-                <span class="cf-presence__dot" style="background:var(--cf-amber-500)">◆</span>
-              </span>
-            </div>
-            <p class="glimpse__line">Is this month's Claude spend justified after credits?</p>
-            <div class="glimpse__answer">
-              <span class="cf-badge cf-badge--primary">CFO agent · spend_by_team</span>
-              <span class="cf-badge cf-badge--danger">salary · redacted</span>
-              <p>Net spend after credits is down 18% MoM; utilization up 31%.</p>
-            </div>
-          </aside>
+          <video
+            class="cf-comic hero__video"
+            src="/assets/contextful_sv_demo.mp4"
+            poster="/assets/contextful_sv_demo-poster.jpg"
+            width="1280"
+            height="720"
+            autoplay
+            muted
+            loop
+            playsinline
+            controls
+            preload="metadata"
+            aria-label="Demo film: the Pied Piper team's agents answer a spend question in a shared document — with the salary query denied"
+          ></video>
         </div>
       </section>
 
@@ -214,7 +275,7 @@ const tools = ["Claude", "Notion", "Slack", "Linear", "AWS", "Vercel", "Stripe"]
         <div class="cf-container">
           <header class="section__head section__head--center" data-reveal>
             <span class="cf-eyebrow">Watch it think</span>
-            <h2>A 100-person FinOps review, <span class="cf-text-gradient">showing itself.</span></h2>
+            <h2>Contextual, private collaboration. <span class="cf-text-gradient">Like a closed-door meeting.</span></h2>
             <p class="section__lead">
               Live below: a CFO agent asks a budget question. The brain answers from synthesized
               context — with the salary line redacted, because that's outside the agent's scope.
@@ -224,7 +285,7 @@ const tools = ["Claude", "Notion", "Slack", "Linear", "AWS", "Vercel", "Stripe"]
           <div class="stage cf-card cf-card--raised" data-reveal style="--d:.08s">
             <div class="stage__bar">
               <span class="stage__dots" aria-hidden="true"><i></i><i></i><i></i></span>
-              <span class="stage__title">contextful · Q3 FinOps Review</span>
+              <span class="stage__title">contextful · Q3 AI Spend Review</span>
               <span class="stage__presence cf-presence" aria-hidden="true">
                 <span class="cf-presence__dot" style="background:var(--cf-indigo-500)">CT</span>
                 <span class="cf-presence__dot" style="background:var(--cf-sky-500)">CF</span>
@@ -236,7 +297,7 @@ const tools = ["Claude", "Notion", "Slack", "Linear", "AWS", "Vercel", "Stripe"]
               <!-- Shared, real-time document -->
               <article class="doc" aria-hidden="true">
                 <span class="doc__cursor"><b>CFO</b></span>
-                <h4 class="doc__h">Q3 FinOps Review</h4>
+                <h4 class="doc__h">Q3 AI Spend Review</h4>
                 <p class="doc__p">Cloud + AI spend reached <b>$142k</b> this quarter. After committed-use and model credits, <b>net spend fell 18% MoM</b>.</p>
                 <span class="doc__skel" style="width:92%"></span>
                 <span class="doc__skel" style="width:78%"></span>
@@ -277,8 +338,44 @@ const tools = ["Claude", "Notion", "Slack", "Linear", "AWS", "Vercel", "Stripe"]
           </div>
 
           <p class="demo__links" data-reveal>
-            <a href={demoUrl}>Open the full interactive demo →</a>
+            <a class="cf-btn cf-btn--primary cf-btn--lg demo__cta" href={demoUrl}>DEMO →</a>
           </p>
+
+          <!-- The cast — background-removed silhouettes floating in the flow -->
+          <div class="cast" data-reveal>
+            <p class="cast__label">Starring the team — each agent sees only what its owner allows</p>
+            <ul class="cf-cast cast__strip">
+              {cast.map((m, i) => {
+                const cut = castCutouts.get(m.slug);
+                return (
+                  <li class="cf-cast__member cast__member">
+                    {cut ? (
+                      <img
+                        class="cf-art cast__cutout cf-float"
+                        style={`--cf-float-dur: ${6.5 + i * 0.9}s; --cf-float-delay: -${i * 1.4}s; --cf-float-amp: ${9 + (i % 3) * 4}px; --cf-float-rot: ${i % 2 === 0 ? -3 : 3}deg; --cf-float-tilt: ${i % 2 === 0 ? 1.2 : -1.2}deg;`}
+                        src={cut.src}
+                        alt={`Comic portrait of ${m.name} (${m.role})`}
+                        width={cut.width}
+                        height={cut.height}
+                        loading="lazy"
+                      />
+                    ) : (
+                      <img
+                        class="cf-cast__avatar"
+                        src={`/cast/${m.slug}.webp`}
+                        alt={`Comic portrait of ${m.name} (${m.role})`}
+                        width="480"
+                        height="480"
+                        loading="lazy"
+                      />
+                    )}
+                    <span class="cf-cast__name">{m.name}</span>
+                    <span class="cf-cast__role">{m.role}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         </div>
       </section>
 
@@ -299,7 +396,12 @@ const tools = ["Claude", "Notion", "Slack", "Linear", "AWS", "Vercel", "Stripe"]
         <div class="cf-container">
           <p class="strip__label" data-reveal>Brings your stack into one capability-scoped brain</p>
           <ul class="strip__tools">
-            {tools.map((t, i) => <li data-reveal style={`--d:${i * 0.04}s`}>{t}</li>)}
+            {tools.map((t, i) => (
+              <li data-reveal style={`--d:${i * 0.04}s`}>
+                <img class="strip__logo" src={`/logos/${t.logo}.svg`} alt="" width="24" height="24" loading="lazy" />
+                {t.name}
+              </li>
+            ))}
           </ul>
         </div>
       </section>
@@ -344,6 +446,42 @@ const tools = ["Claude", "Notion", "Slack", "Linear", "AWS", "Vercel", "Stripe"]
         </div>
       </section>
 
+      <!-- The stack — the layers art gets its own room to breathe -->
+      {layersArt && (
+        <section id="layers" class="section">
+          <div class="cf-container layers">
+            <figure
+              class="layers__art cf-float"
+              style="--cf-float-dur: 10s; --cf-float-amp: 12px; --cf-float-rot: 1.5deg; --cf-float-tilt: -0.5deg;"
+              data-reveal
+            >
+              <img
+                class="cf-art"
+                src={layersArt.src}
+                alt={layersArt.alt}
+                width={layersArt.width}
+                height={layersArt.height}
+                loading="lazy"
+              />
+              <figcaption class="layers__labels">
+                <span class="layers__label layers__label--top">Collaboration</span>
+                <span class="layers__label layers__label--mid">Access control</span>
+                <span class="layers__label layers__label--base">Memory</span>
+              </figcaption>
+            </figure>
+            <header class="section__head layers__head" data-reveal style="--d:.08s">
+              <span class="cf-eyebrow">The stack</span>
+              <h2>Three layers, one brain.</h2>
+              <ul class="layers__list">
+                <li><b>Collaboration</b> — humans and agents edit the same documents as peers, live.</li>
+                <li><b>Access control</b> — every query passes the capability filter on its way down.</li>
+                <li><b>Memory</b> — synthesized, queryable company context at the base.</li>
+              </ul>
+            </header>
+          </div>
+        </section>
+      )}
+
       <!-- Features -->
       <section id="features" class="section">
         <div class="cf-container">
@@ -356,13 +494,27 @@ const tools = ["Claude", "Notion", "Slack", "Linear", "AWS", "Vercel", "Stripe"]
             </p>
           </header>
           <div class="grid grid--2">
-            {features.map((f, i) => (
-              <article class="cf-card cf-card--interactive feature" data-reveal style={`--d:${i * 0.08}s`}>
-                <span class="feature__idx">{String(i + 1).padStart(2, "0")}</span>
-                <h3>{f.title}</h3>
-                <p class="cf-text-muted">{f.body}</p>
-              </article>
-            ))}
+            {features.map((f, i) => {
+              const a = art(f.art);
+              return (
+                <article class="cf-card cf-card--interactive feature" data-reveal style={`--d:${i * 0.08}s`}>
+                  {a && (
+                    <img
+                      class="cf-art card__art cf-float"
+                      style={`--cf-float-dur: ${7 + i}s; --cf-float-delay: -${i * 1.7}s;`}
+                      src={a.src}
+                      alt={a.alt}
+                      width={a.width}
+                      height={a.height}
+                      loading="lazy"
+                    />
+                  )}
+                  <span class="feature__idx">{String(i + 1).padStart(2, "0")}</span>
+                  <h3>{f.title}</h3>
+                  <p class="cf-text-muted">{f.body}</p>
+                </article>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -428,21 +580,26 @@ const tools = ["Claude", "Notion", "Slack", "Linear", "AWS", "Vercel", "Stripe"]
     <footer class="footer">
       <div class="cf-container footer__inner">
         <div class="brand">
-          <svg class="brand__mark" viewBox="0 0 32 32" aria-hidden="true">
-            <defs>
-              <linearGradient id="footmark" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-                <stop offset="0" stop-color="#6366f1" />
-                <stop offset="1" stop-color="#0ea5e9" />
-              </linearGradient>
-            </defs>
-            <rect width="32" height="32" rx="8" fill="url(#footmark)" />
-            <path d="M22 11.4a7 7 0 1 0 0 9.2" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" />
-            <circle cx="22.6" cy="16" r="2.6" fill="#f59e0b" />
-          </svg>
+          {logoArt ? (
+            <img class="brand__mark" src={logoArt.src} alt="" width={logoArt.width} height={logoArt.height} />
+          ) : (
+            <svg class="brand__mark" viewBox="0 0 32 32" aria-hidden="true">
+              <defs>
+                <linearGradient id="footmark" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+                  <stop offset="0" stop-color="#6366f1" />
+                  <stop offset="1" stop-color="#0ea5e9" />
+                </linearGradient>
+              </defs>
+              <rect width="32" height="32" rx="8" fill="url(#footmark)" />
+              <path d="M22 11.4a7 7 0 1 0 0 9.2" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" />
+              <circle cx="22.6" cy="16" r="2.6" fill="#f59e0b" />
+            </svg>
+          )}
           <span class="brand__name">Contextful</span>
         </div>
         <nav class="footer__links" aria-label="Footer">
           <a href="#demo">Demo</a>
+          <a href="/docs/">Docs</a>
           <a href={slidesUrl}>Deck</a>
           <a href="https://www.contextful.work">contextful.work</a>
         </nav>
@@ -576,10 +733,28 @@ const tools = ["Claude", "Notion", "Slack", "Linear", "AWS", "Vercel", "Stripe"]
       /* ============================================================ *
        * Hero
        * ============================================================ */
-      .hero { position: relative; padding-block: var(--space-24) var(--space-16); }
-      .hero__inner { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: var(--space-12); align-items: center; }
+      /* Copy left; the demo film right, kept inside the container with a
+       * slight comic tilt. Intrinsic 16:9 sizing (width + height:auto)
+       * keeps the frame uncropped at every width. */
+      .hero { position: relative; padding-block: var(--space-20) var(--space-16); }
+      .hero__inner {
+        display: grid;
+        grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.28fr);
+        gap: var(--space-8) 0;
+        align-items: center;
+      }
+      .hero__copy { max-width: 34rem; }
       .hero__title { font-size: var(--text-6xl); margin-top: var(--space-4); }
-      .hero__sub { margin-top: var(--space-6); font-size: var(--text-lg); color: var(--color-text-muted); max-width: 34rem; }
+      .hero__video {
+        display: block;
+        width: 100%;
+        height: auto;
+        rotate: 1.5deg;
+        background: var(--cf-teal-900);
+      }
+      @media (max-width: 880px) {
+        .hero__inner { grid-template-columns: 1fr; }
+      }
       .hero__cta { margin-top: var(--space-8); display: flex; gap: var(--space-3); flex-wrap: wrap; }
       .hero__note { margin-top: var(--space-4); font-size: var(--text-sm); color: var(--color-text-subtle); }
       .cf-eyebrow .pulse {
@@ -594,19 +769,13 @@ const tools = ["Claude", "Notion", "Slack", "Linear", "AWS", "Vercel", "Stripe"]
         100% { box-shadow: 0 0 0 0 transparent; }
       }
 
-      .glimpse { padding: var(--space-5); animation: float 7s var(--ease-in-out) infinite alternate; }
-      .glimpse__head { display: flex; align-items: center; justify-content: space-between; }
-      .glimpse__title { font-weight: var(--weight-semibold); }
-      .glimpse__line { margin-top: var(--space-4); font-weight: var(--weight-medium); }
-      .glimpse__answer { margin-top: var(--space-4); padding: var(--space-4); background: var(--color-surface-sunken); border-radius: var(--radius-md); display: flex; flex-wrap: wrap; gap: var(--space-2); }
-      .glimpse__answer p { width: 100%; margin-top: var(--space-2); font-size: var(--text-sm); color: var(--color-text-muted); }
-      @keyframes float { from { transform: translateY(0); } to { transform: translateY(-10px); } }
-      @media (max-width: 880px) { .hero__inner { grid-template-columns: 1fr; } .glimpse { display: none; } }
+      main { overflow-x: clip; }
 
       /* ============================================================ *
        * Sections (generic)
        * ============================================================ */
       .section { padding-block: var(--space-24); position: relative; }
+      .section > .cf-container { position: relative; z-index: 1; }
       .section--alt { background: var(--color-surface-sunken); }
       .section__head { max-width: 42rem; margin-bottom: var(--space-12); }
       .section__head--center { max-width: 46rem; margin-inline: auto; text-align: center; }
@@ -618,6 +787,18 @@ const tools = ["Claude", "Notion", "Slack", "Linear", "AWS", "Vercel", "Stripe"]
       .grid--3 { grid-template-columns: repeat(3, 1fr); }
       @media (max-width: 760px) { .grid--2, .grid--3 { grid-template-columns: 1fr; } }
       .cf-card h3 { margin-bottom: var(--space-2); }
+
+      /* Feature art floats free of the card, breaking out of its top edge.
+       * Offsets/rotation are --cf-float-* vars so the drift animation
+       * composes with them (see ART-DIRECTION.md). */
+      #features .grid--2 { margin-top: var(--space-20); row-gap: var(--space-24); }
+      .card__art {
+        width: 58%;
+        max-width: 15rem;
+        margin: calc(-1 * var(--space-20)) auto var(--space-3);
+      }
+      #features article:nth-child(odd) .card__art { --cf-float-tx: -16%; --cf-float-rot: -2.5deg; }
+      #features article:nth-child(even) .card__art { --cf-float-tx: 16%; --cf-float-rot: 2.5deg; --cf-float-tilt: -1deg; }
 
       /* ============================================================ *
        * DEMO stage — the product showing itself
@@ -712,7 +893,29 @@ const tools = ["Claude", "Notion", "Slack", "Linear", "AWS", "Vercel", "Stripe"]
       .stage__replay:hover { background: color-mix(in srgb, var(--color-primary) 24%, transparent); }
 
       .demo__links { margin-top: var(--space-8); text-align: center; }
-      .demo__links a { font-weight: var(--weight-semibold); }
+      .demo__cta { letter-spacing: var(--tracking-wide); font-size: var(--text-xl); padding: var(--space-4) var(--space-12); }
+
+      /* Cast strip — Pied Piper personas, Name (Role).
+       * Background-removed cutouts float free: staggered baselines, varied
+       * sizes and tilts, drifting on cf-float. The silhouette is the shape —
+       * no frame, no border-radius. */
+      .cast { margin-top: var(--space-12); }
+      .cast__label { text-align: center; font-size: var(--text-sm); color: var(--color-text-subtle); margin-bottom: var(--space-6); }
+      .cast .cf-cast { list-style: none; padding: 0; margin: 0; }
+      .cast__strip { align-items: end; gap: var(--space-6); }
+      .cast__member { max-width: 9rem; }
+      .cast__cutout {
+        width: clamp(5rem, 8vw, 7rem);
+        height: auto;
+        margin-bottom: var(--space-2);
+      }
+      .cast__member:nth-child(odd) { transform: translateY(calc(-1 * var(--space-4))); }
+      .cast__member:nth-child(2) .cast__cutout,
+      .cast__member:nth-child(6) .cast__cutout { width: clamp(6rem, 9.5vw, 8.5rem); }
+      .cast__member:nth-child(4) .cast__cutout { width: clamp(5.5rem, 9vw, 8rem); }
+      /* The two scoped agents read as companions — slightly smaller */
+      .cast__member:nth-child(3) .cast__cutout,
+      .cast__member:nth-child(7) .cast__cutout { width: clamp(4.25rem, 7vw, 6rem); }
 
       /* ============================================================ *
        * Stats
@@ -728,8 +931,9 @@ const tools = ["Claude", "Notion", "Slack", "Linear", "AWS", "Vercel", "Stripe"]
        * ============================================================ */
       .strip { padding-block: var(--space-12); }
       .strip__label { text-align: center; font-size: var(--text-sm); color: var(--color-text-subtle); }
-      .strip__tools { list-style: none; padding: 0; margin: var(--space-6) 0 0; display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-6); }
-      .strip__tools li { font-weight: var(--weight-semibold); color: var(--color-text-muted); font-size: var(--text-lg); }
+      .strip__tools { list-style: none; padding: 0; margin: var(--space-6) 0 0; display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-6) var(--space-8); }
+      .strip__tools li { display: inline-flex; align-items: center; gap: var(--space-2); font-weight: var(--weight-semibold); color: var(--color-text-muted); font-size: var(--text-lg); }
+      .strip__logo { height: 1.35em; width: auto; }
 
       /* ============================================================ *
        * Capability — animated flow
@@ -763,6 +967,47 @@ const tools = ["Claude", "Notion", "Slack", "Linear", "AWS", "Vercel", "Stripe"]
       /* ============================================================ *
        * Features
        * ============================================================ */
+      /* The layers infographic gets its own section: art beside the copy,
+       * in normal flow with room to breathe. Labels live in HTML (no text
+       * in illustrations), pinned to each layer of the artwork. */
+      .layers {
+        display: grid;
+        grid-template-columns: 0.9fr 1.1fr;
+        gap: var(--space-16);
+        align-items: center;
+      }
+      .layers__head { margin-bottom: 0; }
+      .layers__list { list-style: none; padding: 0; margin-top: var(--space-6); display: grid; gap: var(--space-3); }
+      .layers__list li { font-size: var(--text-base); color: var(--color-text-muted); }
+      .layers__list b { color: var(--color-text); }
+      .layers__art {
+        position: relative;
+        width: min(20rem, 72%);
+        margin: 0 auto;
+      }
+      .layers__art img { width: 100%; height: auto; }
+      @media (max-width: 880px) {
+        .layers { grid-template-columns: 1fr; gap: var(--space-10); }
+        .layers__art { width: min(15rem, 70%); }
+      }
+      .layers__label {
+        position: absolute;
+        padding: var(--space-1) var(--space-3);
+        border-radius: var(--radius-full);
+        border: 1px solid var(--color-border);
+        background: color-mix(in srgb, var(--color-surface) 92%, transparent);
+        backdrop-filter: blur(4px);
+        box-shadow: var(--shadow-sm);
+        font-family: var(--font-mono);
+        font-size: var(--text-xs);
+        font-weight: var(--weight-semibold);
+        color: var(--color-text-muted);
+        white-space: nowrap;
+      }
+      .layers__label--top { top: 9%; left: -14%; }
+      .layers__label--mid { top: 46%; right: -10%; color: var(--color-primary-on-subtle); border-color: color-mix(in srgb, var(--color-primary) 35%, transparent); }
+      .layers__label--base { top: 82%; left: -10%; }
+
       .feature { position: relative; }
       .feature__idx { font-family: var(--font-mono); font-size: var(--text-xs); font-weight: var(--weight-bold); color: var(--color-primary); }
       .feature h3 { margin-top: var(--space-2); }
@@ -837,6 +1082,15 @@ const tools = ["Claude", "Notion", "Slack", "Linear", "AWS", "Vercel", "Stripe"]
     <script is:inline>
       (() => {
         const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+        /* ---- Hero demo film: no autoplay under reduced motion ---- */
+        if (reduce) {
+          const heroVideo = document.querySelector(".hero__video");
+          if (heroVideo) {
+            heroVideo.removeAttribute("autoplay");
+            heroVideo.pause();
+          }
+        }
 
         /* ---- Cursor-following spotlight ---- */
         const bg = document.querySelector(".bg");

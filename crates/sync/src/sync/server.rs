@@ -19,8 +19,10 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{broadcast, Mutex};
 use tokio_tungstenite::tungstenite::Message;
 
+use crate::access::token::{scope_allows_doc, VerifiedScope};
+use crate::access::Operation;
 use crate::config::Config;
-use crate::controlplane::is_revoked;
+use crate::controlplane::{is_revoked, is_token_revoked, load_verified_scope};
 use crate::store::docs::{is_safe_doc_id, DocStore};
 use crate::sync::protocol::SyncMessage;
 
@@ -30,14 +32,9 @@ type Rooms = Arc<Mutex<HashMap<String, broadcast::Sender<RoomMsg>>>>;
 
 static PEER_SEQ: AtomicU64 = AtomicU64::new(1);
 
-pub async fn run(addr: &str, with_mcp: bool) -> Result<()> {
+pub async fn run(addr: &str) -> Result<()> {
     let config = Config::load();
     config.ensure_dirs()?;
-    if with_mcp {
-        tracing::warn!(
-            "--with-mcp co-hosting is declared but the demo uses `sync mcp` (spec 06 §4)"
-        );
-    }
 
     let listener = TcpListener::bind(addr).await?;
     tracing::info!(%addr, "sync relay listening (authoritative)");
@@ -83,15 +80,45 @@ async fn handle_conn(stream: TcpStream, rooms: Rooms, config: Arc<Config>) -> Re
         return Ok(());
     }
 
+    // Real Biscuit verification at session start: the principal's persisted
+    // token is signature-checked against the root's registered public key and
+    // its doc rights derived from the Datalog facts (spec 01 §4). The browser
+    // does not yet send its token in HELLO, so the relay uses the control
+    // plane's copy — the proof is the same signed Biscuit either way.
+    let scope = match load_verified_scope(&config, &principal) {
+        Some(s) => s,
+        None => {
+            send(
+                &write,
+                &err(
+                    "no_capability",
+                    &format!(
+                        "no verified capability token for {principal} — run `ctl seed`/`ctl grant`"
+                    ),
+                ),
+            )
+            .await?;
+            return Ok(());
+        }
+    };
+    if is_token_revoked(&config, &scope.revocation_ids) {
+        send(
+            &write,
+            &err("revoked", &format!("token for {principal} is revoked")),
+        )
+        .await?;
+        return Ok(());
+    }
+
     // --- message loop ---
     while let Some(msg) = next_message(&mut read).await? {
-        // Per-message authorization: re-check revocation on every data message
-        // (a principal revoked mid-session must stop being served), and reject
-        // unsafe doc ids before they touch the filesystem. NOTE: full per-message
-        // Biscuit `read`/`write(document)` verification is future work (real
-        // Biscuit-WASM) — today the relay enforces revocation + doc-id safety and
-        // ships opaque Loro bytes; structured data is gated by the brain MCP path.
-        if is_revoked(&config, &principal) {
+        // Per-message authorization: re-check revocation (both the principal
+        // list and the Biscuit revocation ids) on every data message — a
+        // principal revoked mid-session must stop being served — enforce the
+        // token's doc-level read/write rights, and reject unsafe doc ids before
+        // they touch the filesystem. CRDT payloads stay opaque Loro bytes;
+        // structured data is gated by the brain MCP path.
+        if is_revoked(&config, &principal) || is_token_revoked(&config, &scope.revocation_ids) {
             send(
                 &write,
                 &err("revoked", &format!("principal {principal} is revoked")),
@@ -101,10 +128,24 @@ async fn handle_conn(stream: TcpStream, rooms: Rooms, config: Arc<Config>) -> Re
         }
         match msg {
             SyncMessage::Subscribe { doc_id, .. } => {
-                if !is_safe_doc_id(&doc_id) {
-                    send(&write, &err("bad_doc_id", "unsafe doc_id")).await?;
+                // subscribe = read(document), proven by the verified token
+                if !doc_authorized(&write, &scope, &doc_id, Operation::Read).await? {
                     continue;
                 }
+                // Sandbox rides room presence (spec 04 §2): ensure one exists for
+                // this doc. Fire-and-forget on the blocking pool — the bridge is a
+                // child process and must not delay the snapshot; the registry in
+                // [`crate::sandbox::vercel`] single-flights concurrent entrants and
+                // feeds the `/debug/sandbox/:room` surface.
+                {
+                    let doc = doc_id.clone();
+                    tokio::task::spawn_blocking(move || {
+                        if let Err(e) = crate::sandbox::select(false).ensure(&doc) {
+                            tracing::warn!(doc = %doc, error = %e, "sandbox provisioning failed");
+                        }
+                    });
+                }
+
                 // Subscribe to the room FIRST so updates that arrive while we load
                 // and send the snapshot are buffered for delivery (no lost update).
                 let tx = room_sender(&rooms, &doc_id).await;
@@ -153,11 +194,11 @@ async fn handle_conn(stream: TcpStream, rooms: Rooms, config: Arc<Config>) -> Re
                 tracing::info!(%principal, doc = %doc_id, peer_id, "subscribed");
             }
             SyncMessage::Update { doc_id, bytes } => {
-                if !is_safe_doc_id(&doc_id) {
-                    send(&write, &err("bad_doc_id", "unsafe doc_id")).await?;
+                // update = write(document), proven by the verified token;
+                // revocation re-checked above.
+                if !doc_authorized(&write, &scope, &doc_id, Operation::Write).await? {
                     continue;
                 }
-                // send requires write(document); revocation re-checked above.
                 if let Some(tx) = rooms.lock().await.get(&doc_id) {
                     let _ = tx.send((
                         peer_id,
@@ -172,13 +213,18 @@ async fn handle_conn(stream: TcpStream, rooms: Rooms, config: Arc<Config>) -> Re
                 DocStore::new((*config).clone()).save_snapshot(&doc_id, &bytes)?;
             }
             SyncMessage::Snapshot { doc_id, bytes } => {
-                if !is_safe_doc_id(&doc_id) {
-                    send(&write, &err("bad_doc_id", "unsafe doc_id")).await?;
+                // persisting a snapshot = write(document)
+                if !doc_authorized(&write, &scope, &doc_id, Operation::Write).await? {
                     continue;
                 }
                 DocStore::new((*config).clone()).save_snapshot(&doc_id, &bytes)?;
             }
             SyncMessage::Awareness { doc_id, presence } => {
+                // presence injection into a room is gated like reading it —
+                // a token without read(doc) must not reach the room's peers
+                if !doc_authorized(&write, &scope, &doc_id, Operation::Read).await? {
+                    continue;
+                }
                 if let Some(tx) = rooms.lock().await.get(&doc_id) {
                     let _ = tx.send((
                         peer_id,
@@ -192,6 +238,37 @@ async fn handle_conn(stream: TcpStream, rooms: Rooms, config: Arc<Config>) -> Re
     }
 
     Ok(())
+}
+
+/// Per-message doc guard: rejects unsafe doc ids before they touch the
+/// filesystem, then enforces the token's doc-level right for `op`. Sends the
+/// error frame itself; `Ok(false)` means "denied, keep the session".
+async fn doc_authorized(
+    write: &Arc<Mutex<WsSink>>,
+    scope: &VerifiedScope,
+    doc_id: &str,
+    op: Operation,
+) -> Result<bool> {
+    if !is_safe_doc_id(doc_id) {
+        send(write, &err("bad_doc_id", "unsafe doc_id")).await?;
+        return Ok(false);
+    }
+    if !scope_allows_doc(scope, doc_id, op) {
+        let op_name = match op {
+            Operation::Write => "write",
+            _ => "read",
+        };
+        send(
+            write,
+            &err(
+                "forbidden",
+                &format!("token does not grant {op_name} on {doc_id}"),
+            ),
+        )
+        .await?;
+        return Ok(false);
+    }
+    Ok(true)
 }
 
 fn err(code: &str, message: &str) -> SyncMessage {

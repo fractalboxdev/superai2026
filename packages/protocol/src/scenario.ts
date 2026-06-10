@@ -15,15 +15,20 @@ export const FINANCE_PRIVATE: View = view("stripe", "finance_private");
 
 // ---- Principals -----------------------------------------------------------
 
+// The demo cast is always the Pied Piper team (HBO Silicon Valley), displayed
+// as "Name (Role)". Principal ids and owners stay stable (`cfo`, `agent:cto/1`,
+// …) — they are wire/CLI identifiers shared with crates/sync, the acceptance
+// suite, and the registry's owner linkage.
+
 // Humans (each owns the agents minted under their id) ...
-export const CFO: Principal = { kind: "human", id: "cfo", name: "Dana (CFO)", role: "finance" };
-export const CTO: Principal = { kind: "human", id: "cto", name: "Sam (CTO)", role: "engineering" };
-export const ENG: Principal = { kind: "human", id: "eng", name: "Riley (Eng lead)", role: "engineering" };
+export const CFO: Principal = { kind: "human", id: "cfo", name: "Monica (CFO)", role: "finance" };
+export const CTO: Principal = { kind: "human", id: "cto", name: "Richard (CEO)", role: "engineering" };
+export const ENG: Principal = { kind: "human", id: "eng", name: "Dinesh (CTO)", role: "engineering" };
 
 // ... and their agents (agent:<owner>/<n>, no root authority of their own).
-export const CFO_AGENT: Principal = { kind: "agent", id: "agent:cfo/1", name: "Finance analyst agent", owner: "cfo" };
-export const CTO_AGENT: Principal = { kind: "agent", id: "agent:cto/1", name: "CTO's agent", owner: "cto" };
-export const ENG_AGENT: Principal = { kind: "agent", id: "agent:eng/1", name: "Engineering agent", owner: "eng" };
+export const CFO_AGENT: Principal = { kind: "agent", id: "agent:cfo/1", name: "Monica (CFO)'s analyst agent", owner: "cfo" };
+export const CTO_AGENT: Principal = { kind: "agent", id: "agent:cto/1", name: "Richard (CEO)'s agent", owner: "cto" };
+export const ENG_AGENT: Principal = { kind: "agent", id: "agent:eng/1", name: "Dinesh (CTO)'s agent", owner: "eng" };
 
 /** The demo console's cast (a subset of the registry, focused on the two flows). */
 export const PRINCIPALS: Principal[] = [CTO_AGENT, ENG_AGENT, CFO];
@@ -49,11 +54,11 @@ export const principal = (id: string): Principal | undefined => REGISTRY.find((p
 /** Short tag for presence dots / labels. */
 export const tag = (p: Principal): string =>
   p.id === "cfo" || p.id.startsWith("agent:cfo")
-    ? "CF"
+    ? "MH"
     : p.id === "cto" || p.id.startsWith("agent:cto")
-      ? "CT"
+      ? "RH"
       : p.id === "eng" || p.id.startsWith("agent:eng")
-        ? "EN"
+        ? "DC"
         : "◆";
 
 /** Stable presence color per owner family (matches the console's dot palette). */
@@ -115,7 +120,7 @@ export const cfoCapability = (): Capability =>
     fields: ["team", "period", "gross", "net", "discount_tier", "credits", "employee_salary"],
   });
 
-/** CTO's agent: team-level spend only (no finance_private) until Flow A grants it. */
+/** Richard (CEO)'s agent: team-level spend only (no finance_private) until Flow A grants it. */
 export const ctoAgentCapability = (): Capability =>
   mint(CFO_ROOT, CTO_AGENT.id, {
     ops: ["query", "read"],
@@ -123,7 +128,7 @@ export const ctoAgentCapability = (): Capability =>
     fields: ["team", "period", "gross", "net"],
   });
 
-/** Engineering agent: usage view, own team rows only. Never any salary path. */
+/** Dinesh (CTO)'s agent: usage view, own team rows only. Never any salary path. */
 export const engAgentCapability = (): Capability =>
   mint(CFO_ROOT, ENG_AGENT.id, {
     ops: ["query", "read"],
@@ -198,7 +203,7 @@ export const CFO_ENVELOPE: Envelope = {
 
 // ---- Reference requests ----------------------------------------------------
 
-/** Flow A: CTO's agent needs credit-adjusted spend. Approvable (no salary). */
+/** Flow A: Richard (CEO)'s agent needs credit-adjusted spend. Approvable (no salary). */
 export const FLOW_A_REQUEST: AccessRequest = {
   id: "req-flow-a",
   requester: CTO_AGENT.id,
@@ -210,7 +215,7 @@ export const FLOW_A_REQUEST: AccessRequest = {
   ttl: "7d",
 };
 
-/** Flow B: Engineering agent reaches for salary. No approval path exists. */
+/** Flow B: Dinesh (CTO)'s agent reaches for salary. No approval path exists. */
 export const FLOW_B_REQUEST: AccessRequest = {
   id: "req-flow-b",
   requester: ENG_AGENT.id,

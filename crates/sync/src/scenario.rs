@@ -3,8 +3,8 @@
 //! and initial tokens, shared by tests, `ctl seed`, and the brain.
 
 use crate::access::{
-    biscuit::mint, request::AutoApprove, request::Envelope, Capability, Operation, RootKey,
-    RowScope, View,
+    biscuit::mint_with_docs, request::AutoApprove, request::Envelope, Capability, Operation,
+    RootKey, RowScope, View,
 };
 use crate::identity::Principal;
 
@@ -18,24 +18,29 @@ pub fn finance_private() -> View {
 pub const PERIOD: &str = "2026-05";
 pub const ALL_TEAMS: &[&str] = &["eng", "ops", "sales", "finance"];
 
+// The demo cast is always the Pied Piper team (HBO Silicon Valley), displayed
+// as "Name (Role)". Principal ids and owners stay stable (`cfo`, `agent:cto/1`,
+// …) — they are wire/CLI identifiers shared with packages/protocol and the
+// acceptance suite.
+
 pub fn cfo() -> Principal {
     Principal::Human {
         id: "cfo".into(),
-        name: "Dana (CFO)".into(),
+        name: "Monica (CFO)".into(),
         role: "finance".into(),
     }
 }
 pub fn cto_agent() -> Principal {
     Principal::Agent {
         id: "agent:cto/1".into(),
-        name: "CTO's agent".into(),
+        name: "Richard (CEO)'s agent".into(),
         owner: "cto".into(),
     }
 }
 pub fn eng_agent() -> Principal {
     Principal::Agent {
         id: "agent:eng/1".into(),
-        name: "Engineering agent".into(),
+        name: "Dinesh (CTO)'s agent".into(),
         owner: "eng".into(),
     }
 }
@@ -50,6 +55,7 @@ pub fn cfo_root() -> RootKey {
         id: "cfo".into(),
         owner: "cfo".into(),
         views: vec![finance_private(), spend_by_team()],
+        public_key: None,
     }
 }
 
@@ -59,6 +65,7 @@ pub fn control_plane_root() -> RootKey {
         id: "control-plane".into(),
         owner: "control-plane".into(),
         views: vec![],
+        public_key: None,
     }
 }
 
@@ -66,9 +73,15 @@ fn s(xs: &[&str]) -> Vec<String> {
     xs.iter().map(|x| x.to_string()).collect()
 }
 
+/// Every seeded principal may read/write any room through the relay; the
+/// relay re-verifies this from the signed token per message (spec 01 §4).
+fn all_docs() -> Vec<String> {
+    vec!["*".into()]
+}
+
 /// The CFO holds the full finance root token (sole salary authority).
 pub fn cfo_capability() -> Capability {
-    mint(
+    mint_with_docs(
         &cfo_root(),
         "cfo",
         vec![Operation::Query, Operation::Read],
@@ -83,26 +96,28 @@ pub fn cfo_capability() -> Capability {
             "employee_salary",
         ]),
         vec![],
+        all_docs(),
     )
     .expect("cfo root covers finance_private")
 }
 
-/// CTO's agent: team-level spend only (no finance_private) until Flow A grants it.
+/// Richard (CEO)'s agent: team-level spend only (no finance_private) until Flow A grants it.
 pub fn cto_agent_capability() -> Capability {
-    mint(
+    mint_with_docs(
         &cfo_root(),
         "agent:cto/1",
         vec![Operation::Query, Operation::Read],
         spend_by_team(),
         s(&["team", "period", "gross", "net"]),
         vec![],
+        all_docs(),
     )
     .expect("cfo root covers spend_by_team")
 }
 
-/// Engineering agent: usage view, own team rows only. Never any salary path.
+/// Dinesh (CTO)'s agent: usage view, own team rows only. Never any salary path.
 pub fn eng_agent_capability() -> Capability {
-    mint(
+    mint_with_docs(
         &cfo_root(),
         "agent:eng/1",
         vec![Operation::Query, Operation::Read],
@@ -112,6 +127,7 @@ pub fn eng_agent_capability() -> Capability {
             field: "team".into(),
             values: s(&["eng"]),
         }],
+        all_docs(),
     )
     .expect("cfo root covers spend_by_team")
 }

@@ -2,13 +2,16 @@
 //!
 //! Human-readable Markdown cards are the source of truth for synthesized memory
 //! (`brain/<topic>/*.md`); the structures here are the *index over* those files
-//! plus raw/derived rows. The file-based index ([`crate::store`]) stands in for
-//! the production DuckDB/SQLite + sqlite-vec layer.
+//! plus raw/derived rows, persisted in the SQLite + FTS5 index
+//! ([`crate::store::index_db`]).
 
+pub mod daydream;
+pub mod links;
 pub mod markdown;
 pub mod mcp;
 pub mod retrieval;
 pub mod synthesis;
+pub mod world;
 
 #[cfg(test)]
 mod tests;
@@ -23,6 +26,24 @@ pub enum MemoryKind {
     Wiki,
     Anomaly,
     Learning,
+    /// Public, cited world knowledge (Exa) — default-readable, never authority
+    /// (spec 02 §8).
+    WorldFact,
+    /// A daydream-loop hypothesis card (spec 02 §9).
+    Daydream,
+}
+
+impl MemoryKind {
+    /// The frontmatter `kind:` string (matches the serde snake_case name).
+    pub fn as_str(self) -> &'static str {
+        match self {
+            MemoryKind::Wiki => "wiki",
+            MemoryKind::Anomaly => "anomaly",
+            MemoryKind::Learning => "learning",
+            MemoryKind::WorldFact => "world_fact",
+            MemoryKind::Daydream => "daydream",
+        }
+    }
 }
 
 /// Memory tier (icarus-style; spec 02 §5).
@@ -85,7 +106,26 @@ pub struct Learning {
     pub suppresses_metric: Option<String>,
 }
 
-/// The full file-based index (spec 02 §3). Persisted as one JSON document.
+/// Typed graph edge between memories (spec 02 §3 `link`): self-wired
+/// wikilinks, supersede chains, and world-memory grounding.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LinkRel {
+    RelatesTo,
+    Supersedes,
+    /// world card → private card it grounds (spec 02 §8).
+    Grounds,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Link {
+    pub from: String,
+    pub to: String,
+    pub rel: LinkRel,
+}
+
+/// The in-memory brain index (spec 02 §3), loaded from / saved to the SQLite
+/// store ([`crate::store::index_db`]).
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct BrainIndex {
     #[serde(default)]
@@ -98,6 +138,8 @@ pub struct BrainIndex {
     pub anomalies: Vec<Anomaly>,
     #[serde(default)]
     pub learnings: Vec<Learning>,
+    #[serde(default)]
+    pub links: Vec<Link>,
 }
 
 impl BrainIndex {
@@ -107,4 +149,49 @@ impl BrainIndex {
             .filter(|e| e.view.id() == view_id)
             .collect()
     }
+}
+
+/// One synthesized card to persist + index — see [`write_memory`].
+pub(crate) struct CardWrite<'a> {
+    pub kind: MemoryKind,
+    /// frontmatter topic; also the directory the card file lands in.
+    pub topic: &'a str,
+    /// index topic when it differs (world cards use the citation url).
+    pub index_topic: Option<String>,
+    pub slug: &'a str,
+    pub title: &'a str,
+    pub body: &'a str,
+    pub confidence: f32,
+    pub acl_tag: AclTag,
+}
+
+/// Render + persist a Markdown card and register its index row — the one
+/// write path shared by `brain.remember`, world facts, and the daydream loop.
+pub(crate) fn write_memory(
+    store: &crate::store::Store,
+    index: &mut BrainIndex,
+    card: CardWrite,
+) -> anyhow::Result<Memory> {
+    let meta = markdown::CardMeta {
+        topic: card.topic,
+        kind: card.kind.as_str(),
+        period: None,
+        confidence: card.confidence,
+        acl_tag: &card.acl_tag,
+    };
+    let rendered = markdown::render_card(&meta, card.title, card.body);
+    let path = store.write_card(card.topic, card.slug, &rendered)?;
+    let memory = Memory {
+        id: uuid::Uuid::new_v4().to_string(),
+        kind: card.kind,
+        topic: card.index_topic.unwrap_or_else(|| card.topic.to_string()),
+        path: path.display().to_string(),
+        acl_tag: card.acl_tag,
+        confidence: card.confidence,
+        period: None,
+        supersedes: None,
+        created_at: chrono::Utc::now().to_rfc3339(),
+    };
+    index.memories.push(memory.clone());
+    Ok(memory)
 }

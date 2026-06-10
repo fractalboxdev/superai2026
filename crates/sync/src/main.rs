@@ -6,7 +6,7 @@
 //!   cron    — scheduled ingest pipelines                        [spec 05]
 //!   mcp     — brain over MCP (stdio)                            [spec 06]
 //!   agent   — agent runtime loop (MCP-only tool surface)        [spec 04]
-//!   ctl     — control plane: seed / mint / revoke / show        [spec 07]
+//!   ctl     — control plane: seed / mint / grant / revoke / show / audit  [spec 07]
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -28,9 +28,16 @@ enum Command {
     Serve {
         #[arg(long, default_value = "127.0.0.1:7878")]
         addr: String,
-        /// Also co-host the brain MCP server (spec 06 §4).
+        /// Also co-host the brain MCP server over streamable HTTP (spec 06 §4).
         #[arg(long)]
         with_mcp: bool,
+        /// Bind address for the co-hosted MCP HTTP endpoint.
+        #[arg(long, default_value = "127.0.0.1:7979")]
+        mcp_addr: String,
+        /// Also co-host the cron scheduler (spec 05 §3) so the host keeps
+        /// the brain fresh without a separate `sync cron` process.
+        #[arg(long)]
+        with_cron: bool,
     },
     /// Run a headless file-sync client peer.
     Client {
@@ -107,6 +114,13 @@ enum CtlCommand {
     },
     /// Show the seeded control-plane state.
     Show,
+    /// Show the host-persisted audit trail (grants, denials, routing,
+    /// egress blocks; oldest first).
+    Audit {
+        /// how many of the most recent events to show
+        #[arg(long, default_value_t = 20)]
+        tail: usize,
+    },
 }
 
 #[tokio::main]
@@ -115,7 +129,31 @@ async fn main() -> Result<()> {
 
     let cli = Cli::parse();
     match cli.command {
-        Command::Serve { addr, with_mcp } => rooms::server::run(&addr, with_mcp).await,
+        Command::Serve {
+            addr,
+            with_mcp,
+            mcp_addr,
+            with_cron,
+        } => {
+            if with_mcp {
+                tracing::info!("co-hosting the brain MCP over streamable HTTP (spec 06 §4)");
+                let mcp_addr = mcp_addr.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = brain::mcp::serve_http(&mcp_addr).await {
+                        tracing::error!(error = %e, "mcp http server failed");
+                    }
+                });
+            }
+            if with_cron {
+                tracing::info!("co-hosting the cron scheduler (spec 05 §3)");
+                tokio::spawn(async {
+                    if let Err(e) = cron::scheduler::run().await {
+                        tracing::error!(error = %e, "cron scheduler failed");
+                    }
+                });
+            }
+            rooms::server::run(&addr).await
+        }
         Command::Client {
             addr,
             doc,
@@ -144,8 +182,18 @@ fn run_ctl(cmd: CtlCommand) -> Result<()> {
         CtlCommand::Mint { principal } => {
             let cap = scenario::initial_capability(&principal)
                 .ok_or_else(|| anyhow::anyhow!("unknown principal '{principal}'"))?;
-            controlplane::save_capability(&config, &cap)?;
-            println!("minted initial token for {principal}");
+            // sign with the resource root's key — an unsigned mirror would
+            // fail verification at load (run `ctl seed` to create the key)
+            let keys = controlplane::keys::ensure_root_key(&config, "cfo")?;
+            let signed = sync::access::token::sign(&cap, &keys).map_err(anyhow::Error::from)?;
+            controlplane::save_capability(&config, &signed)?;
+            controlplane::audit::record(
+                &config,
+                &principal,
+                controlplane::audit::MINT,
+                serde_json::Value::Null,
+            );
+            println!("minted + signed initial token for {principal}");
             Ok(())
         }
         CtlCommand::Revoke { principal } => {
@@ -160,5 +208,11 @@ fn run_ctl(cmd: CtlCommand) -> Result<()> {
             ttl,
         } => controlplane::grant(&config, &to, &view, &fields, &ttl),
         CtlCommand::Show => controlplane::show(&config),
+        CtlCommand::Audit { tail } => {
+            for e in controlplane::audit::tail(&config, tail) {
+                println!("{}  {:<16} {:<14} {}", e.ts, e.action, e.actor, e.detail);
+            }
+            Ok(())
+        }
     }
 }

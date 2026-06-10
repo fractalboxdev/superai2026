@@ -33,6 +33,9 @@ pnpm-debug.log*
 *.sqlite-*
 *.db
 
+# Product-demo recordings (/product-demo skill)
+demos/recordings/
+
 # OS / editor
 .DS_Store
 .idea/

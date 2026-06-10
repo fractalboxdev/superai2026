@@ -1,0 +1,20 @@
+{
+  "name": "@superai2026/infra-ecs",
+  "version": "0.0.0",
+  "private": true,
+  "description": "ECS Fargate demo deploy of crates/sync. AWS creds are dotenvx-encrypted in .env.production; the private key lives in .env.keys (gitignored).",
+  "main": "index.ts",
+  "scripts": {
+    "preview": "dotenvx run -f .env.production -- pulumi preview",
+    "up": "dotenvx run -f .env.production -- pulumi up",
+    "destroy": "dotenvx run -f .env.production -- pulumi destroy",
+    "outputs": "dotenvx run -f .env.production -- pulumi stack output"
+  },
+  "devDependencies": {
+    "@dotenvx/dotenvx": "^1.71.0",
+    "@pulumi/aws": "^6",
+    "@pulumi/awsx": "^2",
+    "@pulumi/pulumi": "^3",
+    "typescript": "^5.7.3"
+  }
+}

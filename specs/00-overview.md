@@ -179,4 +179,6 @@ This overview maps onto the whole repo. The Rust binary subcommands and modules 
 - `tests/acceptance` — end-to-end flows against the built binary.
 - `infra/` — Pulumi recipes (standalone; `pulumi preview` to apply).
 
-**Interface-complete but gated off** (the spec's "Future" edges; need external accounts/creds, so the default build is offline-capable): real Biscuit-WASM Datalog, AWS Bedrock + LM Studio inference, Exa HTTP, Vercel Sandbox SDK, Weaver transport plugin, DuckDB/SQLite + sqlite-vec index, Pulumi `apply`, flare-dispatch browser e2e.
+**Live this pass** (selected at runtime by creds; offline degrades to cache/deterministic floor, never fakes): real Biscuit tokens (`biscuit-auth` ed25519 + Datalog authorizer, per-message relay auth, egress firewall), SQLite+FTS5 index (`brain.db`), Exa HTTP world memory, Stripe test-mode ingest, Vercel AI Gateway / AWS Bedrock / LM Studio inference, Vercel Sandbox via `packages/sandbox-bridge`, MCP streamable-HTTP transport with per-call session auth, cron-expression schedules, self-wiring links, daydream loop, and the real Weaver editor (vendored `@weaver/*`) in `apps/web`.
+
+**Still future:** TS-side biscuit-wasm in the browser, sqlite-vec embeddings + DuckDB columnar tier, `wasmtime` local-sandbox isolation, OAuth connectors (Notion/Slack/Linear/AWS/Vercel), Pulumi `apply` automation, flare-dispatch browser e2e, the access-control web UI (03 §6), and the macOS app (10).

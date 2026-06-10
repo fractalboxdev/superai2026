@@ -1,11 +1,15 @@
 //! Brain over MCP (spec 06).
 //!
-//! A working JSON-RPC 2.0 server over stdio exposing the `brain.*` tools, each
-//! capability-checked against the session's token. The spec's intended SDK is
-//! [`rmcp`] (the official Rust MCP SDK) with stdio + streamable-HTTP transports;
-//! this hand-rolled stdio loop is wire-compatible with MCP clients (Claude Code,
-//! sandboxed agent loops) and keeps the build dependency-light. Swapping in
-//! `rmcp` later changes the transport plumbing, not the tool semantics.
+//! A working JSON-RPC 2.0 / MCP server with both spec transports: **stdio**
+//! (co-located agents — Claude Code, the local agent loop) and **streamable
+//! HTTP** (remote agents — Vercel Sandbox over Tailscale, spec 06 §2).
+//! Wire-compatible with MCP clients; the official `rmcp` SDK remains a
+//! drop-in transport swap, the tool semantics live here either way.
+//!
+//! **Session auth binding:** every call re-resolves the principal's token —
+//! signature-verified against the registry root key and revocation-checked —
+//! so a grant or a revocation takes effect on the very next tool call
+//! (spec 06 §3).
 
 use std::io::{BufRead, Write};
 
@@ -16,21 +20,66 @@ use crate::access::request::{route_request, AccessRequest, RouteDecision};
 use crate::access::{Capability, View};
 use crate::brain::{retrieval, BrainIndex};
 use crate::config::Config;
-use crate::controlplane::load_capability;
+use crate::controlplane::{audit, is_revoked, load_capability};
 use crate::scenario;
 use crate::store::Store;
 
 const PROTOCOL_VERSION: &str = "2024-11-05";
 
+/// Handle one JSON-RPC request as `principal`. Returns None for notifications.
+/// Capability + revocation are re-checked per call (spec 06 §3).
+pub fn dispatch(config: &Config, principal: &str, req: &Value) -> Option<Value> {
+    let id = req.get("id").cloned();
+    let method = req.get("method").and_then(|m| m.as_str()).unwrap_or("");
+
+    match method {
+        "initialize" => Some(ok(id, initialize_result())),
+        "tools/list" => Some(ok(id, json!({ "tools": tool_defs() }))),
+        "ping" => Some(ok(id, json!({}))),
+        "tools/call" => {
+            // per-call session auth binding: revocation + verified token
+            if is_revoked(config, principal) {
+                audit::record(
+                    config,
+                    principal,
+                    audit::DENIED,
+                    json!({ "reason": "revoked" }),
+                );
+                return Some(tool_error(id, &format!("principal {principal} is revoked")));
+            }
+            let Some(cap) = load_capability(config, principal) else {
+                audit::record(
+                    config,
+                    principal,
+                    audit::DENIED,
+                    json!({ "reason": "no_verified_capability" }),
+                );
+                return Some(tool_error(
+                    id,
+                    &format!("no verified capability for '{principal}' — run `ctl seed`"),
+                ));
+            };
+            let store = Store::new(config.clone());
+            let mut index = match store.load_index() {
+                Ok(i) => i,
+                Err(e) => return Some(err(id, -32603, &format!("index unavailable: {e}"))),
+            };
+            Some(handle_tool_call(
+                config, &store, &mut index, &cap, principal, id, req,
+            ))
+        }
+        _ if id.is_some() => Some(err(id, -32601, &format!("method not found: {method}"))),
+        _ => None, // notification we don't act on (e.g. notifications/initialized)
+    }
+}
+
 /// Run the brain MCP server over stdio as the given principal.
 pub fn run(principal: &str) -> Result<()> {
     let config = Config::load();
-    let store = Store::new(config.clone());
-    let mut index = store.load_index()?;
-    let cap = load_capability(&config, principal)
-        .or_else(|| scenario::initial_capability(principal))
-        .ok_or_else(|| anyhow::anyhow!("no capability for principal '{principal}'"))?;
-
+    // fail fast on a bad identity, then re-verify per call
+    if load_capability(&config, principal).is_none() {
+        anyhow::bail!("no verified capability for principal '{principal}' — run `ctl seed`");
+    }
     tracing::info!(%principal, "brain MCP server ready on stdio");
 
     let stdin = std::io::stdin();
@@ -49,26 +98,83 @@ pub fn run(principal: &str) -> Result<()> {
                 continue;
             }
         };
-        let id = req.get("id").cloned();
-        let method = req.get("method").and_then(|m| m.as_str()).unwrap_or("");
-
-        // notifications (no id) get no response
-        let response = match method {
-            "initialize" => Some(ok(id, initialize_result())),
-            "tools/list" => Some(ok(id, json!({ "tools": tool_defs() }))),
-            "tools/call" => Some(handle_tool_call(
-                &store, &mut index, &cap, principal, id, &req,
-            )),
-            "ping" => Some(ok(id, json!({}))),
-            _ if id.is_some() => Some(err(id, -32601, &format!("method not found: {method}"))),
-            _ => None, // notification we don't act on (e.g. notifications/initialized)
-        };
-
-        if let Some(resp) = response {
+        if let Some(resp) = dispatch(&config, principal, &req) {
             writeln!(out, "{resp}")?;
             out.flush()?;
         }
     }
+    Ok(())
+}
+
+/// Streamable-HTTP transport (spec 06 §2): `POST /mcp` carries one JSON-RPC
+/// message; the caller's identity rides the `x-contextful-principal` header
+/// and is re-verified (token signature + revocation) on every call. Reachable
+/// over the tailnet for remote sandbox agents.
+pub async fn serve_http(addr: &str) -> Result<()> {
+    use axum::{
+        extract::{Path, Request},
+        http::StatusCode,
+        response::IntoResponse,
+        routing::{get, post},
+        Router,
+    };
+
+    async fn handle(req: Request) -> impl IntoResponse {
+        let principal = req
+            .headers()
+            .get("x-contextful-principal")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("")
+            .to_string();
+        if principal.is_empty() {
+            return (
+                StatusCode::UNAUTHORIZED,
+                "missing x-contextful-principal header".to_string(),
+            )
+                .into_response();
+        }
+        let bytes = match axum::body::to_bytes(req.into_body(), 1 << 20).await {
+            Ok(b) => b,
+            Err(e) => return (StatusCode::BAD_REQUEST, format!("body: {e}")).into_response(),
+        };
+        let rpc: Value = match serde_json::from_slice(&bytes) {
+            Ok(v) => v,
+            Err(e) => return (StatusCode::BAD_REQUEST, format!("json: {e}")).into_response(),
+        };
+        // Serialize calls: mutating tools do load-index → mutate → save-index,
+        // so concurrent requests would clobber each other's writes (the stdio
+        // transport is serial by construction). Dispatch also does blocking
+        // I/O (SQLite, ureq) — keep it off the async worker threads.
+        static DISPATCH_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+        let resp = tokio::task::spawn_blocking(move || {
+            let _serialized = DISPATCH_LOCK.lock().expect("mcp dispatch lock");
+            let config = Config::load();
+            dispatch(&config, &principal, &rpc)
+        })
+        .await;
+        match resp {
+            Ok(Some(resp)) => axum::Json(resp).into_response(),
+            Ok(None) => StatusCode::ACCEPTED.into_response(), // notification
+            Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("dispatch: {e}")).into_response(),
+        }
+    }
+
+    // Debug surface for the web console's per-document debug menu: which
+    // sandbox backs this room, and where its execution logs live. Read-only,
+    // no data authority (the handle holds ids/URLs, never document content).
+    // CORS `*` is safe for the same reason; GET with no custom headers needs
+    // no preflight.
+    async fn debug_sandbox(Path(room): Path<String>) -> impl IntoResponse {
+        let body = crate::sandbox::debug_status(&room);
+        ([("access-control-allow-origin", "*")], axum::Json(body))
+    }
+
+    let app = Router::new()
+        .route("/mcp", post(handle))
+        .route("/debug/sandbox/:room", get(debug_sandbox));
+    let listener = tokio::net::TcpListener::bind(addr).await?;
+    tracing::info!(%addr, "brain MCP streamable-HTTP endpoint ready");
+    axum::serve(listener, app).await?;
     Ok(())
 }
 
@@ -91,10 +197,15 @@ fn tool_defs() -> Vec<Value> {
         json!({ "name": "brain.detect_anomalies", "description": "anomalies for a view", "inputSchema": { "type": "object", "properties": { "view": view_arg } , "required": ["view"] } }),
         json!({ "name": "brain.remember", "description": "write a memory scoped to a document (taint-tracked)", "inputSchema": { "type": "object", "properties": { "fact": { "type": "string" }, "doc": { "type": "string" } }, "required": ["fact", "doc"] } }),
         json!({ "name": "brain.request_access", "description": "raise a permission request", "inputSchema": { "type": "object", "properties": { "view": view_arg, "fields": { "type": "array", "items": { "type": "string" } }, "reason": { "type": "string" } }, "required": ["view", "fields"] } }),
+        json!({ "name": "brain.world_search", "description": "firewalled public web search (Exa) → cited world cards; private-tainted terms are blocked at egress", "inputSchema": { "type": "object", "properties": { "query": { "type": "string" } }, "required": ["query"] } }),
+        json!({ "name": "brain.ground", "description": "wire a world card to the private card it grounds (grounds edge)", "inputSchema": { "type": "object", "properties": { "world_id": { "type": "string" }, "memory_id": { "type": "string" } }, "required": ["world_id", "memory_id"] } }),
+        json!({ "name": "brain.daydreams", "description": "overnight daydream insight cards the caller is cleared to read", "inputSchema": { "type": "object", "properties": {} } }),
     ]
 }
 
+#[allow(clippy::too_many_arguments)]
 fn handle_tool_call(
+    config: &Config,
     store: &Store,
     index: &mut BrainIndex,
     cap: &Capability,
@@ -110,13 +221,21 @@ fn handle_tool_call(
         "brain.list_sources" => Ok(json!({ "views": retrieval::list_sources(index, cap) })),
         "brain.search" => {
             let q = args.get("query").and_then(|v| v.as_str()).unwrap_or("");
-            Ok(json!({ "results": retrieval::search(index, cap, q) }))
+            Ok(json!({ "results": retrieval::search(store, index, cap, q) }))
         }
         "brain.get_context" => {
             let topic = args.get("topic").and_then(|v| v.as_str()).unwrap_or("");
             match retrieval::get_context(store, index, cap, topic) {
                 Ok(body) => Ok(json!({ "card": body })),
-                Err(deny) => Ok(json!({ "denied": deny })),
+                Err(deny) => {
+                    audit::record(
+                        config,
+                        principal,
+                        audit::DENIED,
+                        json!({ "tool": "brain.get_context", "topic": topic }),
+                    );
+                    Ok(json!({ "denied": deny }))
+                }
             }
         }
         "brain.query" => {
@@ -124,7 +243,16 @@ fn handle_tool_call(
             let select = parse_strings(&args, "select");
             match view {
                 Some(v) => {
-                    Ok(serde_json::to_value(retrieval::query(index, cap, &v, &select)).unwrap())
+                    let result = retrieval::query(index, cap, &v, &select);
+                    if let retrieval::QueryResult::Denied { reason, .. } = &result {
+                        audit::record(
+                            config,
+                            principal,
+                            audit::DENIED,
+                            json!({ "tool": "brain.query", "view": v.id(), "reason": reason }),
+                        );
+                    }
+                    Ok(serde_json::to_value(result).unwrap())
                 }
                 None => Err("missing or malformed 'view'".into()),
             }
@@ -143,13 +271,8 @@ fn handle_tool_call(
                 view: View::new("doc", doc),
                 fields: vec![],
             };
-            match retrieval::remember(store, index, fact, doc, read_acl) {
-                Ok(mid) => match store.save_index(index) {
-                    Ok(()) => Ok(json!({ "memory_id": mid })),
-                    Err(e) => Err(e.to_string()),
-                },
-                Err(e) => Err(e.to_string()),
-            }
+            let written = retrieval::remember(store, index, fact, doc, read_acl);
+            saved(store, index, written, |mid| json!({ "memory_id": mid }))
         }
         "brain.request_access" => {
             let view = match parse_view(&args) {
@@ -182,7 +305,57 @@ fn handle_tool_call(
                     json!({ "decision": "forbidden", "reason": reason })
                 }
             };
+            audit::record(
+                config,
+                principal,
+                audit::REQUEST_ROUTED,
+                json!({
+                    "view": request.view.id(),
+                    "fields": request.fields,
+                    "routing": routed,
+                }),
+            );
             Ok(json!({ "request": request, "routing": routed }))
+        }
+        "brain.world_search" => {
+            let q = args.get("query").and_then(|v| v.as_str()).unwrap_or("");
+            // egress violations surface as a tool error (terms not echoed)
+            let found = crate::brain::world::world_search(config, store, index, q);
+            saved(store, index, found, |memories| {
+                json!({
+                    "world_cards": memories.iter().map(|m| json!({
+                        "id": m.id, "url": m.topic, "path": m.path,
+                    })).collect::<Vec<_>>()
+                })
+            })
+        }
+        "brain.ground" => {
+            let world_id = args.get("world_id").and_then(|v| v.as_str()).unwrap_or("");
+            let memory_id = args.get("memory_id").and_then(|v| v.as_str()).unwrap_or("");
+            let wired = crate::brain::world::ground(index, world_id, memory_id);
+            saved(
+                store,
+                index,
+                wired,
+                |()| json!({ "grounded": { "from": world_id, "to": memory_id } }),
+            )
+        }
+        "brain.daydreams" => {
+            // surfaced only to callers cleared for the insight's full taint
+            // (acl = max(parents)) — Flow G's visibility rule
+            let cards: Vec<Value> = index
+                .memories
+                .iter()
+                .filter(|m| m.kind == crate::brain::MemoryKind::Daydream)
+                .filter(|m| retrieval::card_readable(cap, &m.acl_tag))
+                .map(|m| {
+                    json!({
+                        "id": m.id, "path": m.path, "confidence": m.confidence,
+                        "card": store.read_card(&m.path).unwrap_or_default(),
+                    })
+                })
+                .collect();
+            Ok(json!({ "daydreams": cards }))
         }
         other => Err(format!("unknown tool: {other}")),
     };
@@ -206,6 +379,19 @@ fn handle_tool_call(
     }
 }
 
+/// Persist the mutated index, then shape the tool result — every mutating
+/// tool (`remember`, `world_search`, `ground`) ends with this step.
+fn saved<T>(
+    store: &Store,
+    index: &BrainIndex,
+    result: anyhow::Result<T>,
+    to_json: impl FnOnce(T) -> Value,
+) -> Result<Value, String> {
+    let value = result.map_err(|e| e.to_string())?;
+    store.save_index(index).map_err(|e| e.to_string())?;
+    Ok(to_json(value))
+}
+
 fn parse_view(args: &Value) -> Option<View> {
     let id = args.get("view").and_then(|v| v.as_str())?;
     let (source, view) = id.split_once('/')?;
@@ -227,6 +413,51 @@ fn ok(id: Option<Value>, result: Value) -> Value {
     json!({ "jsonrpc": "2.0", "id": id.unwrap_or(Value::Null), "result": result })
 }
 
+/// A tools/call error surfaced as MCP tool output (isError), not a transport error.
+fn tool_error(id: Option<Value>, message: &str) -> Value {
+    ok(
+        id,
+        json!({
+            "content": [ { "type": "text", "text": message } ],
+            "isError": true
+        }),
+    )
+}
+
 fn err(id: Option<Value>, code: i64, message: &str) -> Value {
     json!({ "jsonrpc": "2.0", "id": id.unwrap_or(Value::Null), "error": { "code": code, "message": message } })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::InferenceBackend;
+
+    fn temp() -> Config {
+        let root = std::env::temp_dir().join(format!("mcp-test-{}", uuid::Uuid::new_v4()));
+        Config {
+            root,
+            inference: InferenceBackend::Stub,
+        }
+    }
+
+    #[test]
+    fn revoked_tool_call_is_refused_and_audited() {
+        let c = temp();
+        crate::controlplane::seed(&c).unwrap();
+        crate::controlplane::revoke(&c, "agent:cto/1").unwrap();
+        let req = json!({
+            "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+            "params": {
+                "name": "brain.query",
+                "arguments": { "view": "stripe/spend_by_team", "select": ["gross"] }
+            }
+        });
+        let resp = dispatch(&c, "agent:cto/1", &req).unwrap();
+        assert_eq!(resp["result"]["isError"], json!(true));
+        let events = audit::tail(&c, 10);
+        assert!(events
+            .iter()
+            .any(|e| e.action == audit::DENIED && e.actor == "agent:cto/1"));
+    }
 }
