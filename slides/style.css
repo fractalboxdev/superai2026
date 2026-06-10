@@ -1,0 +1,94 @@
+/* Contextful deck theme — shares the design system with apps/landing.
+ * Color values are mirrored from packages/design-system/tokens.css (the
+ * source of truth); update there first, then sync here. The illustration
+ * language is the halftone-teal comic theme (HBO Silicon Valley homage)
+ * documented in apps/landing/ART-DIRECTION.md. */
+
+:root {
+  --cf-indigo-500: #6366f1;
+  --cf-indigo-600: #4f46e5;
+  --cf-indigo-700: #4338ca;
+  --cf-sky-500: #0ea5e9;
+  --cf-amber-500: #f59e0b;
+  --cf-teal-100: #d8efe7;
+  --cf-teal-300: #6fc7a8;
+  --cf-teal-500: #2f9e77;
+  --cf-teal-700: #14534a;
+  --cf-teal-900: #0b3a33;
+  --cf-slate-50: #f8fafc;
+  --cf-slate-500: #64748b;
+  --cf-slate-900: #0f172a;
+}
+
+/* Typography accents — match the landing page */
+.slidev-layout h1 {
+  color: var(--cf-slate-900);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.slidev-layout h1 + h2,
+.slidev-layout h1 + p > strong {
+  color: var(--cf-teal-700);
+}
+.slidev-layout a {
+  color: var(--cf-indigo-600);
+}
+.slidev-layout strong {
+  color: var(--cf-teal-700);
+}
+.dark .slidev-layout h1 { color: var(--cf-slate-50); }
+.dark .slidev-layout strong { color: var(--cf-teal-300); }
+.dark .slidev-layout h1 + h2 { color: var(--cf-teal-300); }
+
+/* Cover/center slides get a faint halftone backdrop — the comic texture */
+.slidev-layout.text-center {
+  background-image: radial-gradient(
+    color-mix(in srgb, var(--cf-teal-300) 18%, transparent) 1.5px,
+    transparent 1.5px
+  );
+  background-size: 14px 14px;
+}
+
+/* Demo film — comic panel frame (mirrors .cf-comic in the design system) */
+.demo-film video,
+video.demo-film {
+  border: 3px solid var(--cf-slate-900);
+  border-radius: 14px;
+  background: var(--cf-teal-900);
+  box-shadow: 8px 8px 0 color-mix(in srgb, var(--cf-teal-900) 35%, transparent);
+  max-height: 480px;
+  margin-inline: auto;
+}
+
+/* Cast facepile — Pied Piper personas, displayed "Name (Role)" */
+.cast {
+  display: flex;
+  justify-content: center;
+  gap: 1.25rem;
+  margin-top: 1.5rem;
+}
+.cast figure {
+  display: grid;
+  justify-items: center;
+  gap: 0.25rem;
+  margin: 0;
+}
+.cast img {
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 9999px;
+  border: 2px solid var(--cf-slate-900);
+  box-shadow: 3px 3px 0 color-mix(in srgb, var(--cf-teal-900) 30%, transparent);
+  object-fit: cover;
+}
+.cast figcaption {
+  font-size: 0.65rem;
+  line-height: 1.2;
+  color: var(--cf-slate-500);
+}
+.cast figcaption b {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--cf-slate-900);
+}
+.dark .cast figcaption b { color: var(--cf-slate-50); }

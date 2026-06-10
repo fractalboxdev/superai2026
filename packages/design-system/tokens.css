@@ -66,6 +66,15 @@
   --cf-red-500:   #ef4444;
   --cf-red-600:   #dc2626;
 
+  /* Teal — "halftone teal" comic theme (HBO Silicon Valley homage).
+   * Used for illustration backdrops, comic panels, video frames, and the
+   * demo cast — never as a text/UI primary. */
+  --cf-teal-100: #d8efe7;
+  --cf-teal-300: #6fc7a8;
+  --cf-teal-500: #2f9e77;
+  --cf-teal-700: #14534a;
+  --cf-teal-900: #0b3a33;
+
   /* ================================================================ *
    * 2. SEMANTIC — role tokens (consume these)
    * ================================================================ */
@@ -114,6 +123,13 @@
   --color-warning-subtle: var(--cf-amber-100);
   --color-danger:         var(--cf-red-600);
   --color-danger-subtle:  #fee2e2;
+
+  /* Comic theme — illustration backdrops / cast / video frames */
+  --color-comic:        var(--cf-teal-500);
+  --color-comic-deep:   var(--cf-teal-900);
+  --color-comic-subtle: var(--cf-teal-100);
+  --gradient-comic: radial-gradient(120% 120% at 50% 35%,
+    var(--cf-teal-700) 0%, var(--cf-teal-900) 100%);
 
   /* Focus ring */
   --color-focus: var(--cf-indigo-500);

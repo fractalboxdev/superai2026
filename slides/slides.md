@@ -4,6 +4,9 @@ title: Contextful — workspace with your agents. Your data. Your rules.
 class: text-center
 transition: slide-left
 mdc: true
+fonts:
+  sans: Inter
+  mono: JetBrains Mono
 # hash routing so deep links survive refresh on static hosting (/slides/ on Vercel)
 routerMode: hash
 ---
@@ -25,6 +28,23 @@ CEO: "Last quarter we gave every employee one AI that knows everything about the
 [beat] An intern types: "What's the CEO's salary?" → it answers.
 SLAP (Batman meme): "Why did you give it ALL the access?"
 That slap is the whole talk in one frame: all context in one place = all access in one place.
+-->
+
+---
+layout: center
+class: text-center
+---
+
+<SlidevVideo class="demo-film" autoplay controls :poster="'/assets/contextful_sv_demo-poster.jpg'">
+  <source :src="'/assets/contextful_sv_demo.mp4'" type="video/mp4" />
+  <p>Your browser can't play this video. <a href="/assets/contextful_sv_demo.mp4">Download the demo film</a>.</p>
+</SlidevVideo>
+
+<!--
+🎤 DEMO FILM (~27s) — the whole story in one sting.
+Let it play; no narration over it. The film is the cold open's punchline in motion:
+the all-knowing agent brags, leaks, and acts — then Contextful scopes it.
+Plays automatically when this slide becomes active (SlidevVideo), with controls as backup.
 -->
 
 ---
@@ -174,6 +194,15 @@ Everything runs on the company's own machines.
 </v-clicks>
 
 <p v-click class="mt-8 font-bold text-2xl text-red-500">And the engineer still can't see anyone's salary.</p>
+
+<div class="cast">
+  <figure><img :src="'/cast/richard.webp'" alt="Richard (CEO)" /><figcaption><b>Richard</b>CEO</figcaption></figure>
+  <figure><img :src="'/cast/monica.webp'" alt="Monica (CFO)" /><figcaption><b>Monica</b>CFO</figcaption></figure>
+  <figure><img :src="'/cast/jared.webp'" alt="Jared (COO)" /><figcaption><b>Jared</b>COO</figcaption></figure>
+  <figure><img :src="'/cast/gilfoyle.webp'" alt="Gilfoyle (Systems Architect)" /><figcaption><b>Gilfoyle</b>Systems Architect</figcaption></figure>
+  <figure><img :src="'/cast/dinesh.webp'" alt="Dinesh (Lead Engineer)" /><figcaption><b>Dinesh</b>Lead Engineer</figcaption></figure>
+  <figure><img :src="'/cast/agent.webp'" alt="The Agent (scoped, always)" /><figcaption><b>The Agent</b>scoped, always</figcaption></figure>
+</div>
 
 <!--
 🎤 SAY (placeholder — edit me):

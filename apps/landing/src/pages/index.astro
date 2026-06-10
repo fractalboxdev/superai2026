@@ -124,6 +124,17 @@ const compare = {
 };
 
 const tools = ["Claude", "Notion", "Slack", "Linear", "AWS", "Vercel", "Stripe"];
+
+// The Pied Piper cast (PRESENTATION.md theme rule: always "Name (Role)").
+// Portraits are pre-staged comic art in public/cast/ — not pipeline-generated.
+const cast = [
+  { slug: "richard", name: "Richard", role: "CEO" },
+  { slug: "monica", name: "Monica", role: "CFO" },
+  { slug: "jared", name: "Jared", role: "COO" },
+  { slug: "gilfoyle", name: "Gilfoyle", role: "Systems Architect" },
+  { slug: "dinesh", name: "Dinesh", role: "Lead Engineer" },
+  { slug: "agent", name: "The Agent", role: "Scoped, always" },
+];
 ---
 
 <!doctype html>
@@ -223,8 +234,8 @@ const tools = ["Claude", "Notion", "Slack", "Linear", "AWS", "Vercel", "Stripe"]
             <p class="hero__note" data-reveal style="--d:.24s">Runs on-prem over Tailscale · Cloud optional</p>
           </div>
 
-          <!-- Product glimpse -->
-          <aside class="hero__visual" aria-hidden="true">
+          <!-- Demo film — the story in 27 seconds -->
+          <aside class="hero__visual">
           {heroArt && (
             <img
               class="cf-art hero__art cf-float"
@@ -235,24 +246,23 @@ const tools = ["Claude", "Notion", "Slack", "Linear", "AWS", "Vercel", "Stripe"]
               height={heroArt.height}
               loading="eager"
               fetchpriority="high"
+              aria-hidden="true"
             />
           )}
-          <div class="glimpse cf-card cf-card--raised">
-            <div class="glimpse__head">
-              <span class="glimpse__title">Q3 AI Spend Review</span>
-              <span class="cf-presence">
-                <span class="cf-presence__dot" style="background:var(--cf-indigo-500)">CT</span>
-                <span class="cf-presence__dot" style="background:var(--cf-sky-500)">CF</span>
-                <span class="cf-presence__dot" style="background:var(--cf-amber-500)">◆</span>
-              </span>
-            </div>
-            <p class="glimpse__line">Is this month's Claude spend justified after credits?</p>
-            <div class="glimpse__answer">
-              <span class="cf-badge cf-badge--primary">CFO agent · spend_by_team</span>
-              <span class="cf-badge cf-badge--danger">salary · redacted</span>
-              <p>Net spend after credits is down 18% MoM; utilization up 31%.</p>
-            </div>
-          </div>
+          <video
+            class="cf-comic hero__video"
+            src="/assets/contextful_sv_demo.mp4"
+            poster="/assets/contextful_sv_demo-poster.jpg"
+            width="1280"
+            height="720"
+            autoplay
+            muted
+            loop
+            playsinline
+            controls
+            preload="metadata"
+            aria-label="Demo film: the Pied Piper team's agents answer a spend question in a shared document — with the salary query denied"
+          ></video>
           </aside>
         </div>
       </section>
@@ -327,6 +337,27 @@ const tools = ["Claude", "Notion", "Slack", "Linear", "AWS", "Vercel", "Stripe"]
           <p class="demo__links" data-reveal>
             <a href={demoUrl}>Open the full interactive demo →</a>
           </p>
+
+          <!-- The cast — every claim vouched for by its owner -->
+          <div class="cast" data-reveal>
+            <p class="cast__label">Starring the team — each agent sees only what its owner allows</p>
+            <ul class="cf-cast">
+              {cast.map((m) => (
+                <li class="cf-cast__member">
+                  <img
+                    class="cf-cast__avatar"
+                    src={`/cast/${m.slug}.webp`}
+                    alt={`Comic portrait of ${m.name} (${m.role})`}
+                    width="480"
+                    height="480"
+                    loading="lazy"
+                  />
+                  <span class="cf-cast__name">{m.name}</span>
+                  <span class="cf-cast__role">{m.role}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       </section>
 
@@ -694,26 +725,30 @@ const tools = ["Claude", "Notion", "Slack", "Linear", "AWS", "Vercel", "Stripe"]
 
       main { overflow-x: clip; }
 
-      /* Free-flow hero art: bleeds past the grid column; the glimpse card
-       * overlaps its lower edge (see ART-DIRECTION.md). */
+      /* Free-flow hero art: bleeds past the grid column; the demo film
+       * overlaps its lower edge in a comic panel (see ART-DIRECTION.md). */
       .hero__visual { display: grid; }
       .hero__art {
         width: 118%;
         max-width: none;
         margin: -4% -12% 0 -6%;
       }
-      .hero__art + .glimpse {
-        margin-top: calc(-1 * var(--space-12));
-        margin-inline: var(--space-8) var(--space-2);
+      .hero__video {
+        display: block;
+        width: 100%;
+        height: auto;
+        background: var(--cf-teal-900);
       }
-      .glimpse { padding: var(--space-5); animation: float 7s var(--ease-in-out) infinite alternate; }
-      .glimpse__head { display: flex; align-items: center; justify-content: space-between; }
-      .glimpse__title { font-weight: var(--weight-semibold); }
-      .glimpse__line { margin-top: var(--space-4); font-weight: var(--weight-medium); }
-      .glimpse__answer { margin-top: var(--space-4); padding: var(--space-4); background: var(--color-surface-sunken); border-radius: var(--radius-md); display: flex; flex-wrap: wrap; gap: var(--space-2); }
-      .glimpse__answer p { width: 100%; margin-top: var(--space-2); font-size: var(--text-sm); color: var(--color-text-muted); }
-      @keyframes float { from { transform: translateY(0); } to { transform: translateY(-10px); } }
-      @media (max-width: 880px) { .hero__inner { grid-template-columns: 1fr; } .hero__visual { display: none; } }
+      .hero__art + .hero__video {
+        margin-top: calc(-1 * var(--space-12));
+        position: relative;
+        z-index: 1;
+      }
+      @media (max-width: 880px) {
+        .hero__inner { grid-template-columns: 1fr; }
+        .hero__art { display: none; }
+        .hero__art + .hero__video { margin-top: 0; }
+      }
 
       /* ============================================================ *
        * Sections (generic)
@@ -847,6 +882,11 @@ const tools = ["Claude", "Notion", "Slack", "Linear", "AWS", "Vercel", "Stripe"]
 
       .demo__links { margin-top: var(--space-8); text-align: center; }
       .demo__links a { font-weight: var(--weight-semibold); }
+
+      /* Cast strip — Pied Piper personas, Name (Role) */
+      .cast { margin-top: var(--space-12); }
+      .cast__label { text-align: center; font-size: var(--text-sm); color: var(--color-text-subtle); margin-bottom: var(--space-6); }
+      .cast .cf-cast { list-style: none; padding: 0; margin: 0; }
 
       /* ============================================================ *
        * Stats
@@ -1003,6 +1043,15 @@ const tools = ["Claude", "Notion", "Slack", "Linear", "AWS", "Vercel", "Stripe"]
     <script is:inline>
       (() => {
         const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+        /* ---- Hero demo film: no autoplay under reduced motion ---- */
+        if (reduce) {
+          const heroVideo = document.querySelector(".hero__video");
+          if (heroVideo) {
+            heroVideo.removeAttribute("autoplay");
+            heroVideo.pause();
+          }
+        }
 
         /* ---- Cursor-following spotlight ---- */
         const bg = document.querySelector(".bg");

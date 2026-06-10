@@ -100,6 +100,40 @@
   filter: drop-shadow(0 18px 36px rgb(15 23 42 / 0.18)) drop-shadow(0 6px 12px rgb(15 23 42 / 0.1));
 }
 
+/* ---- Comic panel (halftone-teal theme) ----------------------------- */
+/* Frames comic frames, cast portraits, and the demo video in the shared
+ * comic-book language: thick ink border, hard offset shadow, deep-teal
+ * halftone backdrop. */
+.cf-comic {
+  border: 3px solid var(--cf-slate-900);
+  border-radius: var(--radius-lg);
+  background: var(--gradient-comic);
+  box-shadow: 8px 8px 0 color-mix(in srgb, var(--cf-teal-900) 35%, transparent),
+    var(--shadow-lg);
+  overflow: hidden;
+}
+.cf-halftone {
+  background-image: radial-gradient(
+    color-mix(in srgb, var(--cf-teal-300) 28%, transparent) 1.5px,
+    transparent 1.5px
+  );
+  background-size: 12px 12px;
+}
+
+/* ---- Cast (Pied Piper persona portraits) --------------------------- */
+.cf-cast { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-6); }
+.cf-cast__member { display: grid; justify-items: center; gap: var(--space-2); text-align: center; }
+.cf-cast__avatar {
+  width: 5.5rem;
+  height: 5.5rem;
+  border-radius: var(--radius-full);
+  border: 3px solid var(--cf-slate-900);
+  box-shadow: 4px 4px 0 color-mix(in srgb, var(--cf-teal-900) 30%, transparent);
+  object-fit: cover;
+}
+.cf-cast__name { font-size: var(--text-sm); font-weight: var(--weight-semibold); color: var(--color-text); }
+.cf-cast__role { font-size: var(--text-xs); color: var(--color-text-muted); }
+
 /* ---- Badge -------------------------------------------------------- */
 .cf-badge {
   display: inline-flex;
