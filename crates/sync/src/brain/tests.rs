@@ -85,8 +85,17 @@ fn world_and_daydream_memories_survive_resynthesis() {
     .unwrap();
     assert!(!world.is_empty(), "research must synthesize world cards");
 
-    // nightly daydream connects spend/finance/world cards into hypotheses
-    let dreamed = crate::brain::daydream::cycle(&store.config, &store, &mut index, 10).unwrap();
+    // nightly daydream connects spend/finance/world cards into hypotheses —
+    // drain until quiescent (each night is capped, so one cycle may leave
+    // admissible pairs over; leftover capacity is not re-dreaming)
+    let mut dreamed = 0;
+    loop {
+        let n = crate::brain::daydream::cycle(&store.config, &store, &mut index, 10).unwrap();
+        if n == 0 {
+            break;
+        }
+        dreamed += n;
+    }
     assert!(dreamed >= 1, "daydream must write at least one hypothesis");
 
     let world_n = count(&index, MemoryKind::WorldFact);
