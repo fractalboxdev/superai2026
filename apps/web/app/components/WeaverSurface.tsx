@@ -21,9 +21,9 @@
 // Client-only: statically imports @weaver/react (→ loro-crdt WASM), so the
 // route loads it via React.lazy once `useWeaverRoom` hands back an editor.
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Editor, PresenceRecord, Principal } from "@weaver/core";
-import { createPresenceHub } from "@weaver/core";
+import { createPresenceHub, getBlock, getChildren, rootId } from "@weaver/core";
 import {
   EditorRoot,
   MentionMenu,
@@ -89,6 +89,54 @@ const toRecord = (p: PresenceState): PresenceRecord => ({
 
 const NO_PRINCIPALS: ReadonlyArray<Principal> = [];
 
+// An unanswered mention-ask means its tagged agent is working on a reply —
+// surface that as a "thinking" caret at the end of the ask block (and a
+// `generating` face in the facepile). Mirrors the Rust watcher's ask rules
+// (crates/sync agent/editor.rs): `@<agent name> <question>` is answered once
+// the next non-empty block starts with `A:` / `A (`.
+const thinkingCursorsOf = (
+  editor: Editor,
+  agents: ReadonlyArray<Principal>,
+): PresenceCursor[] => {
+  if (agents.length === 0) return [];
+  const byLongest = [...agents].sort((a, b) => b.label.length - a.label.length);
+  const blocks = getChildren(editor, rootId(editor)).filter(
+    (id) => getBlock(editor, id)?.hasInline,
+  );
+  const texts = blocks.map((id) => editor.commands.text.read(id));
+  const out: PresenceCursor[] = [];
+  texts.forEach((text, i) => {
+    const rest = text.trimStart();
+    if (!rest.startsWith("@")) return;
+    const body = rest.slice(1);
+    const target = byLongest.find((a) =>
+      body.toLowerCase().startsWith(a.label.toLowerCase()),
+    );
+    if (!target) return;
+    const question = body
+      .slice(target.label.length)
+      .replace(/^[\s,:—–-]+/, "")
+      .trim();
+    if (!question) return;
+    const next = texts
+      .slice(i + 1)
+      .map((t) => t.trimStart())
+      .find((t) => t.length > 0);
+    if (next && (next.startsWith("A:") || next.startsWith("A ("))) return;
+    out.push({
+      peerId: `thinking:${target.id}`,
+      label: `${target.label} is thinking`,
+      color: target.color ?? "var(--color-accent)",
+      blockId: blocks[i]!,
+      offset: text.length,
+    });
+  });
+  return out;
+};
+
+const thinkingKey = (cursors: PresenceCursor[]): string =>
+  cursors.map((c) => `${c.peerId}@${c.blockId}:${c.offset}`).join("|");
+
 export default function WeaverSurface({
   editor,
   peers = [],
@@ -117,6 +165,16 @@ export default function WeaverSurface({
     onCursorChange?.(cursor);
   }, [onCursorChange, cursor]);
 
+  // Agents currently "thinking": one synthetic caret per unanswered mention
+  // ask, recomputed on every doc change (below) so the indicator appears the
+  // moment an agent is tagged and drops when its `A (…)` reply lands.
+  const agentPrincipals = useMemo(
+    () => mentionPrincipals.filter((p) => p.kind === "agent"),
+    [mentionPrincipals],
+  );
+  const thinkingRef = useRef<PresenceCursor[]>([]);
+  const [thinking, setThinking] = useState<PresenceCursor[]>([]);
+
   // Render-only hub for the facepile: wire-borne peers (+ self) are mirrored
   // into a local PresenceHub each change; stale sessions are evicted so a
   // departed peer's face drops with its wire record.
@@ -144,11 +202,28 @@ export default function WeaverSurface({
       if (p.principal === self?.id) continue;
       want.set(peerKey(p), toRecord(p));
     }
+    // A thinking agent shows in the facepile as `generating`, even when no
+    // wire peer carries its presence (the watcher answers over the relay).
+    for (const t of thinking) {
+      const id = t.peerId.slice("thinking:".length);
+      if (id === self?.id) continue;
+      const agent = agentPrincipals.find((a) => a.id === id);
+      want.set(t.peerId, {
+        peerId: t.peerId,
+        principalId: id,
+        label: agent?.label ?? id,
+        color: t.color,
+        avatarUrl: avatarOf(id),
+        kind: "agent",
+        mode: "generating",
+        cursor: null,
+      });
+    }
     for (const rec of hub.all()) {
       if (!want.has(rec.peerId)) hub.remove(rec.peerId);
     }
     for (const rec of want.values()) hub.set(rec);
-  }, [hub, peers, self]);
+  }, [hub, peers, self, thinking, agentPrincipals]);
 
   // Remote cursors (+ the scripted self caret) → caret overlay. The overlay
   // attaches once per editor mount; redraws ride peer/selfCursor updates
@@ -190,10 +265,20 @@ export default function WeaverSurface({
           );
         }
       });
-    const draw = () => overlay.render(cursorsRef.current);
+    const refreshThinking = () => {
+      const next = thinkingCursorsOf(editor, agentPrincipals);
+      if (thinkingKey(next) !== thinkingKey(thinkingRef.current)) {
+        thinkingRef.current = next;
+        setThinking(next);
+      }
+    };
+    const draw = () =>
+      overlay.render([...cursorsRef.current, ...thinkingRef.current]);
+    refreshThinking();
     draw();
     markDenied();
     const unsubDoc = editor.doc.subscribe(() => {
+      refreshThinking();
       draw();
       markDenied();
     });
@@ -202,11 +287,11 @@ export default function WeaverSurface({
       overlayRef.current = null;
       overlay.dispose();
     };
-  }, [editor, hostRef]);
+  }, [editor, hostRef, agentPrincipals]);
 
   useEffect(() => {
-    overlayRef.current?.render(cursorsRef.current);
-  }, [peers, self, selfCursor]);
+    overlayRef.current?.render([...cursorsRef.current, ...thinkingRef.current]);
+  }, [peers, self, selfCursor, thinking]);
 
   return (
     <div className="weaver-host">

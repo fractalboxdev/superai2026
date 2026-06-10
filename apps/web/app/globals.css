@@ -231,6 +231,29 @@
   padding: 0 var(--space-1);
   border-radius: var(--radius-sm);
 }
+/* A tagged agent working on its reply (peerId `thinking:<id>`): the caret
+   breathes and the flag grows animated ellipsis dots. */
+.weaver-presence-caret[data-presence-peer^="thinking:"] {
+  animation: weaver-thinking-pulse 1.2s ease-in-out infinite;
+}
+.weaver-presence-caret[data-presence-peer^="thinking:"] .weaver-presence-label::after {
+  content: "";
+  animation: weaver-thinking-dots 1.2s steps(4, end) infinite;
+}
+@keyframes weaver-thinking-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+@keyframes weaver-thinking-dots {
+  0% { content: ""; }
+  25% { content: "."; }
+  50% { content: ".."; }
+  75% { content: "..."; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .weaver-presence-caret[data-presence-peer^="thinking:"] { animation: none; }
+  .weaver-presence-caret[data-presence-peer^="thinking:"] .weaver-presence-label::after { content: "…"; animation: none; }
+}
 .weaver-surface {
   outline: none;
   min-height: 13rem;
