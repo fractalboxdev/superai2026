@@ -51,6 +51,15 @@ importers:
       '@superai2026/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
+      '@weaver/core':
+        specifier: workspace:*
+        version: link:../../packages/weaver/core
+      '@weaver/dom':
+        specifier: workspace:*
+        version: link:../../packages/weaver/dom
+      '@weaver/react':
+        specifier: workspace:*
+        version: link:../../packages/weaver/react
       effect:
         specifier: ^3.21.3
         version: 3.21.3
@@ -111,6 +120,95 @@ importers:
       vitest:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@22.19.20)(lightningcss@1.32.0)
+
+  packages/weaver/core:
+    dependencies:
+      effect:
+        specifier: ^3.21.3
+        version: 3.21.3
+      loro-crdt:
+        specifier: ^1.13.1
+        version: 1.13.1
+    devDependencies:
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+
+  packages/weaver/dom:
+    dependencies:
+      '@weaver/core':
+        specifier: workspace:*
+        version: link:../core
+      effect:
+        specifier: ^3.21.3
+        version: 3.21.3
+      loro-crdt:
+        specifier: ^1.13.1
+        version: 1.13.1
+    devDependencies:
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+
+  packages/weaver/react:
+    dependencies:
+      '@weaver/core':
+        specifier: workspace:*
+        version: link:../core
+      '@weaver/dom':
+        specifier: workspace:*
+        version: link:../dom
+      effect:
+        specifier: ^3.21.3
+        version: 3.21.3
+      loro-crdt:
+        specifier: ^1.13.1
+        version: 1.13.1
+      react:
+        specifier: ^18.3.0 || ^19.0.0
+        version: 19.2.7
+      react-dom:
+        specifier: ^18.3.0 || ^19.0.0
+        version: 19.2.7(react@19.2.7)
+    devDependencies:
+      '@types/react':
+        specifier: ^19.0.7
+        version: 19.2.17
+      '@types/react-dom':
+        specifier: ^19.0.3
+        version: 19.2.3(@types/react@19.2.17)
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+
+  packages/weaver/sync:
+    dependencies:
+      '@weaver/core':
+        specifier: workspace:*
+        version: link:../core
+      effect:
+        specifier: ^3.21.3
+        version: 3.21.3
+    devDependencies:
+      loro-crdt:
+        specifier: ^1.13.1
+        version: 1.13.1
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+
+  packages/weaver/sync-core:
+    dependencies:
+      effect:
+        specifier: ^3.21.3
+        version: 3.21.3
+    devDependencies:
+      loro-crdt:
+        specifier: ^1.13.1
+        version: 1.13.1
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
 
   tests/acceptance:
     devDependencies:

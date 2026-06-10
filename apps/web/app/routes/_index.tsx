@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Suspense, lazy, useMemo, useState } from "react";
 import type { MetaFunction } from "react-router";
 import { viewId, type Capability, type View } from "@superai2026/protocol/access";
 import { brainQuery, type BrainResult } from "@superai2026/protocol/brain";
@@ -8,9 +8,13 @@ import {
   type AccessRequest,
   type RouteDecision,
 } from "@superai2026/protocol/requests";
-import { useLoroRoom } from "@/lib/loroRoom";
+import { useWeaverRoom } from "@/lib/weaverRoom";
 import { DOCS, DEFAULT_DOC_ID } from "@/lib/docs";
-import { DocEditor } from "@/components/DocEditor";
+
+// The Weaver editing surface pulls in loro-crdt (WASM) via @weaver/react —
+// lazy-loaded so it ships as a separate client chunk and never renders during
+// SSR (useWeaverRoom only yields an editor after client hydration).
+const WeaverSurface = lazy(() => import("@/components/WeaverSurface"));
 import {
   CFO,
   CFO_ENVELOPE,
@@ -84,7 +88,7 @@ export default function Home() {
   const actor = PRINCIPALS.find((p) => p.id === actorId)!;
   const [activeDocId, setActiveDocId] = useState<string>(DEFAULT_DOC_ID);
   const activeDoc = DOCS.find((d) => d.id === activeDocId)!;
-  const room = useLoroRoom(actor.id, actor.name, activeDocId);
+  const room = useWeaverRoom(actor.id, actor.name, activeDocId);
   const { status: syncStatus, peers: livePeers } = room;
   const columns = useMemo(
     () => DATASETS.find((d) => viewId(d.view) === viewId(selView))?.columns ?? [],
@@ -345,7 +349,13 @@ export default function Home() {
               </div>
 
               <div className="app-editor__body">
-                <DocEditor room={room} />
+                {room.editor ? (
+                  <Suspense fallback={<p className="weaver-loading">Waking the editor…</p>}>
+                    <WeaverSurface editor={room.editor} />
+                  </Suspense>
+                ) : (
+                  <p className="weaver-loading">Waking the editor…</p>
+                )}
               </div>
 
               <QueryResult result={result} actorName={actor.name} />

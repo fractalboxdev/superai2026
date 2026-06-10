@@ -1,6 +1,7 @@
 packages:
   - "apps/*"
   - "packages/*"
+  - "packages/weaver/*"
   - "tests/*"
 allowBuilds:
   '@swc/core': true
