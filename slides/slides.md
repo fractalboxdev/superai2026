@@ -76,8 +76,9 @@ rest of the talk pays off.
 "Picture a 50-person company on seven tools, and the board asks: is all this AI and cloud
 spend actually worth it? Engineering knows what the tools are worth but not what they cost.
 Finance sees the bill but not the why. The CFO holds the deciding pieces and can't share
-them with the room. The one thing that could answer — an AI that knows everything — is
-exactly the thing you can't allow to exist."
+them with the room. The obvious fix is one AI that knows everything — but this is not how
+organizations work. Organizations run on need-to-know boundaries, and the one thing that
+could answer the question is exactly the thing you can't allow to exist."
 
 A 50-person company runs on Claude, Notion, Slack, Linear, AWS, Vercel, Stripe — and the
 question on the table is "is all this AI and cloud spend actually worth it?" Simple question,
