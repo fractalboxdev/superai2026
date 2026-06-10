@@ -1,6 +1,6 @@
 # Contextful
 
-> Local-first company brain. Humans and their AI agents collaborate in shared documents, and every agent sees only the context it is permitted to — scoped by capability. No company-wide "SuperAgent".
+> Local-first, privacy-aware agents on company brain. Humans and their AI agents collaborate in shared documents, and every agent sees only the context it is permitted to — scoped by capability. No company-wide "SuperAgent".
 
 ## Pages
 
