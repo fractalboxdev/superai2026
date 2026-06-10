@@ -36,6 +36,9 @@ import { DOCS } from "./docs";
 
 export type RoomStatus = "local" | "connecting" | "live" | "offline";
 
+/** A NOTIFY frame addressed to this peer — decision metadata, never content. */
+export type RoomNotice = { from: string; reason: string; message: string };
+
 export interface RoomTransportOptions {
   docId: string;
   principal: string;
@@ -45,6 +48,8 @@ export interface RoomTransportOptions {
   onStatus: (status: RoomStatus) => void;
   /** Live peers (within the staleness window), excluding self. */
   onPeers: (peers: PresenceState[]) => void;
+  /** Access-decision notifications addressed to this peer's principal. */
+  onNotice?: ((notice: RoomNotice) => void) | undefined;
 }
 
 export interface RoomTransport {
@@ -135,7 +140,7 @@ export function attachRoomTransport(
   doc: LoroDoc,
   opts: RoomTransportOptions,
 ): RoomTransport {
-  const { docId, principal, displayName, relayUrl, onStatus, onPeers } = opts;
+  const { docId, principal, displayName, relayUrl, onStatus, onPeers, onNotice } = opts;
 
   let disposed = false;
   let ws: WebSocket | undefined;
@@ -272,6 +277,11 @@ export function attachRoomTransport(
         if (msg.bytes.length) doc.import(toBytes(msg.bytes));
       } else if (msg.type === "AWARENESS") {
         upsertPeer(msg.presence);
+      } else if (msg.type === "NOTIFY") {
+        // act only on notifications addressed to this peer's principal
+        if (msg.to === principal) {
+          onNotice?.({ from: msg.from ?? "", reason: msg.reason, message: msg.message });
+        }
       } else if (msg.type === "ERROR") {
         console.warn(`[contextful] relay error ${msg.code}: ${msg.message}`);
         if (FATAL_ERROR_CODES.has(msg.code)) {

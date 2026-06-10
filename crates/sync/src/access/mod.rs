@@ -154,6 +154,18 @@ pub enum DenyReason {
     WrongOp,
 }
 
+impl DenyReason {
+    /// The serde snake_case wire string (`no_grant`, …) — for surfaces that
+    /// embed the reason in text rather than serializing the enum.
+    pub fn wire_str(&self) -> &'static str {
+        match self {
+            DenyReason::NoGrant => "no_grant",
+            DenyReason::ViewDenied => "view_denied",
+            DenyReason::WrongOp => "wrong_op",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AuthDecision {
     Denied(DenyReason),

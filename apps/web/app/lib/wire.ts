@@ -44,11 +44,20 @@ export const SyncMessage = Schema.Union(
     type: Schema.Literal("UPDATE"),
     doc_id: Schema.String,
     bytes: LoroBytes,
+    from: Schema.optional(Schema.String),
   }),
   Schema.Struct({
     type: Schema.Literal("AWARENESS"),
     doc_id: Schema.String,
     presence: PresenceState,
+  }),
+  Schema.Struct({
+    type: Schema.Literal("NOTIFY"),
+    doc_id: Schema.String,
+    to: Schema.String,
+    from: Schema.optional(Schema.String),
+    reason: Schema.String,
+    message: Schema.String,
   }),
   Schema.Struct({
     type: Schema.Literal("ERROR"),

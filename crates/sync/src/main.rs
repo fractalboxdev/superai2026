@@ -38,6 +38,16 @@ enum Command {
         /// the brain fresh without a separate `sync cron` process.
         #[arg(long)]
         with_cron: bool,
+        /// Also co-host the editor agent (spec 04 §1) so `Q:` lines in the
+        /// relay doc get answered without a separate `sync agent` process.
+        #[arg(long)]
+        with_editor_agent: bool,
+        /// Document the co-hosted editor agent watches.
+        #[arg(long, default_value = "finops")]
+        agent_doc: String,
+        /// Principal the co-hosted editor agent answers as.
+        #[arg(long, default_value = "cfo")]
+        agent_principal: String,
     },
     /// Run a headless file-sync client peer.
     Client {
@@ -134,6 +144,9 @@ async fn main() -> Result<()> {
             with_mcp,
             mcp_addr,
             with_cron,
+            with_editor_agent,
+            agent_doc,
+            agent_principal,
         } => {
             if with_mcp {
                 tracing::info!("co-hosting the brain MCP over streamable HTTP (spec 06 §4)");
@@ -149,6 +162,26 @@ async fn main() -> Result<()> {
                 tokio::spawn(async {
                     if let Err(e) = cron::scheduler::run().await {
                         tracing::error!(error = %e, "cron scheduler failed");
+                    }
+                });
+            }
+            if with_editor_agent {
+                tracing::info!(
+                    doc = %agent_doc,
+                    principal = %agent_principal,
+                    "co-hosting the editor agent (spec 04 §1)"
+                );
+                let dial = agent::editor::dial_addr(&addr);
+                tokio::spawn(async move {
+                    // the relay binds after this spawn; wait, then keep the
+                    // agent alive across relay hiccups / missing brain index
+                    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                    loop {
+                        match agent::editor::watch(&dial, &agent_doc, &agent_principal).await {
+                            Ok(()) => tracing::info!("editor agent exited; reconnecting"),
+                            Err(e) => tracing::warn!(error = %e, "editor agent failed; retrying"),
+                        }
+                        tokio::time::sleep(std::time::Duration::from_secs(5)).await;
                     }
                 });
             }

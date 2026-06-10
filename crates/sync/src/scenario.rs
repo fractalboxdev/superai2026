@@ -45,8 +45,26 @@ pub fn eng_agent() -> Principal {
     }
 }
 
+pub fn cfo_agent() -> Principal {
+    Principal::Agent {
+        id: "agent:cfo/1".into(),
+        name: "Monica (CFO)'s analyst agent".into(),
+        owner: "cfo".into(),
+    }
+}
+
 pub fn principals() -> Vec<Principal> {
     vec![cto_agent(), eng_agent(), cfo()]
+}
+
+/// The full mention directory (mirrors the web app's `@`-picker, REGISTRY in
+/// packages/protocol). Superset of [`principals`]: includes personas with no
+/// seeded token of their own — an ask addressed to "Monica (CFO)'s analyst
+/// agent" is answered by the CFO-side watcher running as `cfo`.
+pub fn directory() -> Vec<Principal> {
+    let mut all = principals();
+    all.push(cfo_agent());
+    all
 }
 
 /// CFO owns the finance resource root — sole minter of finance_private authority.

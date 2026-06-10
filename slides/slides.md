@@ -129,7 +129,7 @@ recognize themselves; the ask slide pays this off later.
 
 > **Richard (CEO):** "Let's improve AI optimization spending for 2026 Q3."
 >
-> **Jared (COO):** "Unit economics — cost per compression ($/KB) at the client."
+> **Jared (COO):** "We can't just cut cost — we're growing. We need to check unit economics: cost per compression ($/KB) at the client."
 
 </div>
 

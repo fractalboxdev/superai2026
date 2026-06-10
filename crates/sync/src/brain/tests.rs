@@ -58,6 +58,38 @@ fn synthesis_writes_cards_and_aggregates() {
     assert!(!index.provenance.is_empty());
 }
 
+/// The employee-salary card carries the never-delegated field in its acl tag:
+/// only the CFO's own root token reads it (the mention-ask denial path).
+#[test]
+fn salary_card_is_readable_by_cfo_only() {
+    let store = temp_store();
+    let mut index = BrainIndex::default();
+    ingest_stripe(&mut index, &store);
+    synthesize(&store, &mut index).unwrap();
+
+    let salary = index
+        .memories
+        .iter()
+        .find(|m| m.path.contains("employee-salary"))
+        .expect("salary card synthesized from finance_private events");
+    assert!(salary
+        .acl_tag
+        .fields
+        .contains(&"employee_salary".to_string()));
+    assert!(retrieval::card_readable(
+        &scenario::cfo_capability(),
+        &salary.acl_tag
+    ));
+    assert!(!retrieval::card_readable(
+        &scenario::eng_agent_capability(),
+        &salary.acl_tag
+    ));
+    assert!(!retrieval::card_readable(
+        &scenario::cto_agent_capability(),
+        &salary.acl_tag
+    ));
+}
+
 /// The scheduled research → memory pipeline (spec 02 §8/§9): exa world cards
 /// and daydream hypotheses must survive the next connector re-synthesis, and
 /// the daydream loop must not re-dream pairs it already connected.
