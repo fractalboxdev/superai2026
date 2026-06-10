@@ -251,6 +251,9 @@ export default function ConsolePage({ docId }: { docId: string }) {
 
   // ---- editor-agent demo (right panel) ----
   const [demoAsk, setDemoAsk] = useState<string | null>(null);
+  // Monica's caret while the demo types — programmatic inserts never move the
+  // native DOM caret, so without this the typing has no visible author.
+  const [demoCursor, setDemoCursor] = useState<{ blockId: string; offset: number } | null>(null);
   const demoBusyRef = useRef(false);
 
   const runEditorDemo = () => {
@@ -288,7 +291,9 @@ export default function ConsolePage({ docId }: { docId: string }) {
           if (ctrl.signal.aborted) return;
           const offset = ed.commands.text.length(blockId);
           ed.commands.text.insert({ blockId, offset, value: ch });
-          room.setCursor({ blockId, offset: offset + ch.length });
+          const cursor = { blockId, offset: offset + ch.length };
+          room.setCursor(cursor);
+          setDemoCursor(cursor);
           await demoSleep(35, ctrl.signal);
         }
       }
@@ -306,12 +311,14 @@ export default function ConsolePage({ docId }: { docId: string }) {
         await demoSleep(500, ctrl.signal);
       }
       if (!ctrl.signal.aborted) setDemoAsk(null);
+      setDemoCursor(null);
       demoBusyRef.current = false;
     };
     void run();
 
     return () => {
       ctrl.abort();
+      setDemoCursor(null);
       demoBusyRef.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- pushLog/setCursor are stable enough for the scripted demo
@@ -417,6 +424,7 @@ export default function ConsolePage({ docId }: { docId: string }) {
                     peers={livePeers}
                     onCursorChange={room.setCursor}
                     self={selfIdentity}
+                    selfCursor={demoCursor}
                     mentionPrincipals={mentionPrincipals}
                   />
                 </Suspense>
@@ -445,13 +453,6 @@ export default function ConsolePage({ docId }: { docId: string }) {
               >
                 {demoAsk ? "Typing as CFO…" : "▶ Demo Q by CFO"}
               </button>
-              {syncStatus !== "live" && (
-                <p className="cf-text-muted" style={{ fontSize: "var(--text-sm)", margin: 0 }}>
-                  Relay not connected — run <code>sync serve</code> and{" "}
-                  <code>sync agent --principal cfo --watch-doc {docId}</code>, then open this
-                  page with <code>?sync=ws://127.0.0.1:7878</code>.
-                </p>
-              )}
             </div>
           </div>
 

@@ -47,6 +47,12 @@ export interface WeaverSurfaceProps {
   onCursorChange?: (cursor: { blockId: string; offset: number } | null) => void;
   /** The acting principal — rendered as a face in the roster alongside peers. */
   self?: { id: string; name: string };
+  /**
+   * Render a labeled caret for the acting principal at this position. Used by
+   * scripted flows (the editor-agent demo) whose programmatic inserts never
+   * move the native DOM caret — without it the typing has no visible author.
+   */
+  selfCursor?: { blockId: string; offset: number } | null;
   /** Directory of mentionable people/agents for the @-typeahead. */
   mentionPrincipals?: ReadonlyArray<Principal>;
 }
@@ -88,6 +94,7 @@ export default function WeaverSurface({
   peers = [],
   onCursorChange,
   self,
+  selfCursor = null,
   mentionPrincipals = NO_PRINCIPALS,
 }: WeaverSurfaceProps) {
   // @-mention wiring: the bridge reports `@query` triggers through
@@ -143,12 +150,26 @@ export default function WeaverSurface({
     for (const rec of want.values()) hub.set(rec);
   }, [hub, peers, self]);
 
-  // Remote cursors → caret overlay. The overlay attaches once per editor
-  // mount; redraws ride peer updates (prop) and doc changes (carets must
-  // follow block layout as content moves).
+  // Remote cursors (+ the scripted self caret) → caret overlay. The overlay
+  // attaches once per editor mount; redraws ride peer/selfCursor updates
+  // (props) and doc changes (carets must follow block layout as content
+  // moves).
   const overlayRef = useRef<PresenceOverlay | null>(null);
-  const peersRef = useRef(peers);
-  peersRef.current = peers;
+  const cursorsRef = useRef<PresenceCursor[]>([]);
+  cursorsRef.current = [
+    ...toCursors(peers),
+    ...(self && selfCursor
+      ? [
+          {
+            peerId: `${self.id}#local`,
+            label: self.name,
+            color: peerColor(self.id),
+            blockId: selfCursor.blockId,
+            offset: selfCursor.offset,
+          },
+        ]
+      : []),
+  ];
 
   useEffect(() => {
     // EditorRoot (child) attaches the bridge before this parent effect runs,
@@ -157,7 +178,7 @@ export default function WeaverSurface({
     if (!host) return;
     const overlay = attachPresenceOverlay(host);
     overlayRef.current = overlay;
-    const draw = () => overlay.render(toCursors(peersRef.current));
+    const draw = () => overlay.render(cursorsRef.current);
     draw();
     const unsubDoc = editor.doc.subscribe(() => draw());
     return () => {
@@ -168,8 +189,8 @@ export default function WeaverSurface({
   }, [editor, hostRef]);
 
   useEffect(() => {
-    overlayRef.current?.render(toCursors(peers));
-  }, [peers]);
+    overlayRef.current?.render(cursorsRef.current);
+  }, [peers, self, selfCursor]);
 
   return (
     <div className="weaver-host">
