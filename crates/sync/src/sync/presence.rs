@@ -19,6 +19,17 @@ pub struct PresenceState {
     pub principal: String,
     pub display_name: String,
     pub mode: PresenceMode,
+    /// Session discriminator (one per tab/connection) so two sessions of the
+    /// same principal don't clobber each other's record — mirrors upstream
+    /// Weaver's `peerId = principal#session` convention (weaver PR #35).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session: Option<String>,
+    /// Weaver block id (`data-block-id`) the caret sits in. Paired with
+    /// `cursor_anchor` as the character offset within that block, this is
+    /// enough for peers to draw a live caret in their editor overlay.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cursor_block: Option<String>,
+    /// Character offset of the caret within `cursor_block`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cursor_anchor: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

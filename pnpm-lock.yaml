@@ -94,6 +94,9 @@ importers:
       '@weaver/core':
         specifier: workspace:*
         version: link:../../packages/weaver/core
+      '@weaver/dom':
+        specifier: workspace:*
+        version: link:../../packages/weaver/dom
       '@weaver/react':
         specifier: workspace:*
         version: link:../../packages/weaver/react
@@ -229,6 +232,9 @@ importers:
       '@weaver/core':
         specifier: workspace:*
         version: link:../core
+      '@weaver/sync-core':
+        specifier: workspace:*
+        version: link:../sync-core
       effect:
         specifier: ^3.21.3
         version: 3.21.3

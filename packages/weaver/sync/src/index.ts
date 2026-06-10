@@ -1,5 +1,8 @@
-import { Effect, Schema } from "effect";
+import { Effect, Either, Schema } from "effect";
+import { decodeImportBlobMeta, VersionVector } from "loro-crdt";
 import type { LoroDoc, Subscription } from "loro-crdt";
+import type { PresenceHub } from "@weaver/core";
+import { FrameKind, decodeFrame, encodeFrame } from "@weaver/sync-core";
 import {
   createIndexedDbOpfsStore,
   type OpfsStore,
@@ -23,6 +26,7 @@ export {
   type WsBridgeOptions,
   type ConnectionState,
   type ReceiveHandler,
+  type ReconnectHandler,
   WsBridgeError,
   createWsBridge,
   defaultConnectRetry,
@@ -32,16 +36,23 @@ export {
  * `initSync` wires a LoroDoc to durable storage + an optional WebSocket
  * peer (the Durable Object).
  *
- * Pipeline per spec (`specs/architecture.md#6`):
+ * Pipeline per spec (`specs/architecture.md#6`, `specs/presence.md`):
  *   1. On init: replay snapshot + tail of ops from `OpfsStore` into `doc`.
- *   2. Subscribe to `doc.subscribe(...)`. For every LOCAL batch, export the
- *      delta and (a) append it to OPFS, (b) push it down the WS bridge.
- *   3. For every inbound WS frame, import it into `doc` (CRDT merge).
+ *   2. Subscribe to `doc.subscribe(...)`. For every batch born in this tab
+ *      (local commits + imports from in-tab peer editors, e.g. mock-agent
+ *      peers), export the delta and (a) append it to OPFS untagged, (b) push
+ *      it down the WS bridge as a tagged `doc` frame. Wire-applied imports
+ *      are excluded — they must not loop back out.
+ *   3. For every inbound WS frame, demux on the kind tag: `doc` bodies import
+ *      into `doc` (CRDT merge), `presence` bodies apply into the optional
+ *      `PresenceHub`.
+ *   4. When a `presence` hub is supplied, its locally-originated updates
+ *      (set/remove) go out as tagged `presence` frames — never to storage.
  *
  * Out of scope here (Phase 2b):
- *   - Real `@weaver/server` DO + auth handshake
+ *   - Auth handshake (Biscuit token on the WS upgrade)
  *   - Op validation server-side (currently we trust the peer)
- *   - Subdoc partitioning, presence over WS, snapshot GC to R2
+ *   - Subdoc partitioning, per-tier presence filtering, snapshot GC to R2
  *
  * The bridge is OPTIONAL — when `wsUrl` is omitted, `initSync` becomes a
  * pure local-first persistence wiring (the v1 single-user MVP from
@@ -61,6 +72,12 @@ export interface InitSyncOptions {
    * own examples; not yet tuned against real workloads.
    */
   readonly snapshotEveryNOps?: number;
+  /**
+   * Presence hub to sync over the same socket (`specs/presence.md`). Local
+   * records go out as `presence` frames; inbound `presence` frames apply
+   * here. Ignored when there is no bridge — presence is wire-only state.
+   */
+  readonly presence?: PresenceHub;
 }
 
 export interface SyncHandle {
@@ -147,15 +164,29 @@ export const initSync = (
       });
 
     const docSub: Subscription = doc.subscribe((batch) => {
-      // Only forward LOCAL edits. Imported ops (from the wire OR replayed
-      // from storage) must not loop back out to storage/wire.
-      if (batch.by !== "local") return;
+      // Forward every edit born in this tab: local commits AND imports from
+      // in-tab peer editors wired by `connectPeers` (the Playground's mock
+      // agents reach this doc as `by: "import"` — they're distinct CRDT peers,
+      // and their ops must ride the wire like anyone else's).
+      //
+      // Wire-applied ops must NOT loop back out, but events can't attribute
+      // them: Loro defers emission when an import lands inside another event
+      // callback, so a flag around `doc.import` misses. Attribution is by
+      // VERSION instead — the wire handler below advances the
+      // `lastExportedVersion` watermark past everything it applies, so by the
+      // time an event for those ops fires the delta is empty and the batch is
+      // skipped. In-tab peers' counters are never advanced that way, so their
+      // ops always export. Storage replay happens before this subscription
+      // attaches and is covered by the same watermark.
+      if (batch.by === "checkout") return;
+      const current = doc.version();
+      if (current.compare(lastExportedVersion) === 0) return;
 
       const delta = doc.export({
         mode: "update",
         from: lastExportedVersion,
       });
-      lastExportedVersion = doc.version();
+      lastExportedVersion = current;
       opsSinceSnapshot += 1;
 
       // Fire-and-forget: persistence + transport are independent. Failures
@@ -171,7 +202,7 @@ export const initSync = (
       if (bridge) {
         track(
           Effect.runPromise(
-            bridge.send(delta).pipe(
+            bridge.send(encodeFrame(FrameKind.Doc, delta)).pipe(
               Effect.catchTag("WsBridgeError", (e) =>
                 Effect.logWarning("ws send failed (will retry on reconnect)", e),
               ),
@@ -193,21 +224,123 @@ export const initSync = (
       }
     });
 
-    // 3. Inbound WS frames → import into doc. Imports trigger a non-local
-    //    batch, which the subscriber above will correctly ignore.
+    // 3. Inbound WS frames → demux on the kind tag. Doc imports advance the
+    //    export watermark so the subscriber above never loops them back out;
+    //    presence applies never re-fire the hub's local-update listener.
+    // 4. Locally-originated presence updates → tagged presence frames.
     let unsubscribeWs: (() => void) | null = null;
+    let unsubscribePresence: (() => void) | null = null;
+    let unsubscribeReconnect: (() => void) | null = null;
+    const presence = options.presence ?? null;
     if (bridge && wsUrl) {
       unsubscribeWs = bridge.onReceive((bytes) => {
-        try {
-          doc.import(bytes);
-        } catch (e) {
-          // Malformed frame — log and drop. Op-validation in the DO (Phase
-          // 2b) is the real defense; this is just hygiene.
-          // eslint-disable-next-line no-console
-          console.warn("[weaver/sync] dropped malformed inbound frame", e);
-        }
+        Either.match(decodeFrame(bytes), {
+          onLeft: (e) => {
+            // eslint-disable-next-line no-console
+            console.warn("[weaver/sync] dropped undecodable inbound frame", e);
+          },
+          onRight: ({ kind, body }) => {
+            try {
+              if (kind === FrameKind.Doc) {
+                // Fold the blob's version range into the export watermark
+                // BEFORE importing: Loro may emit the import's events
+                // synchronously (inside `doc.import`) or deferred (when the
+                // import lands nested in another event callback), so
+                // accounting up front is the only timing-proof attribution.
+                // Wire-delivered ops are by definition already known to the
+                // relay and must not be re-sent or re-persisted; in-tab
+                // peers' counters are untouched, so their ops still export.
+                const incoming = decodeImportBlobMeta(
+                  body,
+                  false,
+                ).partialEndVersionVector;
+                const merged = lastExportedVersion.toJSON();
+                for (const [peer, counter] of incoming.toJSON()) {
+                  const prev = merged.get(peer) ?? 0;
+                  if (counter > prev) merged.set(peer, counter);
+                }
+                lastExportedVersion = new VersionVector(merged);
+                doc.import(body);
+              } else {
+                presence?.applyRemote(body);
+              }
+            } catch (e) {
+              // Malformed body — log and drop. Op-validation in the DO
+              // (Phase 2b) is the real defense; this is just hygiene.
+              // eslint-disable-next-line no-console
+              console.warn("[weaver/sync] dropped malformed inbound frame", e);
+            }
+          },
+        });
       });
+
+      if (presence) {
+        unsubscribePresence = presence.subscribeLocalUpdates((bytes) => {
+          track(
+            Effect.runPromise(
+              bridge.send(encodeFrame(FrameKind.Presence, bytes)).pipe(
+                Effect.catchTag("WsBridgeError", (e) =>
+                  Effect.logWarning(
+                    "presence send failed (heartbeat republishes)",
+                    e,
+                  ),
+                ),
+              ),
+            ),
+          );
+        });
+      }
+
+      // Push everything we already know (OPFS-rehydrated state, seed commits
+      // made before this wiring attached) up to the relay in one full update.
+      // Without this, later deltas reference ops the canonical doc never saw
+      // and remote peers stall on missing causal deps. Loro dedups on import,
+      // so overlap with the server's state is harmless.
+      //
+      // This is deliberately dumb: it re-exports the *full* history every time,
+      // not a version-vector delta. Version-vector delta sync (only the ops the
+      // relay is missing) is the Phase 2b handshake; here, on connect AND on
+      // every auto-reconnect, we just dump everything and let Loro dedup.
+      const pushFullState = (): void => {
+        track(
+          Effect.runPromise(
+            bridge
+              .send(encodeFrame(FrameKind.Doc, doc.export({ mode: "update" })))
+              .pipe(
+                Effect.catchTag("WsBridgeError", (e) =>
+                  Effect.logWarning("full state push failed", e),
+                ),
+              ),
+          ),
+        );
+
+        // Same for presence: records published before this wiring attached
+        // (apps typically `set` their own record on mount, before the socket
+        // is up) would otherwise wait out a full heartbeat to become visible.
+        if (presence && presence.all().length > 0) {
+          track(
+            Effect.runPromise(
+              bridge
+                .send(encodeFrame(FrameKind.Presence, presence.encodeAll()))
+                .pipe(
+                  Effect.catchTag("WsBridgeError", (e) =>
+                    Effect.logWarning("full presence push failed", e),
+                  ),
+                ),
+            ),
+          );
+        }
+      };
+
+      // Re-push on every genuine re-establishment. The bridge auto-reconnects
+      // internally, but doc edits made while disconnected never reconcile until
+      // we re-dump full state — the connect-time push runs only once otherwise.
+      unsubscribeReconnect = bridge.onReconnect(pushFullState);
+
       yield* bridge.connect(wsUrl);
+
+      // First-connect push.
+      pushFullState();
     }
 
     return {
@@ -219,7 +352,9 @@ export const initSync = (
           // we drain, then await the in-flight ones (each already recovers
           // its own errors, so the combined promise never rejects).
           docSub();
+          if (unsubscribePresence) unsubscribePresence();
           if (unsubscribeWs) unsubscribeWs();
+          if (unsubscribeReconnect) unsubscribeReconnect();
           yield* Effect.promise(() => Promise.all([...pending]));
           if (bridge) yield* bridge.disconnect();
         }),

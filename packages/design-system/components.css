@@ -148,6 +148,18 @@
   color: var(--color-text-on-primary);
 }
 .cf-presence__dot:first-child { margin-left: 0; }
+/* Session is live (heartbeating presence) — success ring + gentle pulse. */
+.cf-presence__dot--live {
+  box-shadow: 0 0 0 2px var(--color-success);
+  animation: cf-presence-pulse 2.4s ease-in-out infinite;
+}
+@keyframes cf-presence-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px var(--color-success); }
+  50% { box-shadow: 0 0 0 3px var(--color-success-subtle); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cf-presence__dot--live { animation: none; }
+}
 
 /* ---- Surfaces & helpers ------------------------------------------ */
 .cf-surface {

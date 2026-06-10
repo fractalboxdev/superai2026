@@ -9,10 +9,10 @@
 // `editor` is `null` during SSR and first client render; the route mounts the
 // editing surface (React.lazy) only once it resolves.
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Editor } from "@weaver/core";
 import type { PresenceState } from "@superai2026/protocol/sync";
-import type { RoomStatus } from "./weaverTransport";
+import type { RoomStatus, RoomTransport } from "./weaverTransport";
 
 export type { RoomStatus };
 
@@ -22,6 +22,12 @@ export type WeaverRoom = {
   status: RoomStatus;
   /** Live peers (presence within the staleness window), excluding self. */
   peers: PresenceState[];
+  /**
+   * Publish the local caret onto the presence record so remote peers render
+   * it in their caret overlay (upstream weaver PR #35). No-op until the
+   * transport attaches.
+   */
+  setCursor: (cursor: { blockId: string; offset: number } | null) => void;
 };
 
 export function useWeaverRoom(
@@ -32,6 +38,13 @@ export function useWeaverRoom(
   const [editor, setEditor] = useState<Editor | null>(null);
   const [status, setStatus] = useState<RoomStatus>("local");
   const [peers, setPeers] = useState<PresenceState[]>([]);
+  const transportRef = useRef<RoomTransport | null>(null);
+  const setCursor = useCallback(
+    (cursor: { blockId: string; offset: number } | null) => {
+      transportRef.current?.setCursor(cursor);
+    },
+    [],
+  );
 
   useEffect(() => {
     let disposed = false;
@@ -66,7 +79,9 @@ export function useWeaverRoom(
           if (!disposed) setPeers(p);
         },
       });
+      transportRef.current = transport;
       cleanup = () => {
+        transportRef.current = null;
         transport.dispose();
         ed.dispose();
       };
@@ -80,5 +95,5 @@ export function useWeaverRoom(
     };
   }, [principal, displayName, docId]);
 
-  return { editor, status, peers };
+  return { editor, status, peers, setCursor };
 }

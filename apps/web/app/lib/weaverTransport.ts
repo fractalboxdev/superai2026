@@ -48,6 +48,12 @@ export interface RoomTransportOptions {
 }
 
 export interface RoomTransport {
+  /**
+   * Carry the local caret on the presence record (upstream weaver PR #35:
+   * cursors and the roster draw from one identity set). Re-broadcasts
+   * immediately when the caret actually moved; the heartbeat keeps it alive.
+   */
+  setCursor: (cursor: { blockId: string; offset: number } | null) => void;
   dispose: () => void;
 }
 
@@ -140,7 +146,16 @@ export function attachRoomTransport(
   let reconnectAttempt = 0;
   let fatal = false;
   let lastLocalEdit = 0;
+  let cursor: { blockId: string; offset: number } | null = null;
+  // One session per transport attach: two tabs of the same principal publish
+  // two presence records instead of clobbering each other (weaver PR #35).
+  const session = Math.random().toString(36).slice(2, 8);
   const peers = new Map<string, PresenceState>();
+
+  const peerKey = (p: PresenceState) => `${p.principal}#${p.session ?? ""}`;
+
+  const isSelf = (p: PresenceState) =>
+    p.principal === principal && (p.session === undefined || p.session === session);
 
   const publishPeers = () => {
     if (disposed) return;
@@ -148,12 +163,12 @@ export function attachRoomTransport(
     for (const [id, p] of peers) {
       if (now - p.heartbeat >= STALE_MS) peers.delete(id);
     }
-    onPeers([...peers.values()].filter((p) => p.principal !== principal));
+    onPeers([...peers.values()].filter((p) => !isSelf(p)));
   };
 
   const upsertPeer = (p: PresenceState) => {
-    if (p.principal === principal) return;
-    peers.set(p.principal, p);
+    if (isSelf(p)) return;
+    peers.set(peerKey(p), p);
     publishPeers();
   };
 
@@ -288,6 +303,10 @@ export function attachRoomTransport(
       principal,
       display_name: displayName,
       mode: Date.now() - lastLocalEdit < WRITING_MS ? "writing" : "reading",
+      session,
+      ...(cursor
+        ? { cursor_block: cursor.blockId, cursor_anchor: cursor.offset }
+        : {}),
       heartbeat: Date.now(),
     };
     bc?.postMessage({ kind: "awareness", presence });
@@ -300,6 +319,16 @@ export function attachRoomTransport(
   heartbeat = setInterval(beat, HEARTBEAT_MS);
 
   return {
+    setCursor: (next) => {
+      const moved =
+        (cursor === null) !== (next === null) ||
+        (next !== null &&
+          (cursor!.blockId !== next.blockId || cursor!.offset !== next.offset));
+      cursor = next;
+      // Re-beat only on a real move — selectionchange fires liberally and an
+      // unchanged caret would just spam the room with identical records.
+      if (moved) beat();
+    },
     dispose: () => {
       disposed = true;
       if (heartbeat) clearInterval(heartbeat);

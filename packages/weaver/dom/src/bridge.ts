@@ -1,12 +1,25 @@
 import type { BlockId, Editor } from "@weaver/core";
-import { blockElementContaining, blockIdOf, reconcileTopLevel } from "./dom-mapper.js";
+import { getBlock } from "@weaver/core";
+import {
+  TEXT_PLACEHOLDER,
+  blockElementContaining,
+  blockIdOf,
+  findBlockElement,
+  reconcileTopLevel,
+} from "./dom-mapper.js";
 import {
   type DomCaret,
   type DomRange,
+  caretRect,
   placeCaret,
   readDomSelection,
   writeDomSelection,
 } from "./selection-mapper.js";
+import {
+  type MentionTrigger,
+  detectMentionTrigger,
+  mentionTriggersEqual,
+} from "./mention-trigger.js";
 import {
   handleBackspace,
   handleClearFormatting,
@@ -21,8 +34,24 @@ import {
   handleWordDeleteForward,
 } from "./keymap.js";
 
+/**
+ * Clipboard flavor carrying the structured weaver fragment (kinds, attrs,
+ * marks, nesting) between weaver surfaces — specs/lexical-parity.md §3.
+ * `text/plain` interoperates with everything else; HTML import/export is the
+ * @weaver/plugins-html follow-up. Exported so tests and future plugins speak
+ * the same protocol string.
+ */
+export const WEAVER_MIME = "application/x-weaver";
+
 export interface BridgeOptions {
   readonly classList?: ReadonlyArray<string>;
+  /**
+   * Fired whenever the @-mention trigger state behind the caret changes —
+   * `MentionTrigger` while the user is typing `@query`, `null` once the
+   * trigger is dismissed (whitespace, caret move, deletion of the `@`).
+   * Deduped: consecutive identical states notify once.
+   */
+  readonly onMentionTrigger?: (trigger: MentionTrigger | null) => void;
 }
 
 export interface AttachedBridge {
@@ -50,8 +79,8 @@ const deleteDomRange = (editor: Editor, range: DomRange): DomCaret => {
   return sel ? sel.anchor : range.anchor;
 };
 
-const richifyHost = (host: HTMLElement, opts: BridgeOptions): void => {
-  host.setAttribute("contenteditable", "true");
+const richifyHost = (host: HTMLElement, opts: BridgeOptions, editable: boolean): void => {
+  host.setAttribute("contenteditable", editable ? "true" : "false");
   host.setAttribute("data-weaver-root", "");
   host.setAttribute("spellcheck", "true");
   host.setAttribute("role", "textbox");
@@ -122,8 +151,15 @@ export const attachEditor = (
   host: HTMLElement,
   options: BridgeOptions = {},
 ): AttachedBridge => {
-  richifyHost(host, options);
+  richifyHost(host, options, editor.isEditable());
   reconcileTopLevel(editor, host);
+
+  // Read-only mode (lexical-parity §3): mirror the core editable flag onto
+  // `contenteditable` so the browser stops accepting input at the source; the
+  // beforeinput/keydown guards below are the backstop for synthetic events.
+  const unsubEditable = editor.onEditableChange(() => {
+    host.setAttribute("contenteditable", editor.isEditable() ? "true" : "false");
+  });
 
   let pendingCaret: DomRange | null = null;
   // The block most recently targeted by Tab/Shift+Tab. An indent nests the
@@ -144,16 +180,45 @@ export const attachEditor = (
   // (macOS autocorrect, IME, scripted bursts) all read the same stale DOM
   // selection at offset 0 and the chars come out reversed ("hello" → "olleh").
   // Idempotent and re-entrancy guarded so doc.subscribe can call it safely too.
+  // Whether a block's pre-reconcile DOM text matches the (already-committed)
+  // model text. Guards the selection restore below: a DOM-captured offset is
+  // only meaningful against unchanged text — re-applying it after a remote
+  // insert/delete in the same block would relocate the caret relative to
+  // what the user sees, which is worse than dropping it. Real cross-edit
+  // stability needs Loro Cursor anchors (specs/hard-problems.md §1).
+  const blockTextUnchanged = (blockId: BlockId): boolean => {
+    const el = findBlockElement(host, blockId);
+    if (!el) return false;
+    const domText = (el.textContent ?? "").replaceAll(TEXT_PLACEHOLDER, "");
+    return domText === editor.commands.text.read(blockId);
+  };
+
   const flushRerender = (): void => {
     if (flushing) return;
     flushing = true;
     flushScheduled = false;
     try {
-      reconcileTopLevel(editor, host);
-      if (pendingCaret) {
-        writeDomSelection(host, pendingCaret);
-        pendingCaret = null;
+      // No pendingCaret (a remote/programmatic commit, not a local keystroke):
+      // capture the live selection as model offsets before reconciling, then
+      // write it back. Reconcile replaces marked runs via `replaceChildren`,
+      // which would otherwise silently drop the user's caret whenever their
+      // block carries marks. Restore only when the endpoint blocks' text is
+      // unchanged (see blockTextUnchanged).
+      let restore = pendingCaret;
+      if (!restore) {
+        const captured = readDomSelection(host);
+        if (
+          captured &&
+          blockTextUnchanged(captured.anchor.blockId) &&
+          (captured.anchor.blockId === captured.focus.blockId ||
+            blockTextUnchanged(captured.focus.blockId))
+        ) {
+          restore = captured;
+        }
       }
+      reconcileTopLevel(editor, host);
+      if (restore) writeDomSelection(host, restore);
+      pendingCaret = null;
     } finally {
       flushing = false;
     }
@@ -175,6 +240,57 @@ export const attachEditor = (
   const unsub = editor.doc.subscribe(() => {
     scheduleRerender();
   });
+
+  // ---- @-mention trigger tracking -----------------------------------------
+  let lastTrigger: MentionTrigger | null = null;
+
+  /** Re-evaluate the trigger behind the caret; notify the host app on change. */
+  const notifyMentionTrigger = (): void => {
+    const notify = options.onMentionTrigger;
+    if (!notify) return;
+    let next: MentionTrigger | null = null;
+    if (!composing) {
+      const range = readDomSelection(host);
+      if (range && range.collapsed) {
+        const detected = detectMentionTrigger(editor, range.anchor);
+        if (detected) {
+          next = {
+            ...detected,
+            rect: caretRect(host, {
+              blockId: detected.blockId,
+              offset: detected.start,
+            }),
+          };
+        }
+      }
+    }
+    if (mentionTriggersEqual(lastTrigger, next)) return;
+    lastTrigger = next;
+    notify(next);
+  };
+
+  const onSelectionChange = (): void => {
+    // Mirror the user's live caret into the core selection state so
+    // `useSelection` consumers (toolbars, presence cursors) track clicks and
+    // arrow keys, not just programmatic ops — Lexical's
+    // SELECTION_CHANGE_COMMAND parity. Guarded by value equality: the
+    // browser fires `selectionchange` generously (including after our own
+    // rerenders restore the caret), and an unconditional `set` would notify
+    // every subscriber per event. A selection outside the host leaves the
+    // editor's state alone — blur must not drop the caret.
+    const range = readDomSelection(host);
+    if (range) {
+      const cur = editor.commands.selection.get();
+      const unchanged =
+        cur !== null &&
+        cur.anchor.blockId === range.anchor.blockId &&
+        cur.anchor.offset === range.anchor.offset &&
+        cur.focus.blockId === range.focus.blockId &&
+        cur.focus.offset === range.focus.offset;
+      if (!unchanged) editor.commands.selection.set(range);
+    }
+    notifyMentionTrigger();
+  };
 
   const applyBeforeInput = (e: InputEvent): void => {
     let range = readDomSelection(host);
@@ -312,6 +428,12 @@ export const attachEditor = (
 
   const onBeforeInput = (ev: Event): void => {
     if (composing) return;
+    if (!editor.isEditable()) {
+      // Read-only: swallow the input instead of letting the browser (or a
+      // synthetic event) mutate the surface.
+      ev.preventDefault();
+      return;
+    }
     const e = ev as InputEvent;
     // LoroDoc is the single source of truth (D1); never let the browser
     // mutate the DOM out-of-band.
@@ -323,22 +445,48 @@ export const attachEditor = (
       // next beforeinput event reads it. See flushRerender() for why this
       // can't wait for a microtask.
       flushRerender();
+      notifyMentionTrigger();
     }
   };
 
   const onKeyDown = (ev: KeyboardEvent): void => {
+    // Read-only: every shortcut below mutates the doc (indent, undo, marks,
+    // clear-formatting) except Ctrl/Cmd+A, which is pure selection.
+    if (!editor.isEditable()) {
+      const lower = ev.key.toLowerCase();
+      const isSelectAll = (ev.ctrlKey || ev.metaKey) && lower === "a";
+      if (!isSelectAll) {
+        ev.preventDefault();
+        return;
+      }
+    }
     // Tab / Shift+Tab — indent / outdent the current block. No modifier
     // required, so handle it before the modifier early-return below.
     if (ev.key === "Tab") {
       ev.preventDefault();
       const range = readDomSelection(host);
       const blockId = range?.anchor.blockId ?? lastIndentTarget;
-      if (blockId) {
-        if (ev.shiftKey) editor.commands.block.outdent({ blockId });
-        else editor.commands.block.indent({ blockId });
-        lastIndentTarget = blockId;
+      if (!blockId) return;
+      // Inside a code block Tab is literal whitespace, not block structure
+      // (Lexical's CodeNode does the same).
+      const block = getBlock(editor, blockId);
+      if (block?.kind === "code" && !ev.shiftKey && range) {
+        editor.commands.text.insertTab({
+          blockId,
+          offset: range.anchor.offset,
+        });
+        const caret = { blockId, offset: range.anchor.offset + 1 };
+        pendingCaret = { anchor: caret, focus: caret, collapsed: true };
         flushRerender();
+        return;
       }
+      if (ev.shiftKey) editor.commands.block.outdent({ blockId });
+      else editor.commands.block.indent({ blockId });
+      lastIndentTarget = blockId;
+      // Re-anchor the caret after the reconcile — the block element may have
+      // been repositioned, which clears the live DOM selection.
+      if (range) pendingCaret = range;
+      flushRerender();
       return;
     }
 
@@ -352,6 +500,9 @@ export const attachEditor = (
       if (ev.shiftKey) editor.commands.history.redo();
       else editor.commands.history.undo();
       flushRerender();
+      // Undo can restore (or remove) trigger text — re-evaluate, symmetric
+      // with the Safari historyUndo beforeinput path.
+      notifyMentionTrigger();
       return;
     }
 
@@ -412,6 +563,16 @@ export const attachEditor = (
 
   const onCompositionEnd = (ev: CompositionEvent): void => {
     composing = false;
+    // Read-only can flip MID-composition (programmatic toggle): beforeinput
+    // is skipped while composing, so this is the only place the guard can
+    // catch a finalized IME insert. contenteditable=false alone is not a
+    // reliable IME suppressor across browsers.
+    if (!editor.isEditable()) {
+      composedTarget = null;
+      composedInitial = "";
+      flushRerender();
+      return;
+    }
     const final = ev.data ?? "";
     if (composedTarget && final.length > 0) {
       editor.commands.text.insert({
@@ -434,10 +595,98 @@ export const attachEditor = (
     composedTarget = null;
     composedInitial = "";
     flushRerender();
+    notifyMentionTrigger();
+  };
+
+  /** Snapshot the live DOM selection into the core selection state. */
+  const syncSelectionFromDom = (): DomRange | null => {
+    const range = readDomSelection(host);
+    if (!range) return null;
+    editor.commands.selection.set(range);
+    return range;
+  };
+
+  const writeClipboard = (ev: ClipboardEvent, cutting: boolean): void => {
+    if (!ev.clipboardData) return;
+    if (!syncSelectionFromDom()) return;
+    const payload = cutting
+      ? editor.commands.clipboard.cut()
+      : editor.commands.clipboard.copy();
+    if (!payload) return;
+    // The browser default would serialize the DOM selection itself —
+    // preventDefault so the model-derived payload is authoritative.
+    ev.preventDefault();
+    ev.clipboardData.setData("text/plain", payload.text);
+    ev.clipboardData.setData(WEAVER_MIME, JSON.stringify(payload));
+    if (cutting) {
+      const sel = editor.commands.selection.get();
+      if (sel) {
+        pendingCaret = { anchor: sel.anchor, focus: sel.anchor, collapsed: true };
+      }
+      flushRerender();
+    }
+  };
+
+  const onCopy = (ev: Event): void => writeClipboard(ev as ClipboardEvent, false);
+  const onCut = (ev: Event): void => writeClipboard(ev as ClipboardEvent, true);
+
+  const onPaste = (ev: Event): void => {
+    const e = ev as ClipboardEvent;
+    if (!e.clipboardData) return;
+    // Always claim the paste: LoroDoc is the single source of truth (D1), so
+    // the browser must never splice clipboard HTML into the DOM directly.
+    e.preventDefault();
+    if (!syncSelectionFromDom()) return;
+    const structured = e.clipboardData.getData(WEAVER_MIME);
+    try {
+      if (structured) {
+        try {
+          editor.commands.clipboard.paste(JSON.parse(structured));
+        } catch {
+          // Corrupt flavor (e.g. truncated by another app) — fall back to text.
+          editor.commands.clipboard.pasteText(
+            e.clipboardData.getData("text/plain") ?? "",
+          );
+        }
+      } else {
+        const text = e.clipboardData.getData("text/plain");
+        if (!text) return;
+        editor.commands.clipboard.pasteText(text);
+      }
+    } catch {
+      // The fallback itself can throw (e.g. caret programmatically placed on
+      // a non-inline block) — an unhandled exception from a DOM event
+      // listener helps no one; the paste is simply dropped.
+      return;
+    }
+    const sel = editor.commands.selection.get();
+    if (sel) {
+      pendingCaret = { anchor: sel.anchor, focus: sel.anchor, collapsed: true };
+    }
+    flushRerender();
   };
 
   const onFocus = (): void => {
     ensureCaretInBlock(editor, host);
+  };
+
+  const onClick = (ev: MouseEvent): void => {
+    // The to-do checkbox affordance is contenteditable=false, so clicks on it
+    // never produce input events — toggle the block's `checked` attr here.
+    // Toggling mutates the doc, so read-only mode swallows it too.
+    if (!editor.isEditable()) return;
+    const target = ev.target instanceof Element ? ev.target : null;
+    const check = target?.closest("[data-todo-check]");
+    if (!check) return;
+    ev.preventDefault();
+    const blockEl = blockElementContaining(host, check);
+    const id = blockEl ? blockIdOf(blockEl) : null;
+    if (!id) return;
+    const block = getBlock(editor, id);
+    if (!block || block.kind !== "to-do") return;
+    const checked = (block.attrs as { checked?: boolean }).checked === true;
+    editor.commands.block.setAttr({ blockId: id, key: "checked", value: !checked });
+    flushRerender();
   };
 
   const onMouseDown = (ev: MouseEvent): void => {
@@ -457,6 +706,27 @@ export const attachEditor = (
   host.addEventListener("compositionend", onCompositionEnd);
   host.addEventListener("focus", onFocus);
   host.addEventListener("mousedown", onMouseDown);
+  host.addEventListener("click", onClick);
+  host.addEventListener("copy", onCopy);
+  host.addEventListener("cut", onCut);
+  host.addEventListener("paste", onPaste);
+  // Caret moves (arrow keys, clicks) don't go through beforeinput — the
+  // document-level selectionchange event is what mirrors the live DOM caret
+  // into core selection (the substrate for presence cursors / `useSelection`)
+  // and dismisses / re-opens the mention trigger on pure caret motion.
+  // [local mod] Upstream registers this only when `onMentionTrigger` is set;
+  // here the mirror is always on so consumers without mentions still get a
+  // live `useSelection` (see ../UPSTREAM.md).
+  host.ownerDocument.addEventListener("selectionchange", onSelectionChange);
+  if (options.onMentionTrigger) {
+    // Scroll (capture: catches nested scrollers) and resize move the trigger's
+    // viewport rect without any selection change — re-anchor the picker.
+    host.ownerDocument.addEventListener("scroll", onSelectionChange, true);
+    host.ownerDocument.defaultView?.addEventListener(
+      "resize",
+      onSelectionChange,
+    );
+  }
 
   return {
     host,
@@ -468,8 +738,28 @@ export const attachEditor = (
       host.removeEventListener("compositionend", onCompositionEnd);
       host.removeEventListener("focus", onFocus);
       host.removeEventListener("mousedown", onMouseDown);
+      host.removeEventListener("click", onClick);
+      host.removeEventListener("copy", onCopy);
+      host.removeEventListener("cut", onCut);
+      host.removeEventListener("paste", onPaste);
+      host.ownerDocument.removeEventListener(
+        "selectionchange",
+        onSelectionChange,
+      );
+      if (options.onMentionTrigger) {
+        host.ownerDocument.removeEventListener(
+          "scroll",
+          onSelectionChange,
+          true,
+        );
+        host.ownerDocument.defaultView?.removeEventListener(
+          "resize",
+          onSelectionChange,
+        );
+      }
       host.removeAttribute("contenteditable");
       host.removeAttribute("data-weaver-root");
+      unsubEditable();
       unsub();
     },
   };

@@ -21,6 +21,7 @@
     "@superai2026/design-system": "workspace:*",
     "@superai2026/protocol": "workspace:*",
     "@weaver/core": "workspace:*",
+    "@weaver/dom": "workspace:*",
     "@weaver/react": "workspace:*",
     "effect": "^3.21.3",
     "isbot": "^5.1.41",
