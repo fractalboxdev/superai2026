@@ -67,9 +67,9 @@ const jsonLd = {
 
 const stats = [
   { to: 100, suffix: "%", label: "On-device by default" },
-  { to: 0, suffix: "", label: "Bytes leave without consent" },
-  { to: 48, suffix: "ms", label: "Scoped-query median" },
-  { to: 7, suffix: "+", label: "Tools in one brain" },
+  { to: 6, suffix: "+", label: "Connectors" },
+  { to: 50, suffix: "ms", label: "Local network latency" },
+  { to: 3, suffix: "", label: "Deploy targets" },
 ];
 
 const features = [
@@ -267,7 +267,7 @@ for (const m of cast) {
         <div class="cf-container">
           <header class="section__head section__head--center" data-reveal>
             <span class="cf-eyebrow">Watch it think</span>
-            <h2>A 100-person spend review, <span class="cf-text-gradient">showing itself.</span></h2>
+            <h2>Collaborate with context and privacy, <span class="cf-text-gradient">like it's in a meeting room.</span></h2>
             <p class="section__lead">
               Live below: a CFO agent asks a budget question. The brain answers from synthesized
               context — with the salary line redacted, because that's outside the agent's scope.
@@ -737,8 +737,8 @@ for (const m of cast) {
       .hero { position: relative; padding-block: var(--space-20) var(--space-16); }
       .hero__inner {
         display: grid;
-        grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
-        gap: var(--space-12);
+        grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.28fr);
+        gap: var(--space-10);
         align-items: center;
       }
       .hero__copy { max-width: 34rem; }
