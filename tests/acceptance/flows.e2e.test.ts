@@ -38,7 +38,7 @@ d("Reference flows over the brain MCP", () => {
 
   // ---- Flow A: request → approve → scoped pull ----
   describe("Flow A — request → approve → scoped pull", () => {
-    it("CTO agent is denied finance_private up front", async () => {
+    it("Richard's agent is denied finance_private up front", async () => {
       const r = await callTool(flow, "agent:cto/1", "brain.query", {
         view: "stripe/finance_private",
         select: ["credits", "discount_tier"],
@@ -83,7 +83,7 @@ d("Reference flows over the brain MCP", () => {
 
   // ---- Flow B: the salary invariant (negative) ----
   describe("Flow B — salary invariant", () => {
-    it("engineering agent's salary query is denied", async () => {
+    it("Dinesh's agent's salary query is denied", async () => {
       const r = await callTool(flow, "agent:eng/1", "brain.query", {
         view: "stripe/finance_private",
         select: ["employee_salary"],

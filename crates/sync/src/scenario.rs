@@ -18,24 +18,29 @@ pub fn finance_private() -> View {
 pub const PERIOD: &str = "2026-05";
 pub const ALL_TEAMS: &[&str] = &["eng", "ops", "sales", "finance"];
 
+// The demo cast is always the Pied Piper team (HBO Silicon Valley), displayed
+// as "Name (Role)". Principal ids and owners stay stable (`cfo`, `agent:cto/1`,
+// …) — they are wire/CLI identifiers shared with packages/protocol and the
+// acceptance suite.
+
 pub fn cfo() -> Principal {
     Principal::Human {
         id: "cfo".into(),
-        name: "Dana (CFO)".into(),
+        name: "Monica (CFO)".into(),
         role: "finance".into(),
     }
 }
 pub fn cto_agent() -> Principal {
     Principal::Agent {
         id: "agent:cto/1".into(),
-        name: "CTO's agent".into(),
+        name: "Richard's agent".into(),
         owner: "cto".into(),
     }
 }
 pub fn eng_agent() -> Principal {
     Principal::Agent {
         id: "agent:eng/1".into(),
-        name: "Engineering agent".into(),
+        name: "Dinesh's agent".into(),
         owner: "eng".into(),
     }
 }
@@ -96,7 +101,7 @@ pub fn cfo_capability() -> Capability {
     .expect("cfo root covers finance_private")
 }
 
-/// CTO's agent: team-level spend only (no finance_private) until Flow A grants it.
+/// Richard's agent: team-level spend only (no finance_private) until Flow A grants it.
 pub fn cto_agent_capability() -> Capability {
     mint_with_docs(
         &cfo_root(),
@@ -110,7 +115,7 @@ pub fn cto_agent_capability() -> Capability {
     .expect("cfo root covers spend_by_team")
 }
 
-/// Engineering agent: usage view, own team rows only. Never any salary path.
+/// Dinesh's agent: usage view, own team rows only. Never any salary path.
 pub fn eng_agent_capability() -> Capability {
     mint_with_docs(
         &cfo_root(),
