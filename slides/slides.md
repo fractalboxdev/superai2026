@@ -61,6 +61,36 @@ layout: center
 class: text-center
 ---
 
+# How do you share the company brain — with everyone, and their agents?
+
+<v-clicks>
+
+<p class="text-2xl mt-10">Too <b>little context</b> → <span class="opacity-60">useless</span></p>
+
+<p class="text-2xl">Too <b>much access</b> → <span class="opacity-60">dangerous</span></p>
+
+</v-clicks>
+
+<p v-click class="mt-10 font-bold text-2xl">Today you're forced to pick one.</p>
+
+<!--
+🎤 SAY (placeholder — edit me):
+"So here's the real question: how do you share the company brain — with everyone on the
+team, and with their agents? Give an agent too little context and it's useless — it can't
+answer anything that matters. Give it too much access and it's dangerous — that's the
+salary leak you just watched. Today, those are your only two settings. You're forced to
+pick one."
+
+Source: Act 1 · Beat 4 — the dilemma slide (PRESENTATION.md table row 2). This frames
+the rest of the talk: the three bad options on the next slide are just the three ways
+companies cope with this forced choice.
+-->
+
+---
+layout: center
+class: text-center
+---
+
 # Do you…
 
 <v-clicks>
@@ -95,8 +125,12 @@ recognize themselves; the ask slide pays this off later.
 
 # Context for collaboration matters
 
-<div class="screenshot-slot screenshot-slot--beside-cast mt-4">
-  <img :src="'/assets/q3-spend-review.png'" alt="The Q3 AI Spend Review shared doc — on-prem · tailnet and salary · redacted badges, Richard (CEO)'s 2026 Q3 ask, Jared (COO)'s $/KB nuance, and Monica's agent denied on the CEO-salary question (no_grant)" style="max-height: 25rem" />
+<div class="mr-44 mt-8">
+
+> **Richard (CEO):** "Let's improve AI optimization spending for 2026 Q3."
+>
+> **Jared (COO):** "Unit economics — cost per compression ($/KB) at the client."
+
 </div>
 
 <div class="cast cast--side">
@@ -106,10 +140,6 @@ recognize themselves; the ask slide pays this off later.
   <p class="cast-caption">Dinesh is trying…</p>
 </div>
 
-<div v-click class="overlay-line">
-  <span>Agents need context but <b>only what is necessary</b></span>
-</div>
-
 <!--
 🎤 SAY (placeholder — edit me):
 "Context for collaboration matters. The CEO writes in the shared doc — let's improve AI
@@ -117,16 +147,32 @@ optimization spending for 2026 Q3. The COO adds the nuance: we're growing, we ne
 economics — what does a compressed kilobyte actually cost us at the client? Simple
 question, and nobody can answer it alone: engineering knows what the tools are worth but
 not what they cost; finance holds the credits and the discount tier and can't share them
-with the room. The obvious fix is one AI that knows everything — but that's the world
-where an engineer can query everyone's salary. The thing that would answer the question
-is exactly the thing you can't allow to exist."
+with the room."
+
+Source: Act 2. Keep it jargon-free on stage; the $/KB line is the COO's own words.
+-->
+
+---
+
+<div class="screenshot-slot mt-2">
+  <img :src="'/assets/q3-spend-review.png'" alt="The Q3 AI Spend Review shared doc — on-prem · tailnet and salary · redacted badges, Richard (CEO)'s 2026 Q3 ask, Jared (COO)'s $/KB nuance, and Monica's agent denied on the CEO-salary question (no_grant)" style="max-height: 28rem" />
+</div>
+
+<div v-click class="overlay-line">
+  <span>Agents need context but <b>only what is necessary</b></span>
+</div>
+
+<!--
+🎤 SAY (placeholder — edit me):
+"The obvious fix is one AI that knows everything — but that's the world where an engineer
+can query everyone's salary. The thing that would answer the question is exactly the
+thing you can't allow to exist."
 
 SCREENSHOT: the Q3 AI Spend Review shared-doc capture
 (slides/public/assets/q3-spend-review.png). Badges: on-prem · tailnet, salary · redacted.
 Bottom of the doc: someone asked Monica's analyst agent for the CEO's salary —
 Denied · no_grant, the token carries no grant for that view. That denial is the money
 shot — let it land before moving on.
-Source: Act 2. Keep it jargon-free on stage; the $/KB line is the COO's own words.
 -->
 
 ---
@@ -581,6 +627,28 @@ writes the long-tail connector nobody sells. Keep numbers honest: "$200 × N" is
 of magnitude of managed-connector/ETL pricing, not a quote.
 SAMPLE TOPOLOGY: server nodes run `sync serve` (relay + connectors; AWS box and/or a Mac
 Studio over Tailscale), employee laptops run the menu-bar client.
+-->
+
+---
+layout: center
+class: text-center
+---
+
+# The ask
+
+<p class="text-2xl mt-8">We're looking for <b>design partners</b>.</p>
+
+<p v-click class="mt-6 text-xl opacity-80">Companies that already <b>blocked AI</b> — and want the upside back.</p>
+
+<!--
+🎤 SAY (placeholder — edit me):
+"Here's what we want. We're looking for design partners — companies that already blocked
+AI because they couldn't trust it with their context, and want the upside back. If that's
+you — or someone you advise — come talk to me."
+
+Source: Act 4 close (PRESENTATION.md table row 12). PLACEHOLDER: replace with the real
+ask once decided — the table row itself says so. This pays off the "Block AI usage?"
+hand-raise from the Do you… slide.
 -->
 
 ---
