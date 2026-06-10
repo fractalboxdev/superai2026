@@ -57,7 +57,7 @@ let logSeq = 0;
 // The scripted editor-agent demo: impersonate the CFO, type this question into
 // the live doc, and let the local `sync agent --watch-doc <doc>` peer answer
 // it from brain memory (~/.contextful) over the relay.
-const DEMO_QUESTION = "Unit economics of compression product";
+const DEMO_QUESTION = "Let me share the unit economics of our compression product";
 const DEMO_ANSWER_MARK = "A (cfo · from brain memory)";
 
 const demoSleep = (ms: number, signal: AbortSignal) =>
@@ -428,7 +428,7 @@ export default function ConsolePage({ docId }: { docId: string }) {
                 onClick={runEditorDemo}
                 disabled={demoAsk != null}
               >
-                {demoAsk ? "Typing as CFO…" : `▶ CFO asks: ${DEMO_QUESTION}`}
+                {demoAsk ? "Typing as CFO…" : "▶ Demo Q by CFO"}
               </button>
               {syncStatus !== "live" && (
                 <p className="cf-text-muted" style={{ fontSize: "var(--text-sm)", margin: 0 }}>

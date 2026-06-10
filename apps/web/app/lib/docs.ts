@@ -9,12 +9,15 @@ export const DOCS: DocMeta[] = [
     id: "finops",
     title: "Q3 AI Spend Review",
     seed:
-      "Gilfoyle reports Claude Code utilization is up across the platform team. " +
-      "The open question for this review: is the spend justified once credits and our " +
-      "discount tier are applied?\n\n" +
-      "Each principal queries the same brain but sees only what their capability token " +
-      "permits. Switch “Acting as” and run a query — the brain redacts fields " +
-      "you aren’t cleared for, and a denied view is what triggers a scoped access request.",
+      "Richard (CEO): “Let’s improve AI optimization spending for 2026 Q3.”\n\n" +
+      "Jared (COO): “Unit economics — cost per compression ($/KB) at the client.”\n\n" +
+      "Nobody at the table can answer alone: Richard (CEO)’s agent sees the value but " +
+      "no pricing, Jared (COO) runs the outcome evals but sees no cost, and Monica (CFO) " +
+      "holds the decisive pieces — credits, discount tier, Stripe revenue — and won’t " +
+      "expose them to everyone.\n\n" +
+      "Switch “Acting as” and put the same query to each agent — the brain redacts " +
+      "fields your capability token doesn’t grant, and a denied view is what raises " +
+      "a scoped access request.",
   },
   {
     id: "agent-evals",
