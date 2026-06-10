@@ -63,7 +63,7 @@ impl ExaConnector {
     }
 
     fn api_key() -> Option<String> {
-        std::env::var("EXA_API_KEY").ok().filter(|k| !k.is_empty())
+        crate::config::nonempty_env("EXA_API_KEY")
     }
 
     /// Live `/search` call (contents inlined via the `contents` option).

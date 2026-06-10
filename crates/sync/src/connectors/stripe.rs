@@ -107,13 +107,11 @@ impl StripeConnector {
                     .collect()
             });
 
-        if let Ok(key) = std::env::var("STRIPE_SECRET_KEY") {
-            if !key.is_empty() {
-                match live_team_aggregates(&key) {
-                    Ok(live) if !live.is_empty() => overlay_live(&mut rows, live),
-                    Ok(_) => tracing::info!("stripe live: no charges yet — fixture rows only"),
-                    Err(e) => tracing::warn!(error = %e, "stripe live pull failed — fixture rows"),
-                }
+        if let Some(key) = crate::config::nonempty_env("STRIPE_SECRET_KEY") {
+            match live_team_aggregates(&key) {
+                Ok(live) if !live.is_empty() => overlay_live(&mut rows, live),
+                Ok(_) => tracing::info!("stripe live: no charges yet — fixture rows only"),
+                Err(e) => tracing::warn!(error = %e, "stripe live pull failed — fixture rows"),
             }
         }
         rows

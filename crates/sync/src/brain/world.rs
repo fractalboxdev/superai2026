@@ -8,11 +8,10 @@
 //! [`ground`] (`grounds` edges).
 
 use anyhow::Result;
-use chrono::Utc;
 
 use crate::access::egress::{firewall, EgressTerm, Taint};
 use crate::access::View;
-use crate::brain::markdown::{render_card, slug, CardMeta};
+use crate::brain::markdown::slug;
 use crate::brain::{BrainIndex, Link, LinkRel, Memory, MemoryKind};
 use crate::config::Config;
 use crate::connectors::exa::ExaConnector;
@@ -51,11 +50,15 @@ pub fn taint_terms(index: &BrainIndex, query: &str) -> Vec<EgressTerm> {
         .collect()
 }
 
-/// Values of fields marked private by the connectors' view schemas
-/// (finance-private: employee_salary, credits, discount_tier, …), paired with
-/// the view they came from.
+/// Fields marked `private: true` in the connectors' view schemas. `gross` and
+/// `net` are deliberately absent: aggregated team totals are non-private by
+/// schema (see `StripeConnector::views`) and may appear in outbound queries.
+/// Kept in lockstep with the schemas by `private_fields_match_schemas` below.
+const PRIVATE_FIELDS: &[&str] = &["employee_salary", "credits", "discount_tier"];
+
+/// Values of the private fields currently in the index, paired with the view
+/// they came from.
 fn private_field_values(index: &BrainIndex) -> Vec<(String, String)> {
-    const PRIVATE_FIELDS: &[&str] = &["employee_salary", "credits", "discount_tier"];
     let mut out = Vec::new();
     for e in &index.raw_events {
         if let Some(map) = e.payload.as_object() {
@@ -105,7 +108,6 @@ pub fn world_search(
     let events = connector.pull(&Cursor::default())?;
 
     let mut new_memories = Vec::new();
-    let now = Utc::now().to_rfc3339();
     for event in events {
         let url = event
             .payload
@@ -132,32 +134,23 @@ pub fn world_search(
             .and_then(|v| v.as_str())
             .unwrap_or_default();
 
-        let acl = world_acl();
-        let meta = CardMeta {
-            topic: "world",
-            kind: "world_fact",
-            period: None,
-            confidence: 0.5,
-            acl_tag: &acl,
-        };
         let body = format!("{snippet}\n\nSource: <{url}>");
-        let name = slug(title);
-        let path = store.write_card("world", &name, &render_card(&meta, title, &body))?;
-
-        let memory = Memory {
-            id: uuid::Uuid::new_v4().to_string(),
-            kind: MemoryKind::WorldFact,
-            // topic doubles as the citation key (url) for dedupe + display
-            topic: url,
-            path: path.display().to_string(),
-            acl_tag: acl,
-            confidence: 0.5,
-            period: None,
-            supersedes: None,
-            created_at: now.clone(),
-        };
+        let memory = crate::brain::write_memory(
+            store,
+            index,
+            crate::brain::CardWrite {
+                kind: MemoryKind::WorldFact,
+                topic: "world",
+                // index topic doubles as the citation key (url) for dedupe + display
+                index_topic: Some(url),
+                slug: &slug(title),
+                title,
+                body: &body,
+                confidence: 0.5,
+                acl_tag: world_acl(),
+            },
+        )?;
         index.raw_events.push(event);
-        index.memories.push(memory.clone());
         new_memories.push(memory);
     }
     Ok(new_memories)
@@ -197,6 +190,25 @@ mod tests {
     use super::*;
     use crate::connectors::RawEvent;
     use serde_json::json;
+
+    /// `PRIVATE_FIELDS` is a denormalised copy of the `private: true` flags in
+    /// the connector view schemas — this pins them together.
+    #[test]
+    fn private_fields_match_schemas() {
+        let conn = crate::connectors::stripe::StripeConnector::new(std::path::PathBuf::from("."));
+        let mut from_schema: Vec<String> = conn
+            .views()
+            .iter()
+            .flat_map(|s| s.fields.iter())
+            .filter(|f| f.private)
+            .map(|f| f.name.clone())
+            .collect();
+        from_schema.sort();
+        from_schema.dedup();
+        let mut declared: Vec<String> = PRIVATE_FIELDS.iter().map(|f| f.to_string()).collect();
+        declared.sort();
+        assert_eq!(declared, from_schema);
+    }
 
     fn index_with_private_value() -> BrainIndex {
         let mut index = BrainIndex::default();

@@ -210,9 +210,9 @@ impl Inference for Bedrock {
 pub fn from_config(backend: InferenceBackend) -> Box<dyn Inference> {
     match backend {
         InferenceBackend::Stub => Box::new(StubInference),
-        InferenceBackend::Gateway => match std::env::var("AI_GATEWAY_API_KEY") {
-            Ok(key) if !key.is_empty() => Box::new(OpenAiCompat::gateway(key)),
-            _ => {
+        InferenceBackend::Gateway => match crate::config::nonempty_env("AI_GATEWAY_API_KEY") {
+            Some(key) => Box::new(OpenAiCompat::gateway(key)),
+            None => {
                 tracing::warn!("AI_GATEWAY_API_KEY missing — falling back to stub (offline)");
                 Box::new(StubInference)
             }

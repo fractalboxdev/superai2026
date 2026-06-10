@@ -90,7 +90,13 @@ fn op_from_str(s: &str) -> Option<Operation> {
 /// Parse a ttl like `30s` / `15m` / `24h` / `7d` into a duration.
 pub fn parse_ttl(ttl: &str) -> Result<Duration, TokenError> {
     let ttl = ttl.trim();
-    let (num, unit) = ttl.split_at(ttl.len().saturating_sub(1));
+    // split on the last char's boundary — byte-offset split_at panics on
+    // multi-byte input, and the ttl comes from CLI args / AccessRequests
+    let (unit_at, _) = ttl
+        .char_indices()
+        .next_back()
+        .ok_or_else(|| TokenError::BadTtl(ttl.into()))?;
+    let (num, unit) = ttl.split_at(unit_at);
     let n: u64 = num.parse().map_err(|_| TokenError::BadTtl(ttl.into()))?;
     let secs = match unit {
         "s" => n,
@@ -224,7 +230,11 @@ pub fn sign(cap: &Capability, root_keys: &KeyPair) -> Result<Capability, TokenEr
     for (i, doc) in auth.docs.iter().enumerate() {
         let p = format!("doc{i}");
         params.insert(p.clone(), Term::Str(doc.clone()));
-        // docs grant read+write for the demo; attenuation can narrow later
+        // docs grant read+write unconditionally: the authority model has no
+        // per-doc op yet, and attenuation blocks cannot narrow cf_doc facts
+        // (verify_token reads them from the authority block only). A
+        // read-only relay grant needs a per-doc op in `AuthorityBlock::docs`
+        // plus a `check all` over cf_doc in `attenuation_block`.
         code.push_str(&format!("cf_doc({{{p}}}, \"read\");\n"));
         code.push_str(&format!("cf_doc({{{p}}}, \"write\");\n"));
     }
@@ -284,10 +294,20 @@ fn authorizer_for(
     params: HashMap<String, Term>,
 ) -> Result<biscuit_auth::Authorizer, TokenError> {
     let sentinels = format!("q_field(\"{SENTINEL}\");\nq_view(\"{SENTINEL}\");\n");
+    // The default Datalog run limit is 1ms of wall time — tight enough that a
+    // loaded host (parallel tests, busy CI) intermittently times out a valid
+    // verification. Keep the fact/iteration caps (they bound memory and
+    // degenerate rules) but give wall time real headroom: a verification that
+    // fails must fail because of the token, never because of the scheduler.
+    let limits = biscuit_auth::AuthorizerLimits {
+        max_time: std::time::Duration::from_millis(250),
+        ..Default::default()
+    };
     AuthorizerBuilder::new()
         .code_with_params(format!("{sentinels}{code}"), params, HashMap::new())
         .map_err(TokenError::from)?
         .time()
+        .set_limits(limits)
         .build(biscuit)
         .map_err(TokenError::from)
 }

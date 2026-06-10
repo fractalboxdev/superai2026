@@ -34,10 +34,12 @@ impl InferenceBackend {
             Ok("stub") => return InferenceBackend::Stub,
             _ => {}
         }
-        let has = |k: &str| std::env::var(k).map(|v| !v.is_empty()).unwrap_or(false);
+        let has = |k: &str| nonempty_env(k).is_some();
         if has("AI_GATEWAY_API_KEY") {
             InferenceBackend::Gateway
         } else if has("AWS_ACCESS_KEY_ID") || has("AWS_PROFILE") {
+            // env-key/profile creds only — instance-profile / ECS / SSO chains
+            // have no env marker; set CONTEXTFUL_INFERENCE=bedrock for those
             InferenceBackend::Bedrock
         } else if has("LM_STUDIO_URL") {
             InferenceBackend::LmStudio
@@ -45,6 +47,12 @@ impl InferenceBackend {
             InferenceBackend::Stub
         }
     }
+}
+
+/// An env var counts as "set" only when non-empty — the cloud-or-offline
+/// runtime selection used by every connector and backend probe.
+pub fn nonempty_env(key: &str) -> Option<String> {
+    std::env::var(key).ok().filter(|v| !v.is_empty())
 }
 
 #[derive(Debug, Clone)]
@@ -55,7 +63,9 @@ pub struct Config {
 
 impl Config {
     /// Resolve config from the environment. `CONTEXTFUL_HOME` overrides the
-    /// root; `CONTEXTFUL_INFERENCE` selects the backend (`bedrock`/`lmstudio`).
+    /// root; `CONTEXTFUL_INFERENCE` (`gateway`/`bedrock`/`lmstudio`/`stub`)
+    /// pins the backend, otherwise it is auto-detected from credentials
+    /// (see [`InferenceBackend::detect`]).
     pub fn load() -> Self {
         let root = std::env::var_os("CONTEXTFUL_HOME")
             .map(PathBuf::from)

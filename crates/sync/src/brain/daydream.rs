@@ -16,10 +16,9 @@
 //!    max(parents) (taint propagation), wired to both parents.
 
 use anyhow::Result;
-use chrono::Utc;
 
 use crate::agent::inference;
-use crate::brain::markdown::{render_card, slug, CardMeta};
+use crate::brain::markdown::slug;
 use crate::brain::{retrieval, BrainIndex, Link, LinkRel, Memory, MemoryKind};
 use crate::config::Config;
 use crate::scenario;
@@ -73,7 +72,7 @@ fn already_dreamed(index: &BrainIndex, a: &Memory, b: &Memory) -> bool {
         })
 }
 
-/// Sample admissible pairs: graph-adjacent first, then same-period, capped.
+/// Sample admissible pairs: graph-adjacent first, then cross-topic, capped.
 /// Returns owned clones so the caller can mutate the index while writing.
 fn sample_pairs(
     caps: &[crate::access::Capability],
@@ -135,7 +134,6 @@ pub fn cycle(
     let pairs = sample_pairs(&caps, index, max_insights);
 
     let mut written = 0;
-    let now = Utc::now().to_rfc3339();
     for (a, b) in pairs {
         let body_a = store.read_card(&a.path).unwrap_or_default();
         let body_b = store.read_card(&b.path).unwrap_or_default();
@@ -161,33 +159,26 @@ pub fn cycle(
 
         // taint = max(parents): the insight needs BOTH parents' clearance
         let acl = a.acl_tag.max(&b.acl_tag);
-        let meta = CardMeta {
-            topic: "daydream",
-            kind: "daydream",
-            period: None,
-            confidence: 0.3,
-            acl_tag: &acl,
-        };
         let title = format!("Hypothesis: {} ↔ {}", a.topic, b.topic);
         let body = format!("{trimmed}\n\nrelates_to::{}\nrelates_to::{}\n", a.id, b.id);
         let name = slug(&format!("dd-{}-{}", a.topic, b.topic));
-        let path = store.write_card("daydream", &name, &render_card(&meta, &title, &body))?;
-
-        let id = uuid::Uuid::new_v4().to_string();
-        index.memories.push(Memory {
-            id: id.clone(),
-            kind: MemoryKind::Daydream,
-            topic: "daydream".into(),
-            path: path.display().to_string(),
-            acl_tag: acl,
-            confidence: 0.3,
-            period: None,
-            supersedes: None,
-            created_at: now.clone(),
-        });
+        let memory = crate::brain::write_memory(
+            store,
+            index,
+            crate::brain::CardWrite {
+                kind: MemoryKind::Daydream,
+                topic: "daydream",
+                index_topic: None,
+                slug: &name,
+                title: &title,
+                body: &body,
+                confidence: 0.3,
+                acl_tag: acl,
+            },
+        )?;
         for parent in [&a.id, &b.id] {
             index.links.push(Link {
-                from: id.clone(),
+                from: memory.id.clone(),
                 to: (*parent).clone(),
                 rel: LinkRel::RelatesTo,
             });

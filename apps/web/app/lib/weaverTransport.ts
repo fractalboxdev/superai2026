@@ -31,7 +31,7 @@ import {
   update as updateMsg,
   type PresenceState,
 } from "@superai2026/protocol/sync";
-import { decodeWire } from "./wire";
+import { decodePresence, decodeWire } from "./wire";
 import { DOCS } from "./docs";
 
 export type RoomStatus = "local" | "connecting" | "live" | "offline";
@@ -54,6 +54,13 @@ export interface RoomTransport {
 const STALE_MS = 15_000;
 const HEARTBEAT_MS = 5_000;
 const WRITING_MS = 2_000;
+const SAVE_DEBOUNCE_MS = 400;
+const RECONNECT_BASE_MS = 1_000;
+const RECONNECT_MAX_MS = 30_000;
+
+// relay ERROR codes that end the session for good — reconnecting would just
+// be rejected again (transient drops have no ERROR frame, only a close)
+const FATAL_ERROR_CODES = new Set(["revoked", "no_capability", "expected_hello"]);
 
 // v2 = Weaver block tree ("content" LoroTree). v1 (unversioned key) held the
 // plaintext `body` container and must not hydrate the Weaver editor.
@@ -128,6 +135,10 @@ export function attachRoomTransport(
   let ws: WebSocket | undefined;
   let bc: BroadcastChannel | undefined;
   let heartbeat: ReturnType<typeof setInterval> | undefined;
+  let saveTimer: ReturnType<typeof setTimeout> | undefined;
+  let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+  let reconnectAttempt = 0;
+  let fatal = false;
   let lastLocalEdit = 0;
   const peers = new Map<string, PresenceState>();
 
@@ -167,6 +178,17 @@ export function attachRoomTransport(
     }
   };
 
+  // Debounce persistence: every CRDT event (local AND each inbound frame)
+  // lands here, and a full-snapshot localStorage write per frame would block
+  // the main thread on busy multi-peer sessions.
+  const scheduleSave = () => {
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      saveTimer = undefined;
+      saveSnapshot(docId, doc.export({ mode: "snapshot" }));
+    }, SAVE_DEBOUNCE_MS);
+  };
+
   // Ship the full update log on local commits (idempotent imports on peers;
   // keeps the relay's overwrite-persistence complete — real version-vector
   // deltas are spec 01 §4 Future). Weaver's own doc.subscribe DOM rerender
@@ -177,7 +199,7 @@ export function attachRoomTransport(
       lastLocalEdit = Date.now();
       broadcast(doc.export({ mode: "update" }));
     }
-    saveSnapshot(docId, doc.export({ mode: "snapshot" }));
+    scheduleSave();
   });
 
   // ---- cross-tab transport (no backend required) ---------------------------
@@ -192,41 +214,69 @@ export function attachRoomTransport(
     if (data.kind === "update" && Array.isArray(data.bytes)) {
       doc.import(toBytes(data.bytes));
     } else if (data.kind === "awareness" && data.presence) {
-      upsertPeer(data.presence);
+      // validate like WS frames — another tab's payload is still untrusted input
+      const presence = decodePresence(data.presence);
+      if (presence) upsertPeer(presence);
     }
   };
 
   // ---- relay transport (opt-in, Contextful wire protocol §4) ---------------
-  if (relayUrl) {
+  // Transient drops (relay restart, network blip) reconnect with exponential
+  // backoff; a fatal relay ERROR (revoked/no-capability) stays offline.
+  const scheduleReconnect = () => {
+    const delay = Math.min(
+      RECONNECT_BASE_MS * 2 ** reconnectAttempt,
+      RECONNECT_MAX_MS,
+    );
+    reconnectAttempt += 1;
+    reconnectTimer = setTimeout(connect, delay);
+  };
+
+  const connect = () => {
+    if (disposed || fatal || !relayUrl) return;
     onStatus("connecting");
     try {
       ws = new WebSocket(relayUrl);
-      ws.onopen = () => {
-        if (disposed) return;
-        onStatus("live");
-        ws!.send(JSON.stringify(hello(principal)));
-        ws!.send(JSON.stringify(subscribeMsg(docId)));
-        broadcast(doc.export({ mode: "update" }));
-      };
-      ws.onmessage = (ev) => {
-        if (disposed) return;
-        const msg = decodeWire(typeof ev.data === "string" ? ev.data : "");
-        if (!msg) return;
-        if (msg.type === "SNAPSHOT" || msg.type === "UPDATE") {
-          if (msg.bytes.length) doc.import(toBytes(msg.bytes));
-        } else if (msg.type === "AWARENESS") {
-          upsertPeer(msg.presence);
-        }
-      };
-      ws.onclose = () => {
-        if (!disposed) onStatus("offline");
-      };
-      ws.onerror = () => {
-        if (!disposed) onStatus("offline");
-      };
     } catch {
       onStatus("offline");
+      return;
     }
+    ws.onopen = () => {
+      if (disposed) return;
+      reconnectAttempt = 0;
+      onStatus("live");
+      ws!.send(JSON.stringify(hello(principal)));
+      ws!.send(JSON.stringify(subscribeMsg(docId)));
+      broadcast(doc.export({ mode: "update" }));
+    };
+    ws.onmessage = (ev) => {
+      if (disposed) return;
+      const msg = decodeWire(typeof ev.data === "string" ? ev.data : "");
+      if (!msg) return;
+      if (msg.type === "SNAPSHOT" || msg.type === "UPDATE") {
+        if (msg.bytes.length) doc.import(toBytes(msg.bytes));
+      } else if (msg.type === "AWARENESS") {
+        upsertPeer(msg.presence);
+      } else if (msg.type === "ERROR") {
+        console.warn(`[contextful] relay error ${msg.code}: ${msg.message}`);
+        if (FATAL_ERROR_CODES.has(msg.code)) {
+          fatal = true;
+          onStatus("offline");
+          ws?.close();
+        }
+      }
+    };
+    ws.onclose = () => {
+      if (disposed) return;
+      onStatus("offline");
+      if (!fatal) scheduleReconnect();
+    };
+    // a failed connection also fires onclose — reconnect is handled there
+    ws.onerror = () => {};
+  };
+
+  if (relayUrl) {
+    connect();
   } else {
     onStatus("local");
   }
@@ -253,6 +303,12 @@ export function attachRoomTransport(
     dispose: () => {
       disposed = true;
       if (heartbeat) clearInterval(heartbeat);
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (saveTimer) {
+        // flush the pending debounced write so the last edits survive reload
+        clearTimeout(saveTimer);
+        saveSnapshot(docId, doc.export({ mode: "snapshot" }));
+      }
       unsub();
       bc?.close();
       ws?.close();

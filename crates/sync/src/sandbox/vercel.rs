@@ -43,16 +43,24 @@ fn bridge_path() -> Option<PathBuf> {
     }
 }
 
+/// Hard deadline on one bridge call — callers hold the registry lock, so a
+/// hung bridge (e.g. Vercel API not answering) must not wedge every
+/// subsequent sandbox operation.
+const BRIDGE_TIMEOUT_SECS: u64 = 60;
+
 /// Spawn the bridge for one call and parse its single-line JSON reply.
 fn bridge_call(args: &[&str]) -> anyhow::Result<serde_json::Value> {
     let bridge = bridge_path().ok_or_else(|| {
         anyhow::anyhow!("sandbox bridge not found (set CONTEXTFUL_SANDBOX_BRIDGE)")
     })?;
-    let out = std::process::Command::new("node")
+    let child = std::process::Command::new("node")
         .arg(&bridge)
         .args(args)
-        .output()
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
         .map_err(|e| anyhow::anyhow!("spawning node bridge: {e}"))?;
+    let out = wait_with_timeout(child, std::time::Duration::from_secs(BRIDGE_TIMEOUT_SECS))?;
     let stdout = String::from_utf8_lossy(&out.stdout);
     let line = stdout
         .lines()
@@ -69,10 +77,37 @@ fn bridge_call(args: &[&str]) -> anyhow::Result<serde_json::Value> {
     Ok(value)
 }
 
+/// Collect the child's output, killing it once the deadline passes. Polling
+/// `try_wait` is safe here: the bridge prints one JSON line, far below the
+/// pipe buffer, so the child never blocks on a full stdout.
+fn wait_with_timeout(
+    mut child: std::process::Child,
+    deadline: std::time::Duration,
+) -> anyhow::Result<std::process::Output> {
+    let start = Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) => {
+                return child
+                    .wait_with_output()
+                    .map_err(|e| anyhow::anyhow!("collecting node bridge output: {e}"));
+            }
+            Ok(None) if start.elapsed() >= deadline => {
+                let _ = child.kill();
+                let _ = child.wait();
+                anyhow::bail!("node bridge timed out after {}s", deadline.as_secs());
+            }
+            Ok(None) => std::thread::sleep(std::time::Duration::from_millis(100)),
+            Err(e) => {
+                let _ = child.kill();
+                return Err(anyhow::anyhow!("waiting for node bridge: {e}"));
+            }
+        }
+    }
+}
+
 fn live_available() -> bool {
-    std::env::var("VERCEL_TOKEN")
-        .map(|v| !v.is_empty())
-        .unwrap_or(false)
+    crate::config::nonempty_env("VERCEL_TOKEN").is_some()
 }
 
 /// Build the handle from the bridge's `create` reply. `logsUrl` is the
@@ -130,11 +165,12 @@ impl Sandbox for VercelSandbox {
                 &(MAX_LIFETIME_SECS * 1000).to_string(),
             ])?;
             let handle = handle_from_reply(room, &reply);
-            tracing::info!(
-                room,
-                sandbox_id = handle.sandbox_id.as_deref().unwrap_or(""),
-                "provisioned Vercel Sandbox"
-            );
+            // a handle with no id would poison the registry until the
+            // lifetime cap — fail the call instead
+            let Some(sandbox_id) = handle.sandbox_id.as_deref() else {
+                anyhow::bail!("bridge reply missing sandboxId: {reply}");
+            };
+            tracing::info!(room, %sandbox_id, "provisioned Vercel Sandbox");
             handle
         } else {
             tracing::info!(

@@ -28,13 +28,28 @@ pub fn ensure_root_key(config: &Config, root_id: &str) -> Result<KeyPair> {
     let kp = KeyPair::new();
     std::fs::create_dir_all(keys_dir(config))?;
     let path = key_path(config, root_id);
-    std::fs::write(&path, kp.private().to_bytes_hex())?;
+    // create_new + mode(0600): the key must never exist world-readable (a
+    // write-then-chmod leaves a readable window) and a concurrent seed must
+    // not clobber a key whose public half is already in the registry.
+    let mut opts = std::fs::OpenOptions::new();
+    opts.write(true).create_new(true);
     #[cfg(unix)]
     {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))?;
+        use std::os::unix::fs::OpenOptionsExt;
+        opts.mode(0o600);
     }
-    Ok(kp)
+    match opts.open(&path) {
+        Ok(mut file) => {
+            use std::io::Write;
+            file.write_all(kp.private().to_bytes_hex().as_bytes())
+                .context("writing root key")?;
+            Ok(kp)
+        }
+        // lost the creation race — the winner's key is authoritative
+        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => load_root_key(config, root_id)?
+            .ok_or_else(|| anyhow::anyhow!("root key {} vanished after creation race", root_id)),
+        Err(e) => Err(e).context("creating root key"),
+    }
 }
 
 /// Load a root's keypair if its private key is in the keystore.

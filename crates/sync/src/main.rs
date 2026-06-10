@@ -118,6 +118,7 @@ async fn main() -> Result<()> {
             mcp_addr,
         } => {
             if with_mcp {
+                tracing::info!("co-hosting the brain MCP over streamable HTTP (spec 06 §4)");
                 let mcp_addr = mcp_addr.clone();
                 tokio::spawn(async move {
                     if let Err(e) = brain::mcp::serve_http(&mcp_addr).await {
@@ -125,7 +126,7 @@ async fn main() -> Result<()> {
                     }
                 });
             }
-            rooms::server::run(&addr, with_mcp).await
+            rooms::server::run(&addr).await
         }
         Command::Client {
             addr,
