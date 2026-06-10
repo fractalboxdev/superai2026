@@ -42,7 +42,8 @@
 }
 
 /* ---- Slide canvas — landing-page atmosphere on every slide ---------- *
- * slate-50 base + drifting-orb glows (static here) + faint teal halftone */
+ * slate-50 base + drifting-orb glows (static here) + faint indigo halftone
+ * (landing ambient is indigo/sky/amber — teal never tints the canvas) */
 .slidev-layout {
   color: var(--cf-slate-900);
   background-color: var(--cf-slate-50);
@@ -50,7 +51,7 @@
     radial-gradient(34rem 30rem at 10% -12%, color-mix(in srgb, var(--cf-indigo-500) 12%, transparent) 0%, transparent 70%),
     radial-gradient(28rem 26rem at 108% 4%, color-mix(in srgb, var(--cf-sky-500) 10%, transparent) 0%, transparent 70%),
     radial-gradient(26rem 24rem at 88% 112%, color-mix(in srgb, var(--cf-amber-400) 8%, transparent) 0%, transparent 72%),
-    radial-gradient(color-mix(in srgb, var(--cf-teal-300) 14%, transparent) 1.5px, transparent 1.5px);
+    radial-gradient(color-mix(in srgb, var(--cf-indigo-300) 16%, transparent) 1.5px, transparent 1.5px);
   background-size: auto, auto, auto, 14px 14px;
 }
 
@@ -58,9 +59,9 @@
 .slidev-layout.text-center {
   background-image:
     radial-gradient(36rem 32rem at 50% -16%, color-mix(in srgb, var(--cf-indigo-500) 14%, transparent) 0%, transparent 70%),
-    radial-gradient(26rem 24rem at -6% 100%, color-mix(in srgb, var(--cf-teal-500) 10%, transparent) 0%, transparent 72%),
+    radial-gradient(26rem 24rem at -6% 100%, color-mix(in srgb, var(--cf-sky-500) 10%, transparent) 0%, transparent 72%),
     radial-gradient(26rem 24rem at 106% 100%, color-mix(in srgb, var(--cf-amber-400) 9%, transparent) 0%, transparent 72%),
-    radial-gradient(color-mix(in srgb, var(--cf-teal-300) 20%, transparent) 1.5px, transparent 1.5px);
+    radial-gradient(color-mix(in srgb, var(--cf-indigo-300) 22%, transparent) 1.5px, transparent 1.5px);
   background-size: auto, auto, auto, 12px 12px;
 }
 
@@ -70,9 +71,14 @@
   font-weight: 800;
   letter-spacing: -0.02em;
 }
+/* Subtitle accent — landing .cf-text-gradient (indigo → sky brand pan) */
 .slidev-layout h1 + h2,
 .slidev-layout h1 + p > strong {
-  color: var(--cf-teal-700);
+  color: var(--cf-indigo-600);
+  background-image: linear-gradient(110deg, var(--cf-indigo-600) 0%, var(--cf-sky-500) 40%, var(--cf-indigo-500) 70%, var(--cf-sky-400) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 .slidev-layout h2 {
   font-weight: 700;
@@ -80,7 +86,7 @@
 }
 .slidev-layout strong,
 .slidev-layout b {
-  color: var(--cf-teal-700);
+  color: var(--cf-indigo-700);
 }
 .slidev-layout a {
   color: var(--cf-indigo-600);
@@ -110,9 +116,9 @@
 .slidev-layout blockquote {
   background: var(--cf-slate-0);
   border: 2px solid var(--cf-slate-900);
-  border-left: 6px solid var(--cf-teal-500);
+  border-left: 6px solid var(--cf-indigo-600);
   border-radius: var(--radius-md);
-  box-shadow: 5px 5px 0 color-mix(in srgb, var(--cf-teal-900) 25%, transparent);
+  box-shadow: 5px 5px 0 color-mix(in srgb, var(--cf-slate-900) 25%, transparent);
   padding: 0.6em 1em;
   opacity: 1;
 }
@@ -126,7 +132,7 @@ video.demo-film {
   border: 3px solid var(--cf-slate-900);
   border-radius: var(--radius-lg);
   background: var(--gradient-comic);
-  box-shadow: 8px 8px 0 color-mix(in srgb, var(--cf-teal-900) 35%, transparent),
+  box-shadow: 8px 8px 0 color-mix(in srgb, var(--cf-slate-900) 35%, transparent),
     var(--shadow-lg);
   max-height: 480px;
   margin-inline: auto;
@@ -137,7 +143,7 @@ video.demo-film {
   background: var(--cf-slate-0);
   border: 2px solid var(--cf-slate-900);
   border-radius: var(--radius-md);
-  box-shadow: 5px 5px 0 color-mix(in srgb, var(--cf-teal-900) 22%, transparent);
+  box-shadow: 5px 5px 0 color-mix(in srgb, var(--cf-slate-900) 22%, transparent);
   padding: 0.5rem 0.75rem;
   display: inline-block;
 }
@@ -145,7 +151,7 @@ video.demo-film {
 /* Free-flow comic illustrations (per ART-DIRECTION.md): transparent
  * silhouettes with a soft teal drop shadow, never boxed. */
 .slide-art {
-  filter: drop-shadow(0 10px 22px color-mix(in srgb, var(--cf-teal-900) 28%, transparent));
+  filter: drop-shadow(0 10px 22px color-mix(in srgb, var(--cf-slate-900) 28%, transparent));
   pointer-events: none;
 }
 
@@ -157,20 +163,20 @@ video.demo-film {
 .screenshot-slot img {
   border: 3px solid var(--cf-slate-900);
   border-radius: var(--radius-lg);
-  box-shadow: 8px 8px 0 color-mix(in srgb, var(--cf-teal-900) 35%, transparent), var(--shadow-lg);
+  box-shadow: 8px 8px 0 color-mix(in srgb, var(--cf-slate-900) 35%, transparent), var(--shadow-lg);
   max-height: 22rem;
   margin-inline: auto;
 }
 .screenshot-slot .screenshot-slot__hint { display: none; }
 .screenshot-slot.empty {
-  border: 3px dashed color-mix(in srgb, var(--cf-teal-700) 50%, transparent);
+  border: 3px dashed color-mix(in srgb, var(--cf-indigo-600) 50%, transparent);
   border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--cf-teal-100) 40%, transparent);
+  background: color-mix(in srgb, var(--cf-indigo-50) 60%, transparent);
   padding: 3.5rem 2rem;
 }
 .screenshot-slot.empty .screenshot-slot__hint {
   display: block;
-  color: var(--cf-teal-700);
+  color: var(--cf-indigo-700);
   font-size: 0.9rem;
   text-align: center;
   margin: 0;
@@ -225,7 +231,7 @@ video.demo-film {
   padding: 0 0.8rem;
   border: 2px solid var(--cf-slate-900);
   border-radius: var(--radius-md);
-  box-shadow: 3px 3px 0 color-mix(in srgb, var(--cf-teal-900) 25%, transparent);
+  box-shadow: 3px 3px 0 color-mix(in srgb, var(--cf-slate-900) 25%, transparent);
   background: var(--cf-slate-0);
   font-weight: 800;
   letter-spacing: -0.01em;
@@ -280,7 +286,7 @@ video.demo-film {
   background: var(--cf-slate-0);
   border: 2px solid var(--cf-slate-900);
   border-radius: var(--radius-md);
-  box-shadow: 3px 3px 0 color-mix(in srgb, var(--cf-teal-900) 25%, transparent);
+  box-shadow: 3px 3px 0 color-mix(in srgb, var(--cf-slate-900) 25%, transparent);
   padding: 0.3rem 0.65rem;
   white-space: nowrap;
 }
@@ -334,7 +340,7 @@ video.demo-film {
   border-radius: 9999px;
   border: 2px solid var(--cf-slate-900);
   background: var(--cf-teal-100);
-  box-shadow: 3px 3px 0 color-mix(in srgb, var(--cf-teal-900) 30%, transparent);
+  box-shadow: 3px 3px 0 color-mix(in srgb, var(--cf-slate-900) 30%, transparent);
   object-fit: cover;
 }
 .cast figcaption {
@@ -383,7 +389,7 @@ video.demo-film {
   background: color-mix(in srgb, var(--cf-slate-0) 90%, transparent);
   border: 3px solid var(--cf-slate-900);
   border-radius: var(--radius-lg);
-  box-shadow: 8px 8px 0 color-mix(in srgb, var(--cf-teal-900) 35%, transparent);
+  box-shadow: 8px 8px 0 color-mix(in srgb, var(--cf-slate-900) 35%, transparent);
   padding: 1rem 1.8rem;
   max-width: 34rem;
   font-size: 2rem;
@@ -399,7 +405,7 @@ video.demo-film {
 .slidev-layout img.rounded-full {
   border: 3px solid var(--cf-slate-900);
   background: var(--cf-teal-100);
-  box-shadow: 5px 5px 0 color-mix(in srgb, var(--cf-teal-900) 30%, transparent);
+  box-shadow: 5px 5px 0 color-mix(in srgb, var(--cf-slate-900) 30%, transparent);
 }
 
 /* Money line — danger red from the design system, give it air */
@@ -459,8 +465,8 @@ video.demo-film {
 .dark .slidev-layout { color: var(--cf-slate-50); background-color: #020617; }
 .dark .slidev-layout h1 { color: var(--cf-slate-50); }
 .dark .slidev-layout strong,
-.dark .slidev-layout b { color: var(--cf-teal-300); }
-.dark .slidev-layout h1 + h2 { color: var(--cf-teal-300); }
+.dark .slidev-layout b { color: var(--cf-indigo-300); }
+.dark .slidev-layout h1 + h2 { color: var(--cf-indigo-300); }
 .dark .cast figcaption b { color: var(--cf-slate-50); }
 .dark .feature-grid figcaption b { color: var(--cf-slate-50); }
 .dark .steps-row .step { background: var(--cf-slate-900); color: var(--cf-slate-50); }
