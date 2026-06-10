@@ -5,10 +5,12 @@ documents, and every agent sees **exactly what it is permitted to** — capabili
 attenuable, field/row-enforced. The one-line claim: *"the CTO's agent can't read the
 CEO's salary — provably."* See [`specs/`](./specs) for the full design.
 
+**Live:** [www.contextful.work](https://www.contextful.work) (landing + [docs](https://www.contextful.work/docs/)) · [demo.contextful.work](https://demo.contextful.work) (live collaborative demo)
+
 | Path | What | Stack |
 | --- | --- | --- |
-| `apps/landing` | Marketing / landing page | Astro (static) → Vercel |
-| `apps/web` | Interactive capability console (Flows A & B) + live presence | React Router 7 (Vite), React 19 → Vercel |
+| `apps/landing` | Marketing / landing page — [www.contextful.work](https://www.contextful.work) | Astro (static) → Vercel |
+| `apps/web` | Interactive capability console (Flows A & B) + live presence — [demo.contextful.work](https://demo.contextful.work) | React Router 7 (Vite), React 19 → Vercel |
 | `crates/sync` | Backend: capabilities, brain, MCP, Loro relay, control plane | Rust (7 subcommands) — self-hosted |
 | `packages/protocol` | Capability engine + brain query + wire/MCP mirrors | TypeScript |
 | `tests/acceptance` | End-to-end Flow A/B tests against the binary | vitest |

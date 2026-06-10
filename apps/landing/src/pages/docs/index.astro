@@ -1,0 +1,40 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import { docs } from "../../docs";
+
+const title = "How Contextful works";
+const description =
+  "The mechanism behind the demo: local-first storage and ingestion, per-document sandboxes with capability tokens, and CRDT collaboration between humans and agents.";
+---
+
+<DocsLayout title={title} description={description}>
+  <h1>{title}</h1>
+  <p>
+    The talk shows <em>that</em> it works — these pages show <em>how</em>. Three short
+    reads cover the mechanism end to end: where your data lives and how it gets in,
+    the boundary that scopes every agent, and the collaboration layer humans and
+    agents share. Each page is derived from the corresponding engineering spec and is
+    also available as plain Markdown (one fetch for your agent:
+    <a href="/llms-full.txt">/llms-full.txt</a>).
+  </p>
+
+  <div class="docs-cards">
+    {
+      docs.map((d) => (
+        <a class="docs-card cf-card" href={`/docs/${d.slug}/`}>
+          <h2>{d.title}</h2>
+          <p>{d.description}</p>
+          <span class="docs-card__more">Read →</span>
+        </a>
+      ))
+    }
+  </div>
+
+  <style>
+    .docs-cards { display: grid; gap: var(--space-5); margin-top: var(--space-10); }
+    .docs-card { display: block; text-decoration: none; padding: var(--space-6); }
+    .docs-card h2 { margin: 0 0 var(--space-2); font-size: var(--text-xl); color: var(--color-text); }
+    .docs-card p { margin: 0 0 var(--space-3); }
+    .docs-card__more { color: var(--color-primary); font-size: var(--text-sm); font-weight: var(--weight-semibold, 600); }
+  </style>
+</DocsLayout>

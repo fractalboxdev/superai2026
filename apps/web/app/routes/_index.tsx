@@ -222,7 +222,7 @@ export default function Home() {
     setResult(res);
     const route = routeRequest(FLOW_A_REQUEST, CFO_ENVELOPE);
     setPending({ req: FLOW_A_REQUEST, route });
-    pushLog("deny", `Flow A · Richard's agent denied finance_private → request raised`);
+    pushLog("deny", `Flow A · Richard (CEO)'s agent denied finance_private → request raised`);
   };
 
   const runFlowB = () => {

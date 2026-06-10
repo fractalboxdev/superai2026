@@ -7,6 +7,14 @@
 - [Home](https://www.contextful.work/): what Contextful is, the demo video, the deck, and the spec
 - [Demo](https://demo.contextful.work/): live collaborative demo
 
+## Docs — how it works
+
+Full corpus in one fetch: [llms-full.txt](https://www.contextful.work/llms-full.txt). Each page is also served as Markdown at the same path with `.md`.
+
+- [Local-first & data ingestion](https://www.contextful.work/docs/local-first-ingestion/): on-prem host, connectors, acl-tagged events, Markdown memory ([md](https://www.contextful.work/docs/local-first-ingestion.md))
+- [Sandbox & capability tokens](https://www.contextful.work/docs/sandbox-capability-tokens/): per-document sandboxes, attenuated Biscuit tokens, field/row redaction, access requests ([md](https://www.contextful.work/docs/sandbox-capability-tokens.md))
+- [Collaboration & CRDT](https://www.contextful.work/docs/collaboration-crdt/): Loro CRDT rooms, on-prem relay, presence, agents as peers ([md](https://www.contextful.work/docs/collaboration-crdt.md))
+
 ## Highlights
 
 - Capability-based access control with attenuation — an agent's access is provably a subset of its owner's (e.g. the CTO's agent cannot read the CEO's salary).

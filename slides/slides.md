@@ -167,7 +167,7 @@ Everything runs on the company's own machines.
 
 1. The CIO asks: *"Justify the spend."*
 2. Engineering's agent brings **value** + market rates (cited) — hits a wall on cost.
-3. The CFO's agent approves **one scoped slice**.
+3. Monica (CFO)'s agent approves **one scoped slice**.
 4. A data-scientist agent joins **revenue × cost** — on request, scoped.
 5. A **sourced** answer assembles.
 
@@ -179,7 +179,7 @@ Everything runs on the company's own machines.
 🎤 SAY (placeholder — edit me):
 "Let me show you, live. The CIO drops the question in the shared doc: justify the spend.
 Engineering's agent brings the value and pulls the going market rate from the open web —
-cited — then hits a wall: it doesn't know the real cost. So it asks the CFO's agent, and
+cited — then hits a wall: it doesn't know the real cost. So it asks Monica (CFO)'s agent, and
 gets exactly one approved slice — nothing more. A data-scientist agent joins revenue
 against cost on request. And the answer assembles itself, every claim vouched for by its
 owner. [pause] Now watch: the engineer in the same room asks for a salary… denied. Every

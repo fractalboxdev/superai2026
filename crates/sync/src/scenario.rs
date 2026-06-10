@@ -33,14 +33,14 @@ pub fn cfo() -> Principal {
 pub fn cto_agent() -> Principal {
     Principal::Agent {
         id: "agent:cto/1".into(),
-        name: "Richard's agent".into(),
+        name: "Richard (CEO)'s agent".into(),
         owner: "cto".into(),
     }
 }
 pub fn eng_agent() -> Principal {
     Principal::Agent {
         id: "agent:eng/1".into(),
-        name: "Dinesh's agent".into(),
+        name: "Dinesh (Lead Engineer)'s agent".into(),
         owner: "eng".into(),
     }
 }
@@ -101,7 +101,7 @@ pub fn cfo_capability() -> Capability {
     .expect("cfo root covers finance_private")
 }
 
-/// Richard's agent: team-level spend only (no finance_private) until Flow A grants it.
+/// Richard (CEO)'s agent: team-level spend only (no finance_private) until Flow A grants it.
 pub fn cto_agent_capability() -> Capability {
     mint_with_docs(
         &cfo_root(),
@@ -115,7 +115,7 @@ pub fn cto_agent_capability() -> Capability {
     .expect("cfo root covers spend_by_team")
 }
 
-/// Dinesh's agent: usage view, own team rows only. Never any salary path.
+/// Dinesh (Lead Engineer)'s agent: usage view, own team rows only. Never any salary path.
 pub fn eng_agent_capability() -> Capability {
     mint_with_docs(
         &cfo_root(),
