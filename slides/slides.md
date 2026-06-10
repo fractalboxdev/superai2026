@@ -13,6 +13,11 @@ mdc: true
 It knows everything — and lets no one ask everything.
 
 <!--
+🎤 SAY (placeholder — edit me):
+"Last quarter, a CEO stood up at an all-hands and said: we built one AI that knows
+everything about the company. The room applauded. Then an intern typed: 'what's the
+CEO's salary?' — and it answered. This talk is about getting the brain without the leak."
+
 COLD OPEN (~12s, one continuous gag — keep it to a single beat):
 CEO: "Last quarter we gave every employee one AI that knows everything about the company."
 [beat] An intern types: "What's the CEO's salary?" → it answers.
@@ -38,6 +43,12 @@ class: text-center
 <p v-click class="mt-10 text-xl opacity-80">Today you're forced to pick one.</p>
 
 <!--
+🎤 SAY (placeholder — edit me):
+"Every company AI today fails one of two ways. Give it too little context and it's
+useless — it can't answer anything that matters. Give it too much access and it's
+dangerous — anyone can ask anything, including that salary. Today you have to pick one.
+We don't think you should."
+
 Too little context: it can't answer the real question. Too much access: anyone can ask
 anything — including the CEO's salary. Useless OR dangerous — every "company brain" today
 sits on one side of this line. Contextful refuses the trade-off — that's the promise the
@@ -61,6 +72,13 @@ rest of the talk pays off.
 <p v-click class="mt-8 font-bold text-2xl">The obvious fix is the one you can't allow.</p>
 
 <!--
+🎤 SAY (placeholder — edit me):
+"Picture a 50-person company on seven tools, and the board asks: is all this AI and cloud
+spend actually worth it? Engineering knows what the tools are worth but not what they cost.
+Finance sees the bill but not the why. The CFO holds the deciding pieces and can't share
+them with the room. The one thing that could answer — an AI that knows everything — is
+exactly the thing you can't allow to exist."
+
 A 50-person company runs on Claude, Notion, Slack, Linear, AWS, Vercel, Stripe — and the
 question on the table is "is all this AI and cloud spend actually worth it?" Simple question,
 and nobody can answer it alone: each person holds one piece, and no one is allowed to hold
@@ -83,6 +101,12 @@ Your agent holds **your** context — and crosses a boundary only with approval.
 <p class="mt-10 text-xl opacity-80">The brain gets <b>smarter</b> as it gets more <b>careful</b>.</p>
 
 <!--
+🎤 SAY (placeholder — edit me):
+"So here's the reframe. Contextful is not one pool everyone queries — it's a boundary
+at every person. Your agent holds your context, and nothing crosses a boundary without
+the owner's approval, scoped to that one question. The brain gets smarter precisely
+because it gets more careful."
+
 This is the reframe: not one pool everyone queries, but a boundary at every person.
 Cross-boundary answers are requested, approved, and scoped — for that one question only.
 Everything runs on the company's own machines.
@@ -105,6 +129,15 @@ Everything runs on the company's own machines.
 <p v-click class="mt-8 font-bold text-2xl text-red-500">And the engineer still can't see anyone's salary.</p>
 
 <!--
+🎤 SAY (placeholder — edit me):
+"Let me show you, live. The CIO drops the question in the shared doc: justify the spend.
+Engineering's agent brings the value and pulls the going market rate from the open web —
+cited — then hits a wall: it doesn't know the real cost. So it asks the CFO's agent, and
+gets exactly one approved slice — nothing more. A data-scientist agent joins revenue
+against cost on request. And the answer assembles itself, every claim vouched for by its
+owner. [pause] Now watch: the engineer in the same room asks for a salary… denied. Every
+time. That's the whole product in one moment."
+
 MONEY SHOT: the salary denial. Make this the climax and give it air.
 Narration detail: step 2 checks the open web for the going market rate, every figure cited;
 step 3 is approved for just that slice; step 4 aggregates per-product performance — revenue,
@@ -140,6 +173,13 @@ sequenceDiagram
 - **Auto-mode** clears safe requests; escalates the rest.
 
 <!--
+🎤 SAY (placeholder — edit me):
+"For the technical folks: how does that denial actually work? No single agent holds
+everything — each one has partial, scoped access. And the boundary is not an LLM being
+polite — it's a deterministic policy engine. The agent only drafts the request; policy
+decides. Safe requests clear automatically, so there's no permission fatigue — only the
+exceptions reach a human."
+
 TECHNICAL 1/3. Auto-mode means no permission fatigue: safe requests clear automatically,
 only policy-exceeding ones reach a human. The key correction from review: the boundary is enforced by deterministic
 policy, not by an LLM in the trust path. The agent composes/routes the scoped request; the
@@ -171,6 +211,13 @@ flowchart TD
 ```
 
 <!--
+🎤 SAY (placeholder — edit me):
+"And where does all this run? On your machines, over your own private network — the data
+never leaves. One control plane sets the policy centrally; Mission Control lets you steer
+with a prompt and pin hard guardrails. The brain keeps growing — it learns your baselines
+and flags anomalies. There is exactly one outbound path: web research, policy-gated, where
+only the query leaves and every result comes back cited."
+
 TECHNICAL 2/3. On-prem + Tailscale is the trust story; be ready for the "single coordination
 plane" question. The growing brain = durable, approved reasoning + learned baselines that make
 next month's same question faster. Keep this to ≤3 technical slides total.
@@ -198,6 +245,11 @@ Safety by amputation — they lose all the upside.
 <p v-click class="mt-8 font-bold text-xl">Keep the upside. Scope the risk.</p>
 
 <!--
+🎤 SAY (placeholder — edit me):
+"Most companies looked at this risk and just blocked AI entirely — safety by amputation.
+The alternatives on the market are one shared cloud pool: all-or-nothing. Contextful is
+the third option — boundaried and local-first. You keep the upside and scope the risk."
+
 The third option: keep the upside, scope the risk. Don't name a specific competitor on stage —
 "one shared cloud pool, all-or-nothing" makes the contrast without the swipe. Spoken close:
 the work runs on your machines, sensitive context stays home; the local stack is more capable
@@ -218,6 +270,11 @@ Companies that already blocked AI — and want the upside back, safely.
 <p class="mt-10 text-xl">It answers the question. And the brain keeps growing.</p>
 
 <!--
+🎤 SAY (placeholder — edit me):
+"We're looking for design partners — companies that already blocked AI and want the
+upside back, safely. Come run it on your own machines, on your own rules. It answers
+the question — and the brain keeps growing. Thank you."
+
 Replace with the REAL ask once decided (pilot / raise / hires). A keynote without an ask is a
 magic trick with no "...and that's why you should act." One slide, one verb.
 -->
