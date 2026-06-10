@@ -261,13 +261,17 @@ export function attachRoomTransport(
       onStatus("offline");
       return;
     }
+    // The relay overwrite-persists the latest client blob as the doc snapshot,
+    // so the first thing we push must already CONTAIN the relay's history.
+    // Announcing our local state in onopen — before the SNAPSHOT arrives —
+    // would regress the persisted doc to this tab's (often seed-only) state.
+    let announced = false;
     ws.onopen = () => {
       if (disposed) return;
       reconnectAttempt = 0;
       onStatus("live");
       ws!.send(JSON.stringify(hello(principal)));
       ws!.send(JSON.stringify(subscribeMsg(docId)));
-      broadcast(doc.export({ mode: "update" }));
     };
     ws.onmessage = (ev) => {
       if (disposed) return;
@@ -275,6 +279,11 @@ export function attachRoomTransport(
       if (!msg) return;
       if (msg.type === "SNAPSHOT" || msg.type === "UPDATE") {
         if (msg.bytes.length) doc.import(toBytes(msg.bytes));
+        if (msg.type === "SNAPSHOT" && !announced) {
+          // merged seed + relay history → safe to announce as the new snapshot
+          announced = true;
+          broadcast(doc.export({ mode: "update" }));
+        }
       } else if (msg.type === "AWARENESS") {
         upsertPeer(msg.presence);
       } else if (msg.type === "NOTIFY") {
