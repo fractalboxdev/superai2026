@@ -1,6 +1,6 @@
 ---
 theme: default
-title: Contextful — let your agents work with your data, on your infra
+title: Contextful — your agents working with your data, on your infra
 class: text-center
 transition: slide-left
 mdc: true
@@ -8,7 +8,7 @@ mdc: true
 
 # Contextful
 
-## Let your agents work with your data, on your infra
+## Your agents working with your data, on your infra
 
 It knows everything — and lets no one ask everything.
 
@@ -29,42 +29,44 @@ class: text-center
 
 <v-clicks>
 
-🧠 &nbsp; **Too little context** — the AI is *useless*. It can't answer the real question.
+🧠 &nbsp; **Too little context** — useless.
 
-🔓 &nbsp; **Too much access** — the AI is *dangerous*. Anyone can ask anything — including the CEO's salary.
+🔓 &nbsp; **Too much access** — dangerous.
 
 </v-clicks>
 
 <p v-click class="mt-10 text-xl opacity-80">Today you're forced to pick one.</p>
 
 <!--
-Useless OR dangerous. Every "company brain" today sits on one side of this line.
-Contextful refuses the trade-off — that's the promise the rest of the talk pays off.
+Too little context: it can't answer the real question. Too much access: anyone can ask
+anything — including the CEO's salary. Useless OR dangerous — every "company brain" today
+sits on one side of this line. Contextful refuses the trade-off — that's the promise the
+rest of the talk pays off.
 -->
 
 ---
 
 # One question nobody can answer alone
 
-A 50-person company runs on Claude, Notion, Slack, Linear, AWS, Vercel, Stripe.
-
-The question on the table: **"Is all this AI and cloud spend actually worth it?"**
+50 people. 7 tools. **"Is the spend worth it?"**
 
 <v-clicks>
 
-- Engineering knows the **value** — not the real cost.
-- Finance sees the **bill** — not whether it's reasonable.
-- Only the CFO holds the deciding pieces — and won't expose them to everyone.
+- Engineering knows the **value** — not the cost.
+- Finance sees the **bill** — not the why.
+- The CFO holds the rest — and can't share it.
 
 </v-clicks>
 
-<p v-click class="mt-8 font-bold text-2xl">The obvious fix — one AI that knows everything — is the one you can't allow.</p>
+<p v-click class="mt-8 font-bold text-2xl">The obvious fix is the one you can't allow.</p>
 
 <!--
-Simple question, and nobody can answer it alone: each person holds one piece, and no one
-is allowed to hold all of them. The tempting fix is a single all-knowing agent — but that's
-the world where an engineer can query everyone's salary. The thing that would answer the
-question is the thing you can't permit to exist. Keep it jargon-free: no "FinOps" on screen.
+A 50-person company runs on Claude, Notion, Slack, Linear, AWS, Vercel, Stripe — and the
+question on the table is "is all this AI and cloud spend actually worth it?" Simple question,
+and nobody can answer it alone: each person holds one piece, and no one is allowed to hold
+all of them. The tempting fix is a single all-knowing agent — but that's the world where an
+engineer can query everyone's salary. The thing that would answer the question is the thing
+you can't permit to exist. Keep it jargon-free: no "FinOps" on screen.
 -->
 
 ---
@@ -76,14 +78,13 @@ class: text-center
 
 ## A boundary at every person
 
-Each person's agent holds only **their** context.
-It crosses a boundary only with the owner's approval — for that one question.
+Your agent holds **your** context — and crosses a boundary only with approval.
 
 <p class="mt-10 text-xl opacity-80">The brain gets <b>smarter</b> as it gets more <b>careful</b>.</p>
 
 <!--
 This is the reframe: not one pool everyone queries, but a boundary at every person.
-Cross-boundary answers are requested, approved, and scoped — for that question only.
+Cross-boundary answers are requested, approved, and scoped — for that one question only.
 Everything runs on the company's own machines.
 -->
 
@@ -93,18 +94,22 @@ Everything runs on the company's own machines.
 
 <v-clicks>
 
-1. The CIO asks the room: *"Justify the spend."*
-2. Engineering's agent brings the **value** — and checks the **open web** for the going market rate (cited). Then hits a wall on real cost.
-3. It asks the CFO's agent for **one scoped slice**. Approved — just that slice.
-4. A **data-scientist agent** aggregates **per-product performance** on request — revenue, cost, margin — scoped to Stripe + internal data, nothing more.
-5. A **sourced** answer assembles — every claim vouched for by its owner, every web figure cited.
+1. The CIO asks: *"Justify the spend."*
+2. Engineering's agent brings **value** + market rates (cited) — hits a wall on cost.
+3. The CFO's agent approves **one scoped slice**.
+4. A data-scientist agent joins **revenue × cost** — on request, scoped.
+5. A **sourced** answer assembles.
 
 </v-clicks>
 
-<p v-click class="mt-8 font-bold text-2xl text-red-500">And the engineer in the same room still can't see anyone's salary.</p>
+<p v-click class="mt-8 font-bold text-2xl text-red-500">And the engineer still can't see anyone's salary.</p>
 
 <!--
 MONEY SHOT: the salary denial. Make this the climax and give it air.
+Narration detail: step 2 checks the open web for the going market rate, every figure cited;
+step 3 is approved for just that slice; step 4 aggregates per-product performance — revenue,
+cost, margin — scoped to Stripe + internal data, nothing more; step 5 = every claim vouched
+for by its owner, every web figure cited.
 IMPORTANT: that denial must be a hard-coded, deterministic policy rule — NEVER a live
 model call — so it is 100% reproducible on stage. Demo the agent's reasoning only on the
 safe path. (One-line flourish if there's time: "and it flagged a runaway AWS job humans missed.")
@@ -130,12 +135,13 @@ sequenceDiagram
     Note over P,O: Escalates to a human only when policy is exceeded
 ```
 
-- **Scoped agents** — partial access per person; nothing holds everything.
-- **Deterministic policy** decides the boundary; the agent only *drafts* the request.
-- **Auto-mode** clears safe requests; raises the rest to a human — no permission fatigue.
+- **Nothing holds everything** — scoped agents, partial access per person.
+- **Deterministic policy** decides — the agent only *drafts*.
+- **Auto-mode** clears safe requests; escalates the rest.
 
 <!--
-TECHNICAL 1/3. The key correction from review: the boundary is enforced by deterministic
+TECHNICAL 1/3. Auto-mode means no permission fatigue: safe requests clear automatically,
+only policy-exceeding ones reach a human. The key correction from review: the boundary is enforced by deterministic
 policy, not by an LLM in the trust path. The agent composes/routes the scoped request; the
 policy engine approves or denies. Worst case is a denied request — which still proves the point.
 -->
@@ -146,11 +152,11 @@ layout: two-cols
 
 # Where it runs <span class="text-base opacity-50">· technical</span>
 
-- **On-prem**, over your own **Tailscale** network — data never leaves your machines.
-- **Mission Control** — steer with a prompt *and* pin deterministic guardrails.
-- **Control plane** sets policy & topology once, centrally.
-- The **brain grows** — learns baselines, flags anomalies next month.
-- **Open-web research (Exa)** — the one outbound path: policy-gated and cited; only the *query* leaves.
+- **On-prem, over Tailscale** — data stays home.
+- **Mission Control** — prompts + pinned guardrails.
+- **One control plane** sets policy centrally.
+- The **brain grows** — learns baselines, flags anomalies.
+- **One outbound path** — cited web research; only the *query* leaves.
 
 ::right::
 
@@ -183,17 +189,19 @@ Safety by amputation — they lose all the upside.
 
 <v-clicks>
 
-**Other "company brains" are one shared cloud pool — all-or-nothing.**
+**Others: one shared cloud pool — all-or-nothing.**
 
-**Contextful is boundaried and local-first** — the work runs on your machines; sensitive context stays home.
+**Contextful: boundaried, local-first.**
 
 </v-clicks>
 
-<p v-click class="mt-8 text-lg opacity-80">The local stack is more capable than ever. Workloads are going hybrid — and Contextful is built for it.</p>
+<p v-click class="mt-8 font-bold text-xl">Keep the upside. Scope the risk.</p>
 
 <!--
 The third option: keep the upside, scope the risk. Don't name a specific competitor on stage —
-"one shared cloud pool, all-or-nothing" makes the contrast without the swipe.
+"one shared cloud pool, all-or-nothing" makes the contrast without the swipe. Spoken close:
+the work runs on your machines, sensitive context stays home; the local stack is more capable
+than ever, workloads are going hybrid — and Contextful is built for it.
 -->
 
 ---
