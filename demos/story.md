@@ -64,24 +64,24 @@ video shows them appearing in real time. The peer tab's own recording is discard
 > The room hops onto the on-prem relay — synced over Tailscale, the company's own network. Never a third-party pool.
 
 - goto: /?sync=wss://debuggingfutures-macbook-air.tailfccfb1.ts.net
-- wait for: text=▶ Demo Q as
+- wait for: text=▶ Demo Q by
 - pause: 1.5s
 
 ## Scene: Dinesh (CTO)'s agent asks — denied
 
-> First: acting as Dinesh (CTO)'s agent, ask for the out-of-pocket spend. The watching agent checks HIS token.
+> First: Dinesh (CTO) asks Monica's analyst agent for the CEO's salary. The watching agent checks HIS token.
 
 - click: button.cf-actor:has-text("Dinesh (CTO)'s agent")
 - pause: 1s
-- click: text=▶ Demo Q as Dinesh (CTO)'s agent
+- click: text=▶ Demo Q by CTO
 - expect: text=Typing as Dinesh
-- wait for: text=out-of-pocket expense this month
-- scroll: text=out-of-pocket expense this month
+- wait for: text=CEO's salary
+- scroll: text=CEO's salary
 - pause: 5s
 
 ## Scene: Denied by policy, in the doc
 
-> The answer is a denial: his token holds no finance grant — the boundary bites before any data moves.
+> The answer is a denial: salary is never delegated — no token but Monica's own can read it, so the boundary bites before any data moves.
 
 - pause: 3s
 - wait for: text=A (cfo · for agent:eng/1
@@ -95,7 +95,7 @@ video shows them appearing in real time. The peer tab's own recording is discard
 
 - click: button.cf-actor:has-text("Monica (CFO)")
 - pause: 1s
-- click: text=▶ Demo Q as Monica (CFO)
+- click: text=▶ Demo Q by CFO
 - expect: text=Typing as Monica
 - wait for: text=aggregated out of pocket cost
 - scroll: text=aggregated out of pocket cost

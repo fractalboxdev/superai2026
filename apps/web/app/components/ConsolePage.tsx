@@ -31,18 +31,27 @@ type LogEntry = { id: number; kind: "ok" | "deny" | "grant" | "block" | "info"; 
 
 let logSeq = 0;
 
-// The scripted editor-agent demo: type a mention ask into the live doc as the
-// ACTING principal, tagging Monica (CFO)'s analyst agent (spec 04). The local
-// `sync agent --watch-doc <doc>` peer answers with the ASKER's token from
-// brain memory (~/.contextful) over the relay — the relay's authenticated
-// `UPDATE.from` stamp attributes the typed block to the asker, so Monica gets
-// the numbers and Dinesh gets `⛔ Denied`. One question per actor: the watcher
+// The scripted editor-agent demos: each button impersonates its asker
+// (switching the acting principal) and types a mention ask into the live doc,
+// tagging Monica (CFO)'s analyst agent (spec 04). The local `sync agent
+// --watch-doc <doc>` peer answers with the ASKER's token from brain memory
+// (~/.contextful) over the relay — the relay's authenticated `UPDATE.from`
+// stamp attributes the typed block to the asker, so Monica gets the numbers
+// while Dinesh's salary ask hits the never-delegated `employee_salary` card
+// and comes back `⛔ Denied · no_grant` (plus a NOTIFY toast). The watcher
 // dedups asks by their raw block text, so the texts must differ.
-const DEMO_QUESTIONS: Record<string, string> = {
-  [CFO.id]: "pull up the aggregated out of pocket cost",
-  [ENG_AGENT.id]: "what's our out-of-pocket expense this month?",
-  [CTO_AGENT.id]: "how is our compression product performing this quarter?",
-};
+const DEMOS: { label: string; actorId: string; question: string }[] = [
+  {
+    label: "Demo Q by CFO",
+    actorId: CFO.id,
+    question: "pull up the aggregated out of pocket cost",
+  },
+  {
+    label: "Demo Q by CTO",
+    actorId: ENG_AGENT.id,
+    question: "what is the CEO's salary?",
+  },
+];
 // Replies start `A (cfo · for <asker>` — `· from brain memory): …` when
 // answered, `): ⛔ Denied · …` when policy blocks the asker. Either ends the loop.
 const demoAnswerMark = (askerId: string) => `A (cfo · for ${askerId}`;
@@ -128,12 +137,13 @@ export default function ConsolePage({ docId }: { docId: string }) {
   const [demoCursor, setDemoCursor] = useState<{ blockId: string; offset: number } | null>(null);
   const demoBusyRef = useRef(false);
 
-  const runEditorDemo = () => {
+  const runEditorDemo = (d: (typeof DEMOS)[number]) => {
     if (demo) return;
-    const question = DEMO_QUESTIONS[actorId] ?? DEMO_QUESTIONS[CFO.id];
+    const asker = PRINCIPALS.find((p) => p.id === d.actorId)!;
+    switchActor(d.actorId);
     // `insertMention` writes `@<label> ` then the question is typed after it.
-    setDemo({ actorId, ask: `@${CFO_AGENT.name} ${question}`, question });
-    pushLog("info", `Demo · ${actor.name} tags ${CFO_AGENT.name} in the doc`);
+    setDemo({ actorId: d.actorId, ask: `@${CFO_AGENT.name} ${d.question}`, question: d.question });
+    pushLog("info", `Demo · ${asker.name} tags ${CFO_AGENT.name} in the doc`);
   };
 
   // Type the question into the asker's Weaver editor once its room is ready,
@@ -320,17 +330,24 @@ export default function ConsolePage({ docId }: { docId: string }) {
             <p className="app-agentpanel__label">Editor agent — live demo</p>
             <div className="cf-card cf-stack">
               <p className="cf-text-muted" style={{ fontSize: "var(--text-sm)", margin: 0 }}>
-                Types a question into the doc as the acting principal below. The local{" "}
-                <code>sync agent --watch-doc {docId}</code> peer answers — or denies —
-                from brain memory, per the asker&rsquo;s capability token, over the relay.
+                Each button impersonates its asker and tags {CFO_AGENT.name} in the doc.
+                The local <code>sync agent --watch-doc {docId}</code> peer answers — or
+                denies — from brain memory, per the asker&rsquo;s capability token, over
+                the relay.
               </p>
-              <button
-                className="cf-btn cf-btn--primary cf-btn--sm cf-block"
-                onClick={runEditorDemo}
-                disabled={demo != null}
-              >
-                {demo ? `Typing as ${actor.name}…` : `▶ Demo Q as ${actor.name}`}
-              </button>
+              {DEMOS.map((d) => {
+                const asker = PRINCIPALS.find((p) => p.id === d.actorId)!;
+                return (
+                  <button
+                    key={d.actorId}
+                    className="cf-btn cf-btn--primary cf-btn--sm cf-block"
+                    onClick={() => runEditorDemo(d)}
+                    disabled={demo != null}
+                  >
+                    {demo?.actorId === d.actorId ? `Typing as ${asker.name}…` : `▶ ${d.label}`}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
