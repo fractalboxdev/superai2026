@@ -37,7 +37,7 @@ import {
   type PresenceOverlay,
 } from "@weaver/dom";
 import type { PresenceState } from "@superai2026/protocol/sync";
-import { peerColor, peerKey } from "@/lib/presence";
+import { avatarOf, peerColor, peerKey } from "@/lib/presence";
 
 export interface WeaverSurfaceProps {
   editor: Editor;
@@ -72,6 +72,7 @@ const toRecord = (p: PresenceState): PresenceRecord => ({
   principalId: p.principal,
   label: p.display_name,
   color: peerColor(p.principal),
+  avatarUrl: avatarOf(p.principal),
   kind: kindOf(p.principal),
   mode: p.mode === "writing" ? "generating" : "idle",
   cursor:
@@ -122,6 +123,7 @@ export default function WeaverSurface({
         principalId: self.id,
         label: self.name,
         color: peerColor(self.id),
+        avatarUrl: avatarOf(self.id),
         kind: kindOf(self.id),
         mode: "idle",
         cursor: null,
