@@ -153,6 +153,15 @@ mod tests {
         };
         let first = load_schedules(&config).unwrap();
         assert_eq!(first.len(), 3);
+        // the brain-freshness contract: connector ingest, world research,
+        // and the nightly daydream cycle are all scheduled out of the box
+        let jobs: Vec<&str> = first.iter().map(|s| s.job.as_str()).collect();
+        for job in ["stripe", "exa", "daydream"] {
+            assert!(
+                jobs.contains(&job),
+                "default schedules must include '{job}'"
+            );
+        }
         // second load reads the persisted file
         let second = load_schedules(&config).unwrap();
         assert_eq!(second.len(), 3);

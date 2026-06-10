@@ -58,6 +58,51 @@ fn synthesis_writes_cards_and_aggregates() {
     assert!(!index.provenance.is_empty());
 }
 
+/// The scheduled research → memory pipeline (spec 02 §8/§9): exa world cards
+/// and daydream hypotheses must survive the next connector re-synthesis, and
+/// the daydream loop must not re-dream pairs it already connected.
+#[test]
+fn world_and_daydream_memories_survive_resynthesis() {
+    use crate::brain::MemoryKind;
+
+    fn count(index: &BrainIndex, kind: MemoryKind) -> usize {
+        index.memories.iter().filter(|m| m.kind == kind).count()
+    }
+
+    let store = temp_store();
+    store.config.ensure_dirs().unwrap();
+    let mut index = BrainIndex::default();
+    ingest_stripe(&mut index, &store);
+    synthesize(&store, &mut index).unwrap();
+
+    // scheduled research (offline: the seed/cache path — still world cards)
+    let world = crate::brain::world::world_search(
+        &store.config,
+        &store,
+        &mut index,
+        crate::cron::EXA_RESEARCH_QUERY,
+    )
+    .unwrap();
+    assert!(!world.is_empty(), "research must synthesize world cards");
+
+    // nightly daydream connects spend/finance/world cards into hypotheses
+    let dreamed = crate::brain::daydream::cycle(&store.config, &store, &mut index, 10).unwrap();
+    assert!(dreamed >= 1, "daydream must write at least one hypothesis");
+
+    let world_n = count(&index, MemoryKind::WorldFact);
+    let dd_n = count(&index, MemoryKind::Daydream);
+
+    // the next hourly stripe ingest re-synthesizes — memory survives
+    synthesize(&store, &mut index).unwrap();
+    crate::brain::links::self_wire(&store, &mut index);
+    assert_eq!(count(&index, MemoryKind::WorldFact), world_n);
+    assert_eq!(count(&index, MemoryKind::Daydream), dd_n);
+
+    // and the loop stays idempotent even though parent ids were regenerated
+    let again = crate::brain::daydream::cycle(&store.config, &store, &mut index, 10).unwrap();
+    assert_eq!(again, 0, "must not re-dream already-connected pairs");
+}
+
 #[test]
 fn flow_a_granted_token_sees_credits_but_not_salary() {
     let store = temp_store();

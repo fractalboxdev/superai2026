@@ -57,19 +57,32 @@ fn admissible(caps: &[crate::access::Capability], a: &Memory, b: &Memory) -> boo
 }
 
 fn already_dreamed(index: &BrainIndex, a: &Memory, b: &Memory) -> bool {
-    index
+    // by card file: the hypothesis card for a topic pair has a deterministic
+    // slug, so this survives re-synthesis regenerating the parents' ids
+    let slugs = [
+        format!("{}.md", slug(&format!("dd-{}-{}", a.topic, b.topic))),
+        format!("{}.md", slug(&format!("dd-{}-{}", b.topic, a.topic))),
+    ];
+    let by_path = index
         .memories
         .iter()
         .filter(|m| m.kind == MemoryKind::Daydream)
-        .any(|d| {
-            let touches = |x: &Memory| {
-                index
-                    .links
-                    .iter()
-                    .any(|l| l.from == d.id && l.to == x.id && l.rel == LinkRel::RelatesTo)
-            };
-            touches(a) && touches(b)
-        })
+        .any(|d| slugs.iter().any(|s| d.path.ends_with(s.as_str())));
+
+    by_path
+        || index
+            .memories
+            .iter()
+            .filter(|m| m.kind == MemoryKind::Daydream)
+            .any(|d| {
+                let touches = |x: &Memory| {
+                    index
+                        .links
+                        .iter()
+                        .any(|l| l.from == d.id && l.to == x.id && l.rel == LinkRel::RelatesTo)
+                };
+                touches(a) && touches(b)
+            })
 }
 
 /// Sample admissible pairs: graph-adjacent first, then cross-topic, capped.
@@ -160,7 +173,12 @@ pub fn cycle(
         // taint = max(parents): the insight needs BOTH parents' clearance
         let acl = a.acl_tag.max(&b.acl_tag);
         let title = format!("Hypothesis: {} ↔ {}", a.topic, b.topic);
-        let body = format!("{trimmed}\n\nrelates_to::{}\nrelates_to::{}\n", a.id, b.id);
+        // topic markers, not ids: re-synthesis regenerates parent ids, and
+        // self-wiring re-resolves topics to the newest matching card
+        let body = format!(
+            "{trimmed}\n\nrelates_to::{}\nrelates_to::{}\n",
+            a.topic, b.topic
+        );
         let name = slug(&format!("dd-{}-{}", a.topic, b.topic));
         let memory = crate::brain::write_memory(
             store,
