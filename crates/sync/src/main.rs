@@ -34,6 +34,10 @@ enum Command {
         /// Bind address for the co-hosted MCP HTTP endpoint.
         #[arg(long, default_value = "127.0.0.1:7979")]
         mcp_addr: String,
+        /// Also co-host the cron scheduler (spec 05 §3) so the host keeps
+        /// the brain fresh without a separate `sync cron` process.
+        #[arg(long)]
+        with_cron: bool,
     },
     /// Run a headless file-sync client peer.
     Client {
@@ -123,6 +127,7 @@ async fn main() -> Result<()> {
             addr,
             with_mcp,
             mcp_addr,
+            with_cron,
         } => {
             if with_mcp {
                 tracing::info!("co-hosting the brain MCP over streamable HTTP (spec 06 §4)");
@@ -130,6 +135,14 @@ async fn main() -> Result<()> {
                 tokio::spawn(async move {
                     if let Err(e) = brain::mcp::serve_http(&mcp_addr).await {
                         tracing::error!(error = %e, "mcp http server failed");
+                    }
+                });
+            }
+            if with_cron {
+                tracing::info!("co-hosting the cron scheduler (spec 05 §3)");
+                tokio::spawn(async {
+                    if let Err(e) = cron::scheduler::run().await {
+                        tracing::error!(error = %e, "cron scheduler failed");
                     }
                 });
             }
