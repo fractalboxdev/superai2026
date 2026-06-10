@@ -4,10 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-`superai2026` is a monorepo with three deployable components:
+`superai2026` is a monorepo with four deployable components:
 
 - **`apps/landing`** — Astro **static** landing page. Deploys to Vercel.
 - **`apps/web`** — React Router 7 (framework mode, Vite, React 19) web app: the interactive capability console (Flows A & B) with opt-in live presence against the relay; hosts the Weaver/Loro CRDT editor. Deploys to Vercel.
+- **`apps/desktop`** — Tauri macOS menu-bar app (spec 10): bundles `crates/sync` as a sidecar, supervises it (host `serve --with-mcp` / member `client`), first-run wizard, Keychain identity, Tailscale detection, LaunchAgent auto-start. The Rust shell crate (`apps/desktop/src-tauri`) is a **standalone Cargo workspace** — kept out of the root workspace so ubuntu CI never needs webkit deps; it builds in its own macOS lane (`.github/workflows/desktop.yml`).
 - **`crates/sync`** — Rust library + binary implementing the Contextful backend. Seven subcommands: `serve` (Loro WS relay), `client` (headless peer), `ingest`, `cron`, `mcp` (brain over JSON-RPC), `agent`, `ctl` (control plane).
 - **`packages/protocol`** — `@superai2026/protocol`: TS capability engine + brain query + wire/MCP mirrors.
 - **`tests/acceptance`** — `@superai2026/acceptance`: end-to-end Flow A/B tests against the built binary.
@@ -32,6 +33,15 @@ JS commands run from the repo root via Turborepo unless noted.
 | Typecheck all | `pnpm typecheck` |
 
 Run a script in one workspace: `pnpm --filter landing <script>` or `pnpm --filter web <script>`.
+
+### Desktop (`apps/desktop`)
+
+| Task | Command (from `apps/desktop`) |
+| --- | --- |
+| Stage sidecar (required before any src-tauri build) | `pnpm sidecar` (or `./scripts/prepare-sidecar.sh [--release] [--universal]`) |
+| Dev app (sidecar + tauri dev) | `pnpm app:dev` |
+| Package .app/.dmg | `pnpm app:build` |
+| Rust lint/test on the shell crate | `cd src-tauri && cargo clippy --all-targets -- -D warnings && cargo test` |
 
 ### Rust (`crates/sync`)
 
