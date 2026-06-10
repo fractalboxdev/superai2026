@@ -1,7 +1,6 @@
 import type { MetaFunction } from "react-router";
 import { type RouteDecision } from "@superai2026/protocol/requests";
 import { principal, principalColor, resourceOwnerOf, tag } from "@superai2026/protocol/scenario";
-import { AppNav } from "@/components/AppNav";
 import { CapChips } from "@/components/CapChips";
 import { useAccess, type InboxItem } from "@/lib/accessStore";
 
@@ -93,14 +92,12 @@ function RequestCard({ item }: { item: InboxItem }) {
  */
 export default function InboxRoute() {
   const { requests, log, reset } = useAccess();
-  const pending = requests.filter((r) => r.status === "pending").length;
   // Every demo request is rooted at the same owner; name them as the inbox owner.
   const ownerId = requests[0] ? resourceOwnerOf(requests[0].req.view) : "cfo";
   const ownerName = principal(ownerId)?.name ?? ownerId;
 
   return (
     <div className="ac-shell">
-      <AppNav inboxCount={pending} />
       <main className="ac-page">
         <header className="ac-page__head ac-page__head--row">
           <div>

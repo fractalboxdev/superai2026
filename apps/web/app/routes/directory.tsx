@@ -2,7 +2,6 @@ import type { MetaFunction } from "react-router";
 import { Link } from "react-router";
 import { type Principal } from "@superai2026/protocol/access";
 import { humans, ownedAgents, principalColor, tag } from "@superai2026/protocol/scenario";
-import { AppNav } from "@/components/AppNav";
 import { CapChips } from "@/components/CapChips";
 import { useAccess } from "@/lib/accessStore";
 
@@ -30,12 +29,10 @@ function PrincipalDot({ p }: { p: Principal }) {
  * membership-rooted — no data authority is mintable here.
  */
 export default function DirectoryRoute() {
-  const { caps, requests } = useAccess();
-  const pending = requests.filter((r) => r.status === "pending").length;
+  const { caps } = useAccess();
 
   return (
     <div className="ac-shell">
-      <AppNav inboxCount={pending} />
       <main className="ac-page">
         <header className="ac-page__head">
           <span className="cf-eyebrow">Access control</span>
