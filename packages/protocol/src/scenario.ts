@@ -26,9 +26,9 @@ export const CTO: Principal = { kind: "human", id: "cto", name: "Richard (CEO)",
 export const ENG: Principal = { kind: "human", id: "eng", name: "Dinesh (Lead Engineer)", role: "engineering" };
 
 // ... and their agents (agent:<owner>/<n>, no root authority of their own).
-export const CFO_AGENT: Principal = { kind: "agent", id: "agent:cfo/1", name: "Monica's analyst agent", owner: "cfo" };
-export const CTO_AGENT: Principal = { kind: "agent", id: "agent:cto/1", name: "Richard's agent", owner: "cto" };
-export const ENG_AGENT: Principal = { kind: "agent", id: "agent:eng/1", name: "Dinesh's agent", owner: "eng" };
+export const CFO_AGENT: Principal = { kind: "agent", id: "agent:cfo/1", name: "Monica (CFO)'s analyst agent", owner: "cfo" };
+export const CTO_AGENT: Principal = { kind: "agent", id: "agent:cto/1", name: "Richard (CEO)'s agent", owner: "cto" };
+export const ENG_AGENT: Principal = { kind: "agent", id: "agent:eng/1", name: "Dinesh (Lead Engineer)'s agent", owner: "eng" };
 
 /** The demo console's cast (a subset of the registry, focused on the two flows). */
 export const PRINCIPALS: Principal[] = [CTO_AGENT, ENG_AGENT, CFO];
@@ -120,7 +120,7 @@ export const cfoCapability = (): Capability =>
     fields: ["team", "period", "gross", "net", "discount_tier", "credits", "employee_salary"],
   });
 
-/** Richard's agent: team-level spend only (no finance_private) until Flow A grants it. */
+/** Richard (CEO)'s agent: team-level spend only (no finance_private) until Flow A grants it. */
 export const ctoAgentCapability = (): Capability =>
   mint(CFO_ROOT, CTO_AGENT.id, {
     ops: ["query", "read"],
@@ -128,7 +128,7 @@ export const ctoAgentCapability = (): Capability =>
     fields: ["team", "period", "gross", "net"],
   });
 
-/** Dinesh's agent: usage view, own team rows only. Never any salary path. */
+/** Dinesh (Lead Engineer)'s agent: usage view, own team rows only. Never any salary path. */
 export const engAgentCapability = (): Capability =>
   mint(CFO_ROOT, ENG_AGENT.id, {
     ops: ["query", "read"],
@@ -203,7 +203,7 @@ export const CFO_ENVELOPE: Envelope = {
 
 // ---- Reference requests ----------------------------------------------------
 
-/** Flow A: Richard's agent needs credit-adjusted spend. Approvable (no salary). */
+/** Flow A: Richard (CEO)'s agent needs credit-adjusted spend. Approvable (no salary). */
 export const FLOW_A_REQUEST: AccessRequest = {
   id: "req-flow-a",
   requester: CTO_AGENT.id,
@@ -215,7 +215,7 @@ export const FLOW_A_REQUEST: AccessRequest = {
   ttl: "7d",
 };
 
-/** Flow B: Dinesh's agent reaches for salary. No approval path exists. */
+/** Flow B: Dinesh (Lead Engineer)'s agent reaches for salary. No approval path exists. */
 export const FLOW_B_REQUEST: AccessRequest = {
   id: "req-flow-b",
   requester: ENG_AGENT.id,
