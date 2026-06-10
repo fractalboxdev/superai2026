@@ -468,14 +468,14 @@ for (const m of cast) {
             <span class="cf-eyebrow">The core idea</span>
             <h2>Delegation is attenuation.<br /> <span class="cf-text-gradient">Managed in a sandbox.</span></h2>
             <p class="section__lead">
-              An agent can never out-see its grantor. When you delegate, you hand over a
-              <em>narrower</em> slice of your own context — and that slice can only shrink as it
-              passes down the chain. <strong>Every document is paired with its own isolated
-              sandbox</strong> — the room's agents run there, and nothing enters that policy
-              hasn't already filtered.
+              An agent can never out-see its grantor. Delegation hands over a <em>narrower</em>
+              slice of your own context, and <strong>every document pairs with its own isolated
+              sandbox</strong> where the room's agents run.
             </p>
             <ul class="cap__list">
+              <li><span class="cap__chk">✓</span> Context only shrinks as it passes down the delegation chain.</li>
               <li><span class="cap__chk">✓</span> Scopes compose by intersection, never union.</li>
+              <li><span class="cap__chk">✓</span> Nothing enters the sandbox that policy hasn't already filtered.</li>
               <li><span class="cap__chk">✓</span> Redactions are shown, not silently dropped.</li>
               <li><span class="cap__chk">✓</span> Every grant is revocable and auditable.</li>
               <li><span class="cap__chk">✓</span> One sandbox per document — no ambient authority; it expires with the room.</li>
