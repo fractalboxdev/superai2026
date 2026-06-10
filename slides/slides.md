@@ -94,12 +94,42 @@ recognize themselves; the ask slide pays this off later.
 -->
 
 ---
+layout: center
+class: text-center
+---
 
-# We let agent run a company for our demo
+# Contextful
 
-"Pied Pipers" - Compression-as-a-Service SaaS with 100+ employees
+## Local-first, privacy-aware workspace on your company brain
 
-a **living simulation run by agents** — not a spreadsheet we prepared:
+**Your data. Your rules.**
+
+
+<img :src="'/arts/slide-contextful.png'" alt="The Pied Piper team around a glowing brain of document cards, each branch passing through a personal gate" class="slide-art mx-auto mt-4 w-70" />
+
+<!--
+🎤 SAY (placeholder — edit me):
+"Take a step back. Do you trust ingesting all your company data into someone's cloud?
+That's what every 'company brain' on the market asks you to do. Contextful is the
+reframe: not one pool everyone queries — a boundary at every person. Your agent holds
+your context, and nothing crosses a boundary without the owner's approval, scoped to
+that one question. The brain gets smarter precisely because it gets more careful."
+
+This is the reframe: not one pool everyone queries, but a boundary at every person.
+Cross-boundary answers are requested, approved, and scoped — for that one question only.
+Everything runs in a trusted environment the company chooses — on-prem or its own cloud.
+-->
+
+---
+
+# For demo, we let agents run a company
+
+<div class="flex items-center gap-3">
+  <img :src="'/assets/pied-piper-logo.jpeg'" alt="Pied Piper logo" class="w-12 h-12 rounded-lg" />
+  <p class="my-0">"Pied Pipers" - Compression-as-a-Service SaaS with 100+ employees</p>
+</div>
+
+a **living simulation run by agents**:
 
 <div class="deploy-logos mt-2">
   <figure><logos-slack-icon /><span class="label">Slack — team chatter</span></figure>
@@ -107,9 +137,14 @@ a **living simulation run by agents** — not a spreadsheet we prepared:
   <figure><logos-posthog-icon /><span class="label">PostHog — product analytics</span></figure>
 </div>
 
-<div class="screenshot-slot mt-4">
-  <img :src="'/assets/mock-company-stripe.png'" alt="Stripe sandbox dashboard for the Pied Pipers mock company — gross volume, balance, and payment charts from the simulated revenue events" onerror="this.parentElement.classList.add('empty'); this.remove()" />
-  <p class="screenshot-slot__hint">screenshot — Stripe sandbox, "Pied Pipers" test mode<br/><span class="opacity-60">gross volume + balances from the simulated revenue events</span></p>
+<div class="flex gap-4 mt-4 items-start">
+  <div class="screenshot-slot flex-1">
+    <img :src="'/assets/mock-company-stripe.png'" alt="Stripe sandbox dashboard for the Pied Pipers mock company — gross volume, balance, and payment charts from the simulated revenue events" onerror="this.parentElement.classList.add('empty'); this.remove()" />
+    <p class="screenshot-slot__hint">screenshot — Stripe sandbox, "Pied Pipers" test mode<br/><span class="opacity-60">gross volume + balances from the simulated revenue events</span></p>
+  </div>
+  <div class="screenshot-slot flex-1">
+    <img :src="'/assets/mock-company-extra.png'" alt="The Pied Pipers mock company — agents keeping the simulation alive" onerror="this.parentElement.classList.add('empty'); this.remove()" />
+  </div>
 </div>
 
 <!--
@@ -211,8 +246,6 @@ class: text-center
 
 <p class="mt-4 text-xl"><b>Monica</b> — CFO</p>
 
-<p v-click class="mt-6 text-xl opacity-80">The host: her brain, on a machine we own.</p>
-
 <!--
 🎤 SAY (placeholder — edit me):
 "First machine: the Mac Studio — this is Monica's, the CFO. It's the host: her brain
@@ -225,30 +258,83 @@ cards. The local model on this box is what's answering — say so.
 -->
 
 ---
+
+<div class="screenshot-slot mt-2">
+  <img :src="'/assets/q3-spend-review-monica-answer.png'" alt="The Q3 AI Spend Review shared doc on Monica's machine — her agent answers the unit-economics question in full: Monica (CFO) · 4 rows, gross spend $165,000, net of credits $134,000, Enterprise (Tier 3), with the per-team table" style="max-height: 28rem" />
+</div>
+
+<div v-click class="overlay-line">
+  <span>Her machine, her token — <b>her agent answers in full</b></span>
+</div>
+
+<!--
+🎤 SAY (placeholder — edit me):
+"This is Monica's screen. Same shared doc, same question — let me share the unit
+economics of our compression product. Her agent answers in full: four teams, gross,
+credits, the Enterprise discount tier. Nothing is redacted here, because this is her
+brain on her machine — the owner sees everything she owns."
+
+SCREENSHOT: the Q3 AI Spend Review doc on the CFO host
+(slides/public/assets/q3-spend-review-monica-answer.png). Monica (CFO) · 4 row(s) —
+gross $165,000, net of credits $134,000, Enterprise (Tier 3). The contrast slide:
+the full answer on the owner's machine, before Dinesh's redacted view makes the point.
+-->
+
+---
 layout: center
 class: text-center
 ---
 
-# Contextful
+# Connectors ingesting from your services
 
-## Local-first, privacy-aware workspace on your company brain
+Brings your stack into one capability-scoped brain.
 
-**Your data. Your rules.**
-
-
-<img :src="'/arts/slide-contextful.png'" alt="The Pied Piper team around a glowing brain of document cards, each branch passing through a personal gate" class="slide-art mx-auto mt-4 w-70" />
+<div class="connector-logos mt-10">
+  <figure><img :src="'/logos/notion.svg'" alt="Notion" /><span class="label">Notion</span></figure>
+  <figure><img :src="'/logos/slack.svg'" alt="Slack" /><span class="label">Slack</span></figure>
+  <figure><img :src="'/logos/stripe.svg'" alt="Stripe" /><span class="label">Stripe</span></figure>
+  <figure><img :src="'/logos/exa.svg'" alt="Exa" /><span class="label">web research</span></figure>
+</div>
 
 <!--
 🎤 SAY (placeholder — edit me):
-"Take a step back. Do you trust ingesting all your company data into someone's cloud?
-That's what every 'company brain' on the market asks you to do. Contextful is the
-reframe: not one pool everyone queries — a boundary at every person. Your agent holds
-your context, and nothing crosses a boundary without the owner's approval, scoped to
-that one question. The brain gets smarter precisely because it gets more careful."
+"Where does the brain come from? Connectors, ingesting from the services you already
+run — Notion, Slack, Stripe — plus policy-gated web research through Exa. Every ingest
+synthesizes new cards into the brain you're about to see."
 
-This is the reframe: not one pool everyone queries, but a boundary at every person.
-Cross-boundary answers are requested, approved, and scoped — for that one question only.
-Everything runs in a trusted environment the company chooses — on-prem or its own cloud.
+Source: landing trust strip ("Brings your stack into one capability-scoped brain" —
+Notion · Slack · Stripe · Exa). Logos copied from apps/landing/public/logos. On stage:
+say "the open web", not "Exa".
+-->
+
+---
+layout: center
+class: text-center
+---
+
+# Growing Brain. Locally
+
+<div class="screenshot-slot mt-4">
+  <img :src="'/assets/brain-locally.png'" alt="~/.contextful open in an editor — the brain as readable Markdown: a unit-economics synthesis card with acl_view/acl_fields frontmatter, plus caps/, control keys, and the brain.db index" style="max-height: 24rem" />
+</div>
+
+<div v-click class="overlay-line">
+  <span>Organized by <b>Agent</b>. Read by <b>Human</b> too</span>
+</div>
+
+<!--
+🎤 SAY (placeholder — edit me):
+"And here's what that brain actually is. ~/.contextful — a folder you can open. Synthesized
+Markdown cards — this one is unit economics for May: gross, credits, net, contribution
+margin — with the access policy right in the frontmatter: which view it belongs to, which
+fields a grant can release. Next to it: the capability tokens, the signing keys, and the
+local index. No black box — files you can read, on a machine you own. And it grows: every
+ingest synthesizes new cards."
+
+The filesystem proof, full frame. Point at the frontmatter line — acl_view:
+stripe/finance_private, acl_fields: [gross, credits] — that's the policy the denial
+enforces. brain/ = synthesized cards, caps/ = capability grants, control/keys = Biscuit
+keys, brain.db = local FTS index. Asset: slides/public/assets/brain-locally.png.
 -->
 
 ---
@@ -293,110 +379,6 @@ every agent gets its own lane."
 Source: landing "Why Contextful — Context, with consent" feature cards + the CTA line
 ("Give every agent its own lane."). Art: apps/landing feature-*.png, halftone-teal comic
 set. Click through the four cards, land on the lane line.
--->
-
----
-
-# Live demo — the boundary, on real machines
-
-<img :src="'/arts/slide-demo.png'" alt="Four robots holding puzzle-piece answers, a fifth denied behind a locked gate" class="slide-art absolute top-14 right-8 w-50" />
-
-<v-clicks>
-
-1. **On the Mac Studio:** `ls ~/.contextful` — the brain is **readable Markdown files** on a machine we own.
-2. Monica (CFO) **types it live**: *"Out-of-pocket expense for the compression SaaS this month?"* → answered **from those files**.
-3. **Switch laptops** — Dinesh (CTO), same question → **denied by policy**.
-4. One query → **four scoped answers** — each agent answers only from its owner's slice.
-5. One **approved slice** crosses the boundary; a **sourced answer** assembles.
-
-</v-clicks>
-
-<p v-click class="mt-6 font-bold text-2xl text-red-500">And Dinesh still can't see anyone's salary.</p>
-
-<div class="cast">
-  <figure><img :src="'/cast/richard.webp'" alt="Richard (CEO)" /><figcaption><b>Richard</b>CEO</figcaption></figure>
-  <figure><img :src="'/cast/monica.webp'" alt="Monica (CFO)" /><figcaption><b>Monica</b>CFO</figcaption></figure>
-  <figure><img :src="'/cast/jared.webp'" alt="Jared (COO)" /><figcaption><b>Jared</b>COO</figcaption></figure>
-  <figure><img :src="'/cast/gilfoyle.webp'" alt="Gilfoyle (Systems Architect)" /><figcaption><b>Gilfoyle</b>Systems Architect</figcaption></figure>
-  <figure><img :src="'/cast/dinesh.webp'" alt="Dinesh (CTO)" /><figcaption><b>Dinesh</b>CTO</figcaption></figure>
-  <figure><img :src="'/cast/agent.webp'" alt="The Agent (scoped, always)" /><figcaption><b>The Agent</b>scoped, always</figcaption></figure>
-</div>
-
-<!--
-🎤 SAY (placeholder — edit me):
-"Let me show you, live — demo.contextful.work. First, the machine itself: this Mac Studio
-is the host. ls ~/.contextful — the company brain is Markdown files you can read, on a
-machine we own. Monica, the CFO, has been ingesting Stripe into it for months. Now watch:
-in the shared doc, I type her question live — what's our out-of-pocket expense for the
-compression SaaS this month? — and her agent answers from the exact files you just saw.
-Now I switch laptops. Same room, same doc — Dinesh, the CTO. Same question… denied.
-That's not a model being polite; that's deterministic policy. Then the killer sequence:
-one query, put to every agent at the table — four different answers, each scoped to its
-owner. One slice gets approved across the boundary — for this question only — and the
-answer assembles, every claim vouched for by its owner. [pause] And Dinesh, in the same
-document, still can't see anyone's salary. Every time. That's the whole product."
-
-Source: Act 3 beats 1–7. Stage flow: filesystem proof (beat 1) → doc thread already
-carries Richard's 2026 Q3 line + Jared's $/KB nuance (beat 2) → Monica's live typed query
-answered from the cards (beat 2) → laptop switch, Dinesh (CTO) denied (beat 3) → four
-scoped answers (beat 4) → scoped approval crosses (beat 5; Gilfoyle joins released slices,
-beat 6, one spoken sentence) → sourced answer + anomaly one-liner (beat 7).
-MONEY SHOT: the salary denial — hard-coded, deterministic policy rule, NEVER a live model
-call. Rehearse the laptop hand-off with a hard time budget.
-WEB RESEARCH (Exa): cache/replay for determinism; say "the open web", not "Exa".
--->
-
----
-layout: center
-class: text-center
----
-
-# Connectors ingesting from your services
-
-Brings your stack into one capability-scoped brain.
-
-<div class="connector-logos mt-10">
-  <figure><img :src="'/logos/notion.svg'" alt="Notion" /><span class="label">Notion</span></figure>
-  <figure><img :src="'/logos/slack.svg'" alt="Slack" /><span class="label">Slack</span></figure>
-  <figure><img :src="'/logos/stripe.svg'" alt="Stripe" /><span class="label">Stripe</span></figure>
-  <figure><img :src="'/logos/exa.svg'" alt="Exa" /><span class="label">web research</span></figure>
-</div>
-
-<!--
-🎤 SAY (placeholder — edit me):
-"Where does the brain come from? Connectors, ingesting from the services you already
-run — Notion, Slack, Stripe — plus policy-gated web research through Exa. Every ingest
-synthesizes new cards into the brain you're about to see."
-
-Source: landing trust strip ("Brings your stack into one capability-scoped brain" —
-Notion · Slack · Stripe · Exa). Logos copied from apps/landing/public/logos. On stage:
-say "the open web", not "Exa".
--->
-
----
-layout: center
-class: text-center
----
-
-# Growing Brain. Locally
-
-<div class="screenshot-slot mt-4">
-  <img :src="'/assets/brain-locally.png'" alt="~/.contextful open in an editor — the brain as readable Markdown: a unit-economics synthesis card with acl_view/acl_fields frontmatter, plus caps/, control keys, and the brain.db index" style="max-height: 24rem" />
-</div>
-
-<!--
-🎤 SAY (placeholder — edit me):
-"And here's what that brain actually is. ~/.contextful — a folder you can open. Synthesized
-Markdown cards — this one is unit economics for May: gross, credits, net, contribution
-margin — with the access policy right in the frontmatter: which view it belongs to, which
-fields a grant can release. Next to it: the capability tokens, the signing keys, and the
-local index. No black box — files you can read, on a machine you own. And it grows: every
-ingest synthesizes new cards."
-
-The filesystem proof, full frame. Point at the frontmatter line — acl_view:
-stripe/finance_private, acl_fields: [gross, credits] — that's the policy the denial
-enforces. brain/ = synthesized cards, caps/ = capability grants, control/keys = Biscuit
-keys, brain.db = local FTS index. Asset: slides/public/assets/brain-locally.png.
 -->
 
 ---
@@ -598,8 +580,8 @@ Studio over Tailscale), employee laptops run the menu-bar client.
 
 
 ---
-layout: center
-class: text-center
+layout: two-cols
+class: self-center text-center
 ---
 
 <img :src="'/arts/logo.png'" alt="Contextful logo" class="slide-art mx-auto mb-2 w-14" />
@@ -608,6 +590,8 @@ class: text-center
 ## Your Agents. Your Data. Your Rules.
 
 <p v-click class="mt-12 font-bold text-2xl">Contextful power your command center.</p>
+
+::right::
 
 <img :src="'/arts/slide-close.png'" alt="The five Pied Piper team members lined up confidently with presence dots above them" class="slide-art mx-auto mt-6 w-80" />
 
