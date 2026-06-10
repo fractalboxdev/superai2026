@@ -42,9 +42,14 @@ pub fn ingest_once(source: &str) -> Result<()> {
     index.raw_events.extend(events);
 
     let cards = synthesize(&store, &mut index)?;
+    // GBrain-style self-wiring: extract [[wikilinks]] / rel:: markers from the
+    // refreshed cards into typed link rows (zero LLM calls, spec 02 §1)
+    let wired = crate::brain::links::self_wire(&store, &mut index);
     store.save_index(&index)?;
 
-    println!("ingested {n} events from '{source}'; synthesized {cards} card(s)");
+    println!(
+        "ingested {n} events from '{source}'; synthesized {cards} card(s); wired {wired} link(s)"
+    );
     if !index.anomalies.is_empty() {
         println!("⚠ {} anomaly(ies) flagged", index.anomalies.len());
     }

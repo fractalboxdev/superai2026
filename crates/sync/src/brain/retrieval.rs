@@ -170,13 +170,30 @@ pub fn get_context(
     store.read_card(&mem.path).map_err(|e| e.to_string())
 }
 
-/// Keyword search over cards, each independently authorized (spec 06 `brain.search`).
-pub fn search(index: &BrainIndex, cap: &Capability, q: &str) -> Vec<Value> {
+/// Full-text search over card bodies (SQLite FTS5), each hit independently
+/// authorized (spec 06 `brain.search`). Topic substring match is the
+/// fallback so an empty/no-hit query still lists readable cards.
+pub fn search(store: &Store, index: &BrainIndex, cap: &Capability, q: &str) -> Vec<Value> {
+    let fts_ids = store.search_cards(q).unwrap_or_default();
     let needle = q.to_lowercase();
-    index
-        .memories
-        .iter()
-        .filter(|m| m.topic.to_lowercase().contains(&needle) || needle.is_empty())
+    let mut seen = std::collections::BTreeSet::new();
+    let mut hits: Vec<&Memory> = Vec::new();
+    // FTS hits first (already ranked)
+    for id in &fts_ids {
+        if let Some(m) = index.memories.iter().find(|m| &m.id == id) {
+            if seen.insert(m.id.clone()) {
+                hits.push(m);
+            }
+        }
+    }
+    for m in index.memories.iter() {
+        if (m.topic.to_lowercase().contains(&needle) || needle.is_empty())
+            && seen.insert(m.id.clone())
+        {
+            hits.push(m);
+        }
+    }
+    hits.into_iter()
         .filter(|m| card_authorized(cap, &m.acl_tag))
         .map(|m| {
             json!({
@@ -275,6 +292,12 @@ pub fn remember(
         created_at: Utc::now().to_rfc3339(),
     });
     Ok(id)
+}
+
+/// Public card-readability check (used by the daydream loop's admissibility
+/// sampling, spec 02 §9).
+pub fn card_readable(cap: &Capability, tag: &AclTag) -> bool {
+    card_authorized(cap, tag)
 }
 
 /// A caller can read a card iff its token grants every field in the card's tag.

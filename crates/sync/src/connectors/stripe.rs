@@ -1,11 +1,16 @@
-//! Stripe (mock) connector — primary demo source (spec 05 §2).
+//! Stripe connector — primary demo source (spec 05 §2).
 //!
 //! Stripe-shaped FinOps data mapped to two views:
 //!   - `stripe/spend_by_team`  → team, period, gross, net
 //!   - `stripe/finance_private` → adds discount_tier, credits, employee_salary (CFO-rooted)
 //!
-//! Reads CSV fixtures from `<fixtures>/stripe/*.csv` when present (Kaggle-derived
-//! in production); falls back to embedded rows so `ingest` works out of the box.
+//! With `STRIPE_SECRET_KEY` set, `pull` lists real (test-mode) charges from
+//! `api.stripe.com` and aggregates gross/net per team (`metadata.team`, else
+//! `unattributed`) for the charge's month, overlaying the fixture rows.
+//! The HR-side private columns (employee_salary, discount_tier, credits) are
+//! company data that never lives in Stripe — they always come from the local
+//! fixture (`<fixtures>/stripe/finance.csv`, else embedded rows) so `ingest`
+//! works out of the box and offline (Flow D).
 
 use anyhow::Result;
 use chrono::Utc;
@@ -80,26 +85,122 @@ impl StripeConnector {
         View::new("stripe", "finance_private")
     }
 
-    /// Load rows from `<fixtures>/stripe/finance.csv` if present, else embedded.
+    /// Load rows from `<fixtures>/stripe/finance.csv` if present, else embedded,
+    /// then overlay live test-mode aggregates when `STRIPE_SECRET_KEY` is set.
     fn rows(&self) -> Vec<OwnedRow> {
         let csv = self.fixtures_dir.join("stripe").join("finance.csv");
-        if let Ok(text) = std::fs::read_to_string(&csv) {
-            if let Some(rows) = parse_csv(&text) {
-                return rows;
+        let mut rows = std::fs::read_to_string(&csv)
+            .ok()
+            .and_then(|text| parse_csv(&text))
+            .unwrap_or_else(|| {
+                EMBEDDED
+                    .iter()
+                    .map(|r| OwnedRow {
+                        team: r.team.into(),
+                        period: r.period.into(),
+                        gross: r.gross,
+                        net: r.net,
+                        discount_tier: r.discount_tier.into(),
+                        credits: r.credits,
+                        employee_salary: r.employee_salary,
+                    })
+                    .collect()
+            });
+
+        if let Ok(key) = std::env::var("STRIPE_SECRET_KEY") {
+            if !key.is_empty() {
+                match live_team_aggregates(&key) {
+                    Ok(live) if !live.is_empty() => overlay_live(&mut rows, live),
+                    Ok(_) => tracing::info!("stripe live: no charges yet — fixture rows only"),
+                    Err(e) => tracing::warn!(error = %e, "stripe live pull failed — fixture rows"),
+                }
             }
         }
-        EMBEDDED
-            .iter()
-            .map(|r| OwnedRow {
-                team: r.team.into(),
-                period: r.period.into(),
-                gross: r.gross,
-                net: r.net,
-                discount_tier: r.discount_tier.into(),
-                credits: r.credits,
-                employee_salary: r.employee_salary,
-            })
-            .collect()
+        rows
+    }
+}
+
+/// Live aggregate per (team, period): gross/net cents→whole-currency sums.
+struct LiveAgg {
+    team: String,
+    period: String,
+    gross: i64,
+    net: i64,
+}
+
+/// List up to 100 recent charges from the real (test-mode) Stripe API and
+/// aggregate amount/amount_captured per `metadata.team` and month.
+fn live_team_aggregates(key: &str) -> Result<Vec<LiveAgg>> {
+    use std::collections::BTreeMap;
+    let resp: serde_json::Value = ureq::get("https://api.stripe.com/v1/charges?limit=100")
+        .set("authorization", &format!("Bearer {key}"))
+        .timeout(std::time::Duration::from_secs(20))
+        .call()
+        .map_err(|e| anyhow::anyhow!("stripe /v1/charges: {e}"))?
+        .into_json()?;
+    let mut agg: BTreeMap<(String, String), (i64, i64)> = BTreeMap::new();
+    for c in resp
+        .get("data")
+        .and_then(|d| d.as_array())
+        .into_iter()
+        .flatten()
+    {
+        if c.get("paid").and_then(|p| p.as_bool()) != Some(true) {
+            continue;
+        }
+        let team = c
+            .pointer("/metadata/team")
+            .and_then(|t| t.as_str())
+            .unwrap_or("unattributed")
+            .to_string();
+        let created = c.get("created").and_then(|t| t.as_i64()).unwrap_or(0);
+        let period = chrono::DateTime::from_timestamp(created, 0)
+            .map(|d| d.format("%Y-%m").to_string())
+            .unwrap_or_default();
+        let amount = c.get("amount").and_then(|a| a.as_i64()).unwrap_or(0) / 100;
+        let captured = c
+            .get("amount_captured")
+            .and_then(|a| a.as_i64())
+            .unwrap_or(0)
+            / 100;
+        let e = agg.entry((team, period)).or_insert((0, 0));
+        e.0 += amount;
+        e.1 += captured;
+    }
+    Ok(agg
+        .into_iter()
+        .map(|((team, period), (gross, net))| LiveAgg {
+            team,
+            period,
+            gross,
+            net,
+        })
+        .collect())
+}
+
+/// Live gross/net replace the fixture figures for matching (team, period);
+/// unseen live teams append with empty private columns (Stripe never carries
+/// salary/discount data).
+fn overlay_live(rows: &mut Vec<OwnedRow>, live: Vec<LiveAgg>) {
+    for l in live {
+        match rows
+            .iter_mut()
+            .find(|r| r.team == l.team && r.period == l.period)
+        {
+            Some(r) => {
+                r.gross = l.gross;
+                r.net = l.net;
+            }
+            None => rows.push(OwnedRow {
+                team: l.team,
+                period: l.period,
+                gross: l.gross,
+                net: l.net,
+                discount_tier: String::new(),
+                credits: 0,
+                employee_salary: 0,
+            }),
+        }
     }
 }
 

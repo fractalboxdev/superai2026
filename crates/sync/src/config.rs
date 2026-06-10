@@ -84,8 +84,11 @@ impl Config {
     pub fn fixtures_dir(&self) -> PathBuf {
         self.root.join("fixtures")
     }
-    /// File-based index over the Markdown brain (stand-in for DuckDB/SQLite +
-    /// sqlite-vec; spec 02 §6 lists those as the production columnar/FTS layer).
+    /// The SQLite brain index (tables + FTS5; spec 02 §6).
+    pub fn db_path(&self) -> PathBuf {
+        self.root.join("brain.db")
+    }
+    /// Legacy JSON index location — migrated into [`Self::db_path`] on load.
     pub fn index_path(&self) -> PathBuf {
         self.root.join("brain.index.json")
     }

@@ -93,6 +93,7 @@ fn tool_defs() -> Vec<Value> {
         json!({ "name": "brain.request_access", "description": "raise a permission request", "inputSchema": { "type": "object", "properties": { "view": view_arg, "fields": { "type": "array", "items": { "type": "string" } }, "reason": { "type": "string" } }, "required": ["view", "fields"] } }),
         json!({ "name": "brain.world_search", "description": "firewalled public web search (Exa) → cited world cards; private-tainted terms are blocked at egress", "inputSchema": { "type": "object", "properties": { "query": { "type": "string" } }, "required": ["query"] } }),
         json!({ "name": "brain.ground", "description": "wire a world card to the private card it grounds (grounds edge)", "inputSchema": { "type": "object", "properties": { "world_id": { "type": "string" }, "memory_id": { "type": "string" } }, "required": ["world_id", "memory_id"] } }),
+        json!({ "name": "brain.daydreams", "description": "overnight daydream insight cards the caller is cleared to read", "inputSchema": { "type": "object", "properties": {} } }),
     ]
 }
 
@@ -114,7 +115,7 @@ fn handle_tool_call(
         "brain.list_sources" => Ok(json!({ "views": retrieval::list_sources(index, cap) })),
         "brain.search" => {
             let q = args.get("query").and_then(|v| v.as_str()).unwrap_or("");
-            Ok(json!({ "results": retrieval::search(index, cap, q) }))
+            Ok(json!({ "results": retrieval::search(store, index, cap, q) }))
         }
         "brain.get_context" => {
             let topic = args.get("topic").and_then(|v| v.as_str()).unwrap_or("");
@@ -213,6 +214,23 @@ fn handle_tool_call(
                 },
                 Err(e) => Err(e.to_string()),
             }
+        }
+        "brain.daydreams" => {
+            // surfaced only to callers cleared for the insight's full taint
+            // (acl = max(parents)) — Flow G's visibility rule
+            let cards: Vec<Value> = index
+                .memories
+                .iter()
+                .filter(|m| m.kind == crate::brain::MemoryKind::Daydream)
+                .filter(|m| retrieval::card_readable(cap, &m.acl_tag))
+                .map(|m| {
+                    json!({
+                        "id": m.id, "path": m.path, "confidence": m.confidence,
+                        "card": store.read_card(&m.path).unwrap_or_default(),
+                    })
+                })
+                .collect();
+            Ok(json!({ "daydreams": cards }))
         }
         other => Err(format!("unknown tool: {other}")),
     };

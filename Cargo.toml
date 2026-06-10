@@ -25,3 +25,5 @@ hex = "0.4"
 ureq = { version = "2", features = ["json"] }
 aws-config = "1"
 aws-sdk-bedrockruntime = "1"
+rusqlite = { version = "0.32", features = ["bundled"] }
+croner = "2"

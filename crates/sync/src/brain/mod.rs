@@ -5,6 +5,8 @@
 //! plus raw/derived rows. The file-based index ([`crate::store`]) stands in for
 //! the production DuckDB/SQLite + sqlite-vec layer.
 
+pub mod daydream;
+pub mod links;
 pub mod markdown;
 pub mod mcp;
 pub mod retrieval;
