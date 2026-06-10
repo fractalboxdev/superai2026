@@ -44,7 +44,7 @@ const DEMOS: { label: string; actorId: string; question: string }[] = [
   {
     label: "Demo Q by CFO",
     actorId: CFO.id,
-    question: "pull up the aggregated out of pocket cost",
+    question: "pull up the aggregated margin for our compression product",
   },
   {
     label: "Demo Q by CTO",
