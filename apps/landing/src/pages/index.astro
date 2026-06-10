@@ -111,10 +111,11 @@ const tools = [
 ];
 
 // Platform strip — the agents we speak and where the stack deploys.
+// `ext` overrides the default .svg logo extension.
 const agents = [
   { name: "Claude", logo: "claude" },
   { name: "OpenAI", logo: "openai" },
-  { name: "Hermes", logo: null },
+  { name: "Hermes", logo: "hermes", ext: "png" },
 ];
 // logoOnly: the logo is already the wordmark — skip the text label.
 const deployTargets = [
@@ -443,7 +444,7 @@ for (const m of cast) {
           <ul class="strip__tools">
             {agents.map((t, i) => (
               <li data-reveal style={`--d:${i * 0.04}s`}>
-                {t.logo && <img class="strip__logo" src={`/logos/${t.logo}.svg`} alt="" width="24" height="24" loading="lazy" />}
+                {t.logo && <img class="strip__logo" src={`/logos/${t.logo}.${t.ext ?? "svg"}`} alt="" width="24" height="24" loading="lazy" />}
                 {t.name}
               </li>
             ))}
@@ -465,16 +466,19 @@ for (const m of cast) {
         <div class="cf-container cap">
           <header class="section__head" data-reveal>
             <span class="cf-eyebrow">The core idea</span>
-            <h2>Delegation is attenuation.</h2>
+            <h2>Delegation is attenuation.<br /> <span class="cf-text-gradient">Managed in a sandbox.</span></h2>
             <p class="section__lead">
               An agent can never out-see its grantor. When you delegate, you hand over a
               <em>narrower</em> slice of your own context — and that slice can only shrink as it
-              passes down the chain.
+              passes down the chain. <strong>Every document is paired with its own isolated
+              sandbox</strong> — the room's agents run there, and nothing enters that policy
+              hasn't already filtered.
             </p>
             <ul class="cap__list">
               <li><span class="cap__chk">✓</span> Scopes compose by intersection, never union.</li>
               <li><span class="cap__chk">✓</span> Redactions are shown, not silently dropped.</li>
               <li><span class="cap__chk">✓</span> Every grant is revocable and auditable.</li>
+              <li><span class="cap__chk">✓</span> One sandbox per document — no ambient authority; it expires with the room.</li>
             </ul>
           </header>
 
