@@ -101,27 +101,6 @@ const steps = [
   { n: "03", title: "Ask the company brain", body: "Agents answer from synthesized context — capability-filtered, with the parts you can't see redacted." },
 ];
 
-const compare = {
-  bad: {
-    label: "One omniscient SuperAgent",
-    points: [
-      "Sees everything — so one prompt injection leaks everything.",
-      "Trust by configuration: a forgotten ACL is a breach.",
-      "Your context lives in someone else's cloud.",
-      "No proof of what it could and couldn't access.",
-    ],
-  },
-  good: {
-    label: "Contextful",
-    points: [
-      "Each agent sees a provable subset — never more than its grantor.",
-      "Trust by construction: scopes attenuate, they can't widen.",
-      "Context stays on your machine, on-prem by default.",
-      "Every answer is auditable, with redactions shown inline.",
-    ],
-  },
-};
-
 // Connector logos live in public/logos/<id>.svg (simple-icons / svgl).
 // Entries without a logo render as text-only chips.
 const tools = [
@@ -286,7 +265,7 @@ for (const m of cast) {
         <div class="cf-container">
           <header class="section__head section__head--center" data-reveal>
             <span class="cf-eyebrow">The problem</span>
-            <h2>"A SuperAgent for your company's brain."<br /> <span class="cf-text-gradient">It's so wrong.</span></h2>
+            <h2>"One shared company brain at someone else's infra?"<br /> <span class="cf-text-gradient">It's so wrong.</span></h2>
             <p class="section__lead">
               Your agents need context — too little and they're useless. But the obvious fix,
               one all-knowing SuperAgent, is the one thing you can't allow.
@@ -300,8 +279,8 @@ for (const m of cast) {
                 <p>Anyone can ask anything. An engineer quietly types <em>"what's the CEO's salary?"</em> — and it answers.</p>
               </li>
               <li class="cf-card problem__card" data-reveal style="--d:.08s">
-                <h3>Company brain on a startup's infra</h3>
-                <p>Your most sensitive context, sitting on someone else's cloud. Their breach is your breach.</p>
+                <h3>A single point of failure</h3>
+                <p>Their outage is your outage; their breach is your breach.</p>
               </li>
             </ul>
             {problemArt && (
@@ -610,31 +589,6 @@ for (const m of cast) {
               </li>
             ))}
           </ol>
-        </div>
-      </section>
-
-      <!-- Comparison -->
-      <section id="why-not" class="section">
-        <div class="cf-container">
-          <header class="section__head section__head--center" data-reveal>
-            <span class="cf-eyebrow">Why not a SuperAgent</span>
-            <h2>Omniscience is the vulnerability.</h2>
-          </header>
-          <div class="vs">
-            <article class="vs__col vs__col--bad" data-reveal>
-              <h3 class="vs__title">{compare.bad.label}</h3>
-              <ul class="vs__list">
-                {compare.bad.points.map((p) => <li><span class="vs__mk vs__mk--x">✕</span>{p}</li>)}
-              </ul>
-            </article>
-            <span class="vs__div" aria-hidden="true">vs</span>
-            <article class="vs__col vs__col--good" data-reveal style="--d:.1s">
-              <h3 class="vs__title">{compare.good.label}</h3>
-              <ul class="vs__list">
-                {compare.good.points.map((p) => <li><span class="vs__mk vs__mk--c">✓</span>{p}</li>)}
-              </ul>
-            </article>
-          </div>
         </div>
       </section>
 
@@ -1130,18 +1084,6 @@ for (const m of cast) {
       /* ============================================================ *
        * Comparison
        * ============================================================ */
-      .vs { display: grid; grid-template-columns: 1fr auto 1fr; gap: var(--space-6); align-items: stretch; }
-      @media (max-width: 760px) { .vs { grid-template-columns: 1fr; } .vs__div { display: none; } }
-      .vs__col { padding: var(--space-6); border-radius: var(--radius-lg); border: 1px solid var(--color-border); background: var(--color-surface); }
-      .vs__col--bad { background: color-mix(in srgb, var(--cf-red-500) 5%, var(--color-surface)); border-color: color-mix(in srgb, var(--cf-red-500) 22%, transparent); }
-      .vs__col--good { background: color-mix(in srgb, var(--cf-indigo-500) 6%, var(--color-surface)); border-color: color-mix(in srgb, var(--color-primary) 35%, transparent); box-shadow: var(--shadow-md); }
-      .vs__title { margin-bottom: var(--space-4); }
-      .vs__list { list-style: none; padding: 0; display: grid; gap: var(--space-3); }
-      .vs__list li { display: flex; gap: var(--space-3); font-size: var(--text-sm); color: var(--color-text-muted); }
-      .vs__mk { flex: none; font-weight: var(--weight-bold); }
-      .vs__mk--x { color: var(--color-danger); }
-      .vs__mk--c { color: var(--color-success); }
-      .vs__div { align-self: center; font-family: var(--font-mono); font-size: var(--text-sm); color: var(--color-text-subtle); font-weight: var(--weight-bold); }
 
       /* ============================================================ *
        * CTA
